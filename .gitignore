@@ -1,0 +1,25 @@
+# Secrets - NEVER commit
+.env
+*.env
+.env.*
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
