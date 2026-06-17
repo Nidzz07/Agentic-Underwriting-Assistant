@@ -4,7 +4,7 @@
 - **Project Name**: Agentic Underwriting Assistant
 - **Project Type**: Greenfield
 - **Start Date**: 2026-06-14T09:01:22Z
-- **Current Stage**: DISCOVER - Requirements Analysis (Comprehensive Depth)
+- **Current Stage**: DISCOVER - User Stories (Part 1 — Planning; story plan + questions presented)
 
 ## Workspace State
 - **Existing Code**: No (only a Python `venv/` and root `requirements.txt`; no application source)
@@ -32,8 +32,8 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 ### 🔵 DISCOVER PHASE
 - [x] Workspace Detection — Completed 2026-06-14T09:01:22Z (Greenfield)
 - [x] Reverse Engineering — SKIPPED (greenfield, no existing code)
-- [ ] Requirements Analysis — IN PROGRESS (comprehensive depth; requirements.md generated, awaiting approval at gate)
-- [ ] User Stories — TBD (Workflow Planning will decide)
+- [x] Requirements Analysis — COMPLETED 2026-06-17 (comprehensive depth; requirements.md approved at gate after 2 revision rounds)
+- [ ] User Stories — IN PROGRESS (assessment = EXECUTE; Part 1 story plan + 7 questions presented, awaiting answers)
 - [ ] Workflow Planning — PENDING
 - [ ] Application Design — TBD
 - [ ] Units Generation — TBD
@@ -58,5 +58,5 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
 - **Current Stage**: Requirements Analysis (comprehensive depth)
-- **Next Step**: User to review/approve requirements.md at the Requirements approval gate; on approval, proceed to next DISCOVER stage (User Stories assessment / Workflow Planning)
-- **Status**: requirements.md generated (comprehensive) and REVISED twice per user change-requests. Round 1: DATA-4 +Skill source; FR-MEMO-5 provider-adapter note; AC-6 Ollama exemption; occupation initially deferred. Round 2: occupation RESOLVED 2026-06-17 — legitimate underwriting input AND proxy-checked, mirroring income (may influence the decision ONLY through the occupation-risk rule); §12 occupation row marked resolved (no longer deferred); proxy check still covers all three (pincode/occupation/income). STOPPED at approval gate awaiting explicit user approval.
+- **Next Step**: User to answer the 7 planning questions in `guide-docs/discover/plans/story-generation-plan.md`; then ambiguity analysis → plan approval → Part 2 story generation (stories.md, personas.md, user-journey.md)
+- **Status**: requirements.md APPROVED at gate 2026-06-17. Advanced to User Stories. Assessment decision = EXECUTE (user-stories-assessment.md). Part 1 story plan + questions created and presented; STOPPED awaiting user answers.
