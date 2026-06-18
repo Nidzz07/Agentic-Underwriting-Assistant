@@ -58,7 +58,7 @@ scope as Phase 2 (NFR-DEPLOY-1)**; only the **production deploy** is Phase 3.
 | ID | Item | Disposition | Source |
 |---|---|---|---|
 | OOS-1 | ~~Exact phase boundaries / existence of a Phase 3~~ — **RESOLVED 2026-06-18** | **Phase 1 + Phase 2 built this engagement (each story phase-tagged 1/2); Phase 3 = future release.** No longer open. | Q1, Deferred Register |
-| OOS-2 | Senior-underwriter / approver escalation persona & workflow | **Phase 3 — Future Release** (documented; not built, no stories this engagement) | Q5 (B excluded) |
+| OOS-2 | Senior-underwriter / approver escalation persona & workflow — **REFER recommendations route to this escalation tier** | **Phase 3 — Future Release** (documented; not built, no stories this engagement). In Phase 1/2 the underwriter resolves every recommendation incl. REFER at the human approval gate (Accept/Decline with mandatory reason); REFER→senior-underwriter escalation routing is Phase 3. | Q5 (B excluded) |
 | OOS-3 | Full SSO/OAuth federated identity | **Phase 3 — Future Release** (auth structured so OIDC can slot in later) | Q6 |
 | OOS-4 | **Production** cloud deployment | **Phase 3 — Future Release.** Validation/staging deploy is **in scope (Phase 2, NFR-DEPLOY-1)**; only production deploy is Phase 3. | Q11 |
 | OOS-5 | OpenAI provider | **Phase 3 — Future Release** (abstraction leaves it wireable; not wired this build) | Q4 |
@@ -242,6 +242,7 @@ requirement; scoping keeps "enforce all" bounded.
 | Item | Re-raise at | Source |
 |---|---|---|
 | ~~Phase boundaries / whether a Phase 3 exists~~ — **RESOLVED 2026-06-18** | Decided (per project direction): **Phase 1 + Phase 2 built this engagement, every story phase-tagged (1/2); Phase 3 = documented future release** (OOS-2..6 + production deploy). Validation deploy = Phase 2; production deploy = Phase 3. No longer deferred. | Deferred Register, OOS-1 |
+| ~~REFER human-approval-gate semantics~~ — **RESOLVED 2026-06-18** | Decided (per project direction): **Phase 1/2 = underwriter resolves every recommendation incl. REFER at the gate via Accept/Decline with mandatory reason; REFER→senior-underwriter escalation routing = Phase 3** (see OOS-2). No longer deferred. | OOS-2, FR-UI-2, CON-BR4 |
 | SSO/OAuth timing | Phasing now finalized → SSO/OAuth is **Phase 3** (OOS-3); detailed timing within Phase 3 deferred to that release | Deferred Register, Q6 |
 | Synthetic-corpus generation timing relative to phases | Appropriate later stage | Deferred Register, Q8 |
 | Senior-underwriter escalation persona (Q5-B) | If/when escalation workflow enters scope | Deferred Register, Q5 |

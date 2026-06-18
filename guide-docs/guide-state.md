@@ -56,6 +56,7 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 
 ## Resolved Decisions
 - Phase boundaries / whether a Phase 3 exists → **RESOLVED 2026-06-18**: Phase 1 + Phase 2 built this engagement (every story phase-tagged 1/2); Phase 3 = documented future release (OOS-2..6 + production deploy). Validation deploy = Phase 2; production deploy = Phase 3. (Detail in requirements.md §2.2 / §12.)
+- Human-approval-gate semantics for a REFER recommendation → **RESOLVED 2026-06-18** (per project direction): Phase 1/2 = the underwriter resolves every recommendation incl. REFER at the human approval gate via Accept/Decline with a mandatory reason (no REFER-specific branch built); REFER→senior-underwriter escalation routing = Phase 3 / OOS-2 (documented, not built). Gate stories (US-UI-4/5) and user-journey.md already encode this uniform gate — no story/journey edits needed. (Detail in requirements.md OOS-2 / §12.)
 
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
@@ -64,4 +65,4 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18 (Part 1 plan + Part 2 artifacts; 9-diff traceability/accuracy pass applied; committed/pushed by user). Artifacts final: `stories.md` (6 epics: 5 component + 1 cross-cutting; ~39 stories, every story Phase-tagged 1/2; per-story Traces + matrix), `personas.md` (underwriter full, auditor full, admin minimal/CLI), `user-journey.md` (Mermaid validated + text alternative; underwriter + read-only auditor paths). No Phase 3 stories (OOS-1..6 documented-only). STOPPED before Workflow Planning per user.
 
 ## Open Items Carried Into Workflow Planning
-- **Human-approval-gate semantics for a REFER recommendation** → confirm what "agree vs override" means when the deterministic engine recommends escalation (REFER). Resolve at Workflow Planning. Senior-underwriter escalation persona/workflow remains **Phase 3 / OOS-2** (not built this engagement).
+- *(none open — the REFER human-approval-gate item was **RESOLVED 2026-06-18** and moved to Resolved Decisions above. Synthetic-corpus generation timing remains a deferred item under Deferred Decisions, not an open blocker for Workflow Planning.)*
