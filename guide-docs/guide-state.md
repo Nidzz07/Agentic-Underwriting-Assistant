@@ -33,8 +33,8 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - [x] Workspace Detection — Completed 2026-06-14T09:01:22Z (Greenfield)
 - [x] Reverse Engineering — SKIPPED (greenfield, no existing code)
 - [x] Requirements Analysis — COMPLETED 2026-06-17 (comprehensive depth; requirements.md approved at gate after 2 revision rounds)
-- [ ] User Stories — IN PROGRESS (Part 1 plan approved; Part 2 GENERATED — stories.md, personas.md, user-journey.md; awaiting approval at the User Stories gate)
-- [ ] Workflow Planning — PENDING
+- [x] User Stories — COMPLETED 2026-06-18 (Part 1 plan + Part 2 artifacts approved at gate; stories.md, personas.md, user-journey.md final and committed/pushed)
+- [ ] Workflow Planning — NEXT (ALWAYS; not yet started)
 - [ ] Application Design — TBD
 - [ ] Units Generation — TBD
 
@@ -59,6 +59,9 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
-- **Current Stage**: User Stories (Part 1 — Planning)
-- **Next Step**: User to review the three artifacts and approve at the User Stories gate → then Workflow Planning. (Request Changes / Approve & Continue.)
-- **Status**: requirements.md APPROVED at gate 2026-06-17. User Stories Part 1 plan approved; Part 2 GENERATED 2026-06-18 — `stories.md` (6 epics: 5 component epics + 1 cross-cutting; ~39 stories, every story Phase-tagged 1/2; per-story Traces + matrix), `personas.md` (underwriter full, auditor full, admin minimal/CLI), `user-journey.md` (Mermaid validated + text alternative; underwriter + read-only auditor paths). No Phase 3 stories (OOS-1..6 documented-only). STOPPED at the User Stories approval gate; did NOT advance to Workflow Planning.
+- **Current Stage**: Workflow Planning (NEXT — not yet started; User Stories COMPLETED 2026-06-18)
+- **Next Step**: Begin Workflow Planning (ALWAYS) when the user signals — load `discover/workflow-planning.md` + `common/visual-and-syntax-standards.md`, load all prior context (requirements + user stories), determine phases/depth, produce the workflow visualization (validate Mermaid), then stop at the Workflow Planning approval gate. NOT yet started (awaiting user).
+- **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18 (Part 1 plan + Part 2 artifacts; 9-diff traceability/accuracy pass applied; committed/pushed by user). Artifacts final: `stories.md` (6 epics: 5 component + 1 cross-cutting; ~39 stories, every story Phase-tagged 1/2; per-story Traces + matrix), `personas.md` (underwriter full, auditor full, admin minimal/CLI), `user-journey.md` (Mermaid validated + text alternative; underwriter + read-only auditor paths). No Phase 3 stories (OOS-1..6 documented-only). STOPPED before Workflow Planning per user.
+
+## Open Items Carried Into Workflow Planning
+- **Human-approval-gate semantics for a REFER recommendation** → confirm what "agree vs override" means when the deterministic engine recommends escalation (REFER). Resolve at Workflow Planning. Senior-underwriter escalation persona/workflow remains **Phase 3 / OOS-2** (not built this engagement).

@@ -115,3 +115,11 @@ Complete audit trail of all interactions. Entries are append-only.
 **Context**: DISCOVER Phase — User Stories (Part 2). Traceability/accuracy correction pass applied; awaiting the user's review and explicit approval at the User Stories gate.
 
 ---
+
+## User Stories — APPROVED at Gate; Advancing to Workflow Planning
+**Timestamp**: 2026-06-18T13:27:34Z
+**User Input**: "All nine correction diffs are applied and reviewed, and I've committed/pushed. Plan and stories approved — I approve the User Stories gate. Log the approval verbatim in audit.md per the gate protocol (append-only, real timestamp), mark User Stories COMPLETED in guide-state.md, and update the Current Stage / Next Step lines to point to Workflow Planning. Then STOP — do not begin Workflow Planning. Carry forward into the Workflow Planning stage this open item logged earlier: confirm the human-approval-gate semantics for a REFER recommendation (what \"agree vs override\" means when the engine recommends escalation; senior-underwriter escalation is Phase 3/OOS-2). Report the updated guide-state and the logged approval, then wait for me."
+**AI Response**: Logged the User Stories gate approval verbatim (append-only, real timestamp). Marked User Stories COMPLETED in guide-state.md (Stage Progress checkbox + Current Stage / Next Step / Status lines now point to Workflow Planning). Recorded the carried-forward open item for Workflow Planning: confirm human-approval-gate semantics for a REFER recommendation (agree vs override meaning when the engine recommends escalation); senior-underwriter escalation remains Phase 3 / OOS-2. Did NOT begin Workflow Planning — STOPPED and awaiting the user.
+**Context**: DISCOVER Phase — User Stories gate APPROVED. Three artifacts (stories.md, personas.md, user-journey.md) final and committed/pushed by user. Next stage = Workflow Planning (ALWAYS), not yet started.
+
+---
