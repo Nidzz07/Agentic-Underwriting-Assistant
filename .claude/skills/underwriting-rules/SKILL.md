@@ -50,10 +50,13 @@ break any of them are defects, not stylistic choices.
    client, or introduce any non-deterministic step inside rule evaluation. The
    LLM only drafts the memo *after* deterministic results exist.
 
-4. **Temperature = 0 on all production LLM calls.** Every production Claude
-   call uses `temperature=0` for reproducibility. If you write or review an LLM
-   call and temperature is unset or non-zero, that is a bug. (Default model:
-   Claude Opus 4.8, extended thinking for borderline cases.)
+4. **Temperature = 0 on all production LLM calls.** Every production LLM call
+   uses `temperature=0` for reproducibility, regardless of provider. If you
+   write or review an LLM call and temperature is unset or non-zero, that is a
+   bug. (Provider is runtime-selectable per FR-PROV-1/2: PRIMARY = Gemini,
+   SECONDARY = Claude Opus 4.8 (tested fallback), SHOWCASE = Ollama; extended
+   thinking / reasoning for borderline cases where the active provider
+   supports it.)
 
 5. **Reproducibility.** Identical input must produce identical output, 100% of
    the time — enforced by temperature=0, the deterministic engine, and seeded
@@ -133,7 +136,7 @@ Deterministic rulebook engine  ── pure Python, NO LLM ──►  per-rule pa
 Outlier detection (IsolationForest + z-scores + SHAP, seeded)
         │
         ▼
-Decision-memo agent (Claude, temperature=0)  ──►  DecisionMemo
+Decision-memo agent (LLM, temperature=0)  ──►  DecisionMemo
         │      cites rule IDs, confidence (Low/Med/High), missing docs, flags
         ▼
 Underwriter UI  ──►  human approval gate  ──►  committed DECISION (human-made)

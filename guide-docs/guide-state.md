@@ -4,7 +4,7 @@
 - **Project Name**: Agentic Underwriting Assistant
 - **Project Type**: Greenfield
 - **Start Date**: 2026-06-14T09:01:22Z
-- **Current Stage**: DISCOVER - User Stories (Part 1 — Planning; story plan + questions presented)
+- **Current Stage**: DISCOVER - User Stories (Part 1 — Planning; all 7 questions answered incl. Q4=E-with-refinements; phasing/Phase 3 resolved; awaiting plan approval before Part 2)
 
 ## Workspace State
 - **Existing Code**: No (only a Python `venv/` and root `requirements.txt`; no application source)
@@ -50,13 +50,15 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - [ ] Deploy — PLACEHOLDER
 
 ## Deferred Decisions (carry forward — see requirement-verification-questions.md "Deferred Decisions Register")
-- Phase boundaries / whether a Phase 3 exists → decide at Workflow Planning / Units Generation
-- SSO/OAuth timing → revisit once phasing is finalized
+- SSO/OAuth timing → now Phase 3 (OOS-3); detailed timing within Phase 3 deferred to that release
 - Synthetic corpus generation timing relative to phases → re-raise at a later stage
 - Senior-underwriter escalation persona (Q5-B) → deferred unless escalation enters scope
 
+## Resolved Decisions
+- Phase boundaries / whether a Phase 3 exists → **RESOLVED 2026-06-18**: Phase 1 + Phase 2 built this engagement (every story phase-tagged 1/2); Phase 3 = documented future release (OOS-2..6 + production deploy). Validation deploy = Phase 2; production deploy = Phase 3. (Detail in requirements.md §2.2 / §12.)
+
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
-- **Current Stage**: Requirements Analysis (comprehensive depth)
-- **Next Step**: User to answer the 7 planning questions in `guide-docs/discover/plans/story-generation-plan.md`; then ambiguity analysis → plan approval → Part 2 story generation (stories.md, personas.md, user-journey.md)
-- **Status**: requirements.md APPROVED at gate 2026-06-17. Advanced to User Stories. Assessment decision = EXECUTE (user-stories-assessment.md). Part 1 story plan + questions created and presented; STOPPED awaiting user answers.
+- **Current Stage**: User Stories (Part 1 — Planning)
+- **Next Step**: Plan approval → Part 2 story generation (stories.md, personas.md, user-journey.md). All 7 planning questions now answered; Q4 = E with refinements (component epics; mandatory Phase tag; UI journey-style vs backend capability stories; epic→unit→DoD). Phasing resolved (Phase 1+2 built/phase-tagged; Phase 3 documented-only).
+- **Status**: requirements.md APPROVED at gate 2026-06-17. Advanced to User Stories. Assessment = EXECUTE. Part 1 story plan complete (all answers recorded); phasing/Phase 3 decision applied to requirements.md §2.2/§12 and guide-state. STOPPED awaiting plan approval before Part 2 generation.

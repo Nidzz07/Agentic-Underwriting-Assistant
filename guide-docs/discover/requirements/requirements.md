@@ -48,16 +48,21 @@ speed.
 | FR-SCOPE-3 | Anchor the rulebook and synthetic data to **life/health insurance** underwriting. Implement income-multiple / DTI thresholds as **affordability rules** (premium-to-income, sum-assured-to-income) so no brief threshold is lost. | Q2 (A) |
 | FR-SCOPE-4 | Treat the brief's named thresholds (DTI ≤ 40%, age 18–65, BMI 25/30, income multiples, IRDAI 2024) as **illustrative starting points pending domain-expert review**, implemented as written but refinable. The advisory framing must reflect this. | Q3 (B) |
 
-### 2.2 Out of Scope / Deferred (this engagement)
+### 2.2 Phase 3 — Future Release (documented for reference; not built, no stories this engagement)
+
+The items below are **documented for reference only**. They are **not built this engagement
+and get no user stories this round**. Phase 1 + Phase 2 are built now (each story phase-tagged);
+Phase 3 is a future release. Note the deployment split: a **validation/staging deploy is in
+scope as Phase 2 (NFR-DEPLOY-1)**; only the **production deploy** is Phase 3.
 
 | ID | Item | Disposition | Source |
 |---|---|---|---|
-| OOS-1 | Exact phase boundaries / existence of a Phase 3 | Deferred → Workflow Planning / Units Generation | Q1, Deferred Register |
-| OOS-2 | Senior-underwriter / approver escalation persona & workflow | Deferred unless escalation enters scope | Q5 (B excluded) |
-| OOS-3 | Full SSO/OAuth federated identity | Deferred to production/enterprise handover; auth structured so OIDC can slot in | Q6 |
-| OOS-4 | Final/production cloud deployment | Deferred; this build does a validation/staging deploy only | Q11 |
-| OOS-5 | OpenAI provider | Not wired in this build (abstraction leaves it wireable) | Q4 |
-| OOS-6 | Full admin UI | Out of scope; admin is CLI/migration-based | Q5 (D) |
+| OOS-1 | ~~Exact phase boundaries / existence of a Phase 3~~ — **RESOLVED 2026-06-18** | **Phase 1 + Phase 2 built this engagement (each story phase-tagged 1/2); Phase 3 = future release.** No longer open. | Q1, Deferred Register |
+| OOS-2 | Senior-underwriter / approver escalation persona & workflow | **Phase 3 — Future Release** (documented; not built, no stories this engagement) | Q5 (B excluded) |
+| OOS-3 | Full SSO/OAuth federated identity | **Phase 3 — Future Release** (auth structured so OIDC can slot in later) | Q6 |
+| OOS-4 | **Production** cloud deployment | **Phase 3 — Future Release.** Validation/staging deploy is **in scope (Phase 2, NFR-DEPLOY-1)**; only production deploy is Phase 3. | Q11 |
+| OOS-5 | OpenAI provider | **Phase 3 — Future Release** (abstraction leaves it wireable; not wired this build) | Q4 |
+| OOS-6 | Full admin UI | **Phase 3 — Future Release** (admin remains CLI/migration-based this engagement) | Q5 (D) |
 
 ---
 
@@ -236,8 +241,8 @@ requirement; scoping keeps "enforce all" bounded.
 
 | Item | Re-raise at | Source |
 |---|---|---|
-| Phase boundaries / whether a Phase 3 exists | Workflow Planning / Units Generation | Deferred Register |
-| SSO/OAuth timing | When phasing is finalized | Deferred Register, Q6 |
+| ~~Phase boundaries / whether a Phase 3 exists~~ — **RESOLVED 2026-06-18** | Decided (per project direction): **Phase 1 + Phase 2 built this engagement, every story phase-tagged (1/2); Phase 3 = documented future release** (OOS-2..6 + production deploy). Validation deploy = Phase 2; production deploy = Phase 3. No longer deferred. | Deferred Register, OOS-1 |
+| SSO/OAuth timing | Phasing now finalized → SSO/OAuth is **Phase 3** (OOS-3); detailed timing within Phase 3 deferred to that release | Deferred Register, Q6 |
 | Synthetic-corpus generation timing relative to phases | Appropriate later stage | Deferred Register, Q8 |
 | Senior-underwriter escalation persona (Q5-B) | If/when escalation workflow enters scope | Deferred Register, Q5 |
 | ~~Occupation: legitimate risk factor vs. protected bias proxy~~ — **RESOLVED 2026-06-17** | Decided: legitimate underwriting input + proxy guard, mirroring income (per proxy-check instruction). No longer deferred. | FR-RULES-2, CON-BR1 |

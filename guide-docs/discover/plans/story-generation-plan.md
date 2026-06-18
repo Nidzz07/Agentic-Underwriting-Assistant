@@ -3,7 +3,7 @@
 **Stage**: DISCOVER → User Stories (Part 1 — Planning)
 **Role**: Product Owner
 **Date**: 2026-06-17
-**Status**: Awaiting your answers to the questions in Section C below
+**Status**: All 7 questions answered (Q4 = E with refinements); awaiting plan approval before Part 2 generation
 
 This plan defines **how** we will convert the approved `requirements.md` into
 user stories. It does not write the stories yet — Part 2 (generation) runs only
@@ -21,7 +21,10 @@ after you answer the questions in Section C and approve this plan.
 - [ ] Explicitly cover the invariant-bearing flows: human approval gate (FR-UI-2), override-with-reason (CON-BR4), RBAC separation (PER-4), advisory-only language (FR-UI-4)
 - [ ] Map personas → stories
 - [ ] Produce `user-journey.md` (Mermaid) for the primary underwriting-review workflow
-- [ ] Keep deferred items (OOS-1..6) out of scope; do not write stories for them
+- [ ] Items OOS-1..6 are Phase 3 / future-release, documented in requirements.md only; generate Phase 1 + Phase 2 stories this round, each phase-tagged (1 or 2)
+- [ ] Tag EVERY story with a MANDATORY Phase tag (Phase 1 or Phase 2); "what's in Phase 1" must be a first-class, sliceable backlog view
+- [ ] UI epic = journey-style stories; backend epics (intake/rules/outlier/memo) = capability stories phrased from the benefiting persona (per Q4 refinement 2)
+- [ ] Map each epic → its component's build units + definition-of-done (requirement → epic → story → unit → test) (per Q4 refinement 3)
 
 ## B. Mandatory Artifacts (produced in Part 2)
 
@@ -89,7 +92,7 @@ F) Other (please describe after [Answer]: tag below)
 
 *PO recommendation: E — component epics give traceability to requirements/units; journey-based stories inside keep them user-centered.*
 
-[Answer]:
+[Answer]: E (with refinements) — component epics aligned to the 5 components (Intake, Rules, Outlier, Memo, UI) for traceability to requirements/units. Refinements (per project direction): (1) every story carries a MANDATORY Phase tag (1 or 2) so the backlog is sliceable by build sequence — "what's in Phase 1" must be a first-class view. (2) UI epic stories are journey-style (queue → review memo → check flags → approve/override → history); backend epics (intake/rules/outlier/memo) are capability stories phrased from the benefiting persona ("As an underwriter, I receive a memo citing every triggered rule…"). (3) Each epic maps to its component's build units + definition-of-done, closing requirement → epic → story → unit → test.
 
 ### Question 5 — Acceptance-criteria format
 What format for acceptance criteria?
