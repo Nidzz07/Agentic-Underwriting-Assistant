@@ -4,7 +4,7 @@
 - **Project Name**: Agentic Underwriting Assistant
 - **Project Type**: Greenfield
 - **Start Date**: 2026-06-14T09:01:22Z
-- **Current Stage**: DISCOVER - User Stories (Part 1 — Planning; all 7 questions answered incl. Q4=E-with-refinements; phasing/Phase 3 resolved; awaiting plan approval before Part 2)
+- **Current Stage**: DISCOVER - Workflow Planning (execution-plan.md generated; awaiting approval at the Workflow Planning gate before Application Design)
 
 ## Workspace State
 - **Existing Code**: No (only a Python `venv/` and root `requirements.txt`; no application source)
@@ -27,6 +27,14 @@
 
 Security Guardrails scope: prompt-injection defense, input validation, secrets management, read-only DB access for audit role, audit logging.
 
+## Execution Plan Summary (draft — pending Workflow Planning gate approval)
+- **Artifact**: `guide-docs/discover/plans/execution-plan.md` (generated 2026-06-19)
+- **Stages to Execute (recommended)**: Application Design, Units Generation, Functional Design (per-unit), NFR Requirements (per-unit), NFR Design (per-unit), Infrastructure Design (per-unit), Code Generation (ALWAYS), Build and Test (ALWAYS)
+- **Stages Skipped**: Reverse Engineering (greenfield); Deploy = placeholder (production deploy = Phase 3; validation deploy is a Phase 2 BUILD unit)
+- **Depth**: Comprehensive recommended; lighten/skip decision reserved by user for the gate (per-unit depth-variation notes provided in execution-plan.md §3)
+- **Phase 1→2 sequencing**: per-unit BUILD loop runs all Phase 1 units before Phase 2 (BUILD-loop annotation; see stories.md §8)
+- **Risk**: Medium (high intrinsic complexity, greenfield so easy rollback; dominant risk = invariant correctness)
+
 ## Stage Progress
 
 ### 🔵 DISCOVER PHASE
@@ -34,17 +42,17 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - [x] Reverse Engineering — SKIPPED (greenfield, no existing code)
 - [x] Requirements Analysis — COMPLETED 2026-06-17 (comprehensive depth; requirements.md approved at gate after 2 revision rounds)
 - [x] User Stories — COMPLETED 2026-06-18 (Part 1 plan + Part 2 artifacts approved at gate; stories.md, personas.md, user-journey.md final and committed/pushed)
-- [ ] Workflow Planning — NEXT (ALWAYS; not yet started)
-- [ ] Application Design — TBD
-- [ ] Units Generation — TBD
+- [~] Workflow Planning — IN PROGRESS (ALWAYS; execution-plan.md generated 2026-06-19, awaiting approval at gate)
+- [ ] Application Design — EXECUTE (recommended; per execution-plan.md)
+- [ ] Units Generation — EXECUTE (recommended; per execution-plan.md)
 
 ### 🟢 BUILD PHASE
-- [ ] Functional Design (per-unit) — TBD
-- [ ] NFR Requirements (per-unit) — TBD
-- [ ] NFR Design (per-unit) — TBD
-- [ ] Infrastructure Design (per-unit) — TBD
-- [ ] Code Generation (per-unit) — PENDING (ALWAYS)
-- [ ] Build and Test — PENDING (ALWAYS)
+- [ ] Functional Design (per-unit) — EXECUTE (recommended; per-unit depth variation noted in execution-plan.md for gate)
+- [ ] NFR Requirements (per-unit) — EXECUTE (recommended; per-unit depth variation noted for gate)
+- [ ] NFR Design (per-unit) — EXECUTE (recommended; per-unit depth variation noted for gate)
+- [ ] Infrastructure Design (per-unit) — EXECUTE (recommended; per-unit depth variation noted for gate)
+- [ ] Code Generation (per-unit) — EXECUTE (ALWAYS)
+- [ ] Build and Test — EXECUTE (ALWAYS)
 
 ### 🟡 DEPLOY PHASE
 - [ ] Deploy — PLACEHOLDER
@@ -60,9 +68,9 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
-- **Current Stage**: Workflow Planning (NEXT — not yet started; User Stories COMPLETED 2026-06-18)
-- **Next Step**: Begin Workflow Planning (ALWAYS) when the user signals — load `discover/workflow-planning.md` + `common/visual-and-syntax-standards.md`, load all prior context (requirements + user stories), determine phases/depth, produce the workflow visualization (validate Mermaid), then stop at the Workflow Planning approval gate. NOT yet started (awaiting user).
-- **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18 (Part 1 plan + Part 2 artifacts; 9-diff traceability/accuracy pass applied; committed/pushed by user). Artifacts final: `stories.md` (6 epics: 5 component + 1 cross-cutting; ~39 stories, every story Phase-tagged 1/2; per-story Traces + matrix), `personas.md` (underwriter full, auditor full, admin minimal/CLI), `user-journey.md` (Mermaid validated + text alternative; underwriter + read-only auditor paths). No Phase 3 stories (OOS-1..6 documented-only). STOPPED before Workflow Planning per user.
+- **Current Stage**: Workflow Planning — execution-plan.md GENERATED; STOPPED at the approval gate (awaiting explicit user approval before Application Design)
+- **Next Step**: User reviews `execution-plan.md` at the Workflow Planning gate and chooses Request Changes / Add Skipped Stages / Approve & Continue. On approval, advance to **Application Design** (CONDITIONAL — recommended EXECUTE): load `discover/application-design.md`, load prior context, execute at the approved depth, stop at its completion gate. User has reserved the lighten/skip-depth decision for THIS gate.
+- **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18. Workflow Planning execution-plan.md generated 2026-06-19 (greenfield; single validated GUIDE-stage Mermaid diagram + text alternative; all conditional stages recommended EXECUTE at comprehensive depth with per-unit depth-variation notes for the gate; Phase 1→2 as BUILD-loop annotation referencing stories.md §8; REFER-gate resolution carried in, not re-opened). guide-state.md L7 stale Current-Stage header corrected as part of this Step 8 update. STOPPED at the Workflow Planning approval gate per protocol.
 
 ## Open Items Carried Into Workflow Planning
 - *(none open — the REFER human-approval-gate item was **RESOLVED 2026-06-18** and moved to Resolved Decisions above. Synthetic-corpus generation timing remains a deferred item under Deferred Decisions, not an open blocker for Workflow Planning.)*
