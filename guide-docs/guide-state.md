@@ -33,7 +33,7 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - [x] Workspace Detection — Completed 2026-06-14T09:01:22Z (Greenfield)
 - [x] Reverse Engineering — SKIPPED (greenfield, no existing code)
 - [x] Requirements Analysis — COMPLETED 2026-06-17 (comprehensive depth; requirements.md approved at gate after 2 revision rounds)
-- [ ] User Stories — IN PROGRESS (assessment = EXECUTE; Part 1 story plan + 7 questions presented, awaiting answers)
+- [ ] User Stories — IN PROGRESS (Part 1 plan approved; Part 2 GENERATED — stories.md, personas.md, user-journey.md; awaiting approval at the User Stories gate)
 - [ ] Workflow Planning — PENDING
 - [ ] Application Design — TBD
 - [ ] Units Generation — TBD
@@ -60,5 +60,5 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
 - **Current Stage**: User Stories (Part 1 — Planning)
-- **Next Step**: Plan approval → Part 2 story generation (stories.md, personas.md, user-journey.md). All 7 planning questions now answered; Q4 = E with refinements (component epics; mandatory Phase tag; UI journey-style vs backend capability stories; epic→unit→DoD). Phasing resolved (Phase 1+2 built/phase-tagged; Phase 3 documented-only).
-- **Status**: requirements.md APPROVED at gate 2026-06-17. Advanced to User Stories. Assessment = EXECUTE. Part 1 story plan complete (all answers recorded); phasing/Phase 3 decision applied to requirements.md §2.2/§12 and guide-state. STOPPED awaiting plan approval before Part 2 generation.
+- **Next Step**: User to review the three artifacts and approve at the User Stories gate → then Workflow Planning. (Request Changes / Approve & Continue.)
+- **Status**: requirements.md APPROVED at gate 2026-06-17. User Stories Part 1 plan approved; Part 2 GENERATED 2026-06-18 — `stories.md` (6 epics: 5 component epics + 1 cross-cutting; ~39 stories, every story Phase-tagged 1/2; per-story Traces + matrix), `personas.md` (underwriter full, auditor full, admin minimal/CLI), `user-journey.md` (Mermaid validated + text alternative; underwriter + read-only auditor paths). No Phase 3 stories (OOS-1..6 documented-only). STOPPED at the User Stories approval gate; did NOT advance to Workflow Planning.

@@ -3,7 +3,7 @@
 **Stage**: DISCOVER → User Stories (Part 1 — Planning)
 **Role**: Product Owner
 **Date**: 2026-06-17
-**Status**: All 7 questions answered (Q4 = E with refinements); awaiting plan approval before Part 2 generation
+**Status**: Plan approved; Part 2 generated (stories.md, personas.md, user-journey.md); awaiting approval at the User Stories gate
 
 This plan defines **how** we will convert the approved `requirements.md` into
 user stories. It does not write the stories yet — Part 2 (generation) runs only
@@ -13,24 +13,24 @@ after you answer the questions in Section C and approve this plan.
 
 ## A. Methodology & Execution Checklist (Part 2 will follow this)
 
-- [ ] Derive personas from PER-1..6 → `personas.md` (underwriter, compliance/audit reviewer, system administrator)
-- [ ] Convert requirements into INVEST stories (Independent, Negotiable, Valuable, Estimable, Small, Testable)
-- [ ] Organise stories using the approved **breakdown approach** (see Q4)
-- [ ] Write acceptance criteria for each story in the approved **format** (see Q5)
-- [ ] Trace every story back to one or more `requirements.md` IDs (FR-/NFR-/PER-/CON-/SEC-/QA-)
-- [ ] Explicitly cover the invariant-bearing flows: human approval gate (FR-UI-2), override-with-reason (CON-BR4), RBAC separation (PER-4), advisory-only language (FR-UI-4)
-- [ ] Map personas → stories
-- [ ] Produce `user-journey.md` (Mermaid) for the primary underwriting-review workflow
-- [ ] Items OOS-1..6 are Phase 3 / future-release, documented in requirements.md only; generate Phase 1 + Phase 2 stories this round, each phase-tagged (1 or 2)
-- [ ] Tag EVERY story with a MANDATORY Phase tag (Phase 1 or Phase 2); "what's in Phase 1" must be a first-class, sliceable backlog view
-- [ ] UI epic = journey-style stories; backend epics (intake/rules/outlier/memo) = capability stories phrased from the benefiting persona (per Q4 refinement 2)
-- [ ] Map each epic → its component's build units + definition-of-done (requirement → epic → story → unit → test) (per Q4 refinement 3)
+- [x] Derive personas from PER-1..6 → `personas.md` (underwriter, compliance/audit reviewer, system administrator)
+- [x] Convert requirements into INVEST stories (Independent, Negotiable, Valuable, Estimable, Small, Testable)
+- [x] Organise stories using the approved **breakdown approach** (see Q4)
+- [x] Write acceptance criteria for each story in the approved **format** (see Q5)
+- [x] Trace every story back to one or more `requirements.md` IDs (FR-/NFR-/PER-/CON-/SEC-/QA-)
+- [x] Explicitly cover the invariant-bearing flows: human approval gate (FR-UI-2), override-with-reason (CON-BR4), RBAC separation (PER-4), advisory-only language (FR-UI-4)
+- [x] Map personas → stories
+- [x] Produce `user-journey.md` (Mermaid) for the primary underwriting-review workflow
+- [x] Items OOS-1..6 are Phase 3 / future-release, documented in requirements.md only; generate Phase 1 + Phase 2 stories this round, each phase-tagged (1 or 2)
+- [x] Tag EVERY story with a MANDATORY Phase tag (Phase 1 or Phase 2); "what's in Phase 1" must be a first-class, sliceable backlog view
+- [x] UI epic = journey-style stories; backend epics (intake/rules/outlier/memo) = capability stories phrased from the benefiting persona (per Q4 refinement 2)
+- [x] Map each epic → its component's build units + definition-of-done (requirement → epic → story → unit → test) (per Q4 refinement 3)
 
 ## B. Mandatory Artifacts (produced in Part 2)
 
-- [ ] `guide-docs/discover/user-stories/stories.md`
-- [ ] `guide-docs/discover/user-stories/personas.md`
-- [ ] `guide-docs/discover/user-stories/user-journey.md` (Mermaid)
+- [x] `guide-docs/discover/user-stories/stories.md`
+- [x] `guide-docs/discover/user-stories/personas.md`
+- [x] `guide-docs/discover/user-stories/user-journey.md` (Mermaid)
 
 ---
 
