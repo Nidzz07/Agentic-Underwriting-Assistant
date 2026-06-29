@@ -244,7 +244,7 @@ sequenceDiagram
     alt provider error or timeout
         PROV-->>MEMO: error
         MEMO-->>API: memo unavailable - recommendation still stands from C2
-        API-->>UI: show recommendation + rule evidence - memo retry pending
+        API-->>UI: show recommendation + rule evidence; memo retry pending
     else ok
         PROV-->>MEMO: structured memo prose
     end

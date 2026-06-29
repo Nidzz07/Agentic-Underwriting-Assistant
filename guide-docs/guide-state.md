@@ -4,7 +4,7 @@
 - **Project Name**: Agentic Underwriting Assistant
 - **Project Type**: Greenfield
 - **Start Date**: 2026-06-14T09:01:22Z
-- **Current Stage**: DISCOVER - Application Design (artifacts generated; at the completion gate awaiting approval — NOT yet marked complete. Reviewer-feedback edit batch applied 2026-06-29.)
+- **Current Stage**: DISCOVER - Units Generation (next; not yet started). Application Design COMPLETED 2026-06-29 (gate approved after reviewer-feedback batch, signed off).
 
 ## Workspace State
 - **Existing Code**: No (only a Python `venv/` and root `requirements.txt`; no application source)
@@ -43,8 +43,8 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 - [x] Requirements Analysis — COMPLETED 2026-06-17 (comprehensive depth; requirements.md approved at gate after 2 revision rounds)
 - [x] User Stories — COMPLETED 2026-06-18 (Part 1 plan + Part 2 artifacts approved at gate; stories.md, personas.md, user-journey.md final and committed/pushed)
 - [x] Workflow Planning — COMPLETED 2026-06-18 (ALWAYS; execution-plan.md generated 2026-06-19 + 3-correction pre-approval pass, APPROVED at gate "Approve & Continue")
-- [ ] Application Design — EXECUTE (recommended; per execution-plan.md)
-- [ ] Units Generation — EXECUTE (recommended; per execution-plan.md)
+- [x] Application Design — COMPLETED 2026-06-29 (gate approved after reviewer-feedback batch)
+- [ ] Units Generation — EXECUTE (recommended; per execution-plan.md) — NEXT, not yet started
 
 ### 🟢 BUILD PHASE
 - [ ] Functional Design (per-unit) — EXECUTE (recommended; per-unit depth variation noted in execution-plan.md for gate)
@@ -68,9 +68,9 @@ Security Guardrails scope: prompt-injection defense, input validation, secrets m
 
 ## Current Status
 - **Lifecycle Phase**: DISCOVER
-- **Current Stage**: Application Design (CONDITIONAL — recommended EXECUTE, comprehensive depth) — NOT yet started. Workflow Planning APPROVED at gate 2026-06-18 (Approve & Continue).
-- **Next Step**: Await the user's explicit signal to start **Application Design**. On that signal: re-read `discover/application-design.md` + prior context (execution-plan.md, requirements.md, stories.md/personas.md/user-journey.md), then **propose the approach before generating any artifact** (stop-before-generate discipline, per prior stages). Execute at comprehensive depth; surface the carried-forward items below; stop at the Application Design completion gate.
-- **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18. Workflow Planning execution-plan.md generated 2026-06-19 + 3-correction pre-approval pass (UI invariant-depth split; EPIC-6 phase column made explicit; §6 timeline count rephrased to reference the §5 table) → **APPROVED at the Workflow Planning gate 2026-06-18** ("Approve & Continue"). Advanced state to Application Design but STOPPED before any Application Design work per the user's instruction.
+- **Current Stage**: Application Design **COMPLETED 2026-06-29** (completion gate approved after the reviewer-feedback batch was applied and signed off). Next stage = **Units Generation** (CONDITIONAL — recommended EXECUTE), not yet started.
+- **Next Step**: Await the user's explicit signal to start **Units Generation**. On that signal: re-read `discover/units-generation.md` + prior context (the five application-design artifacts, execution-plan.md, requirements.md, stories.md/personas.md/user-journey.md), then **propose the approach before generating any artifact** (stop-before-generate discipline, per prior stages). Resolve the carried-forward `ui-auth-rbac` (C5/EPIC-5) vs `auth-rbac` (EPIC-6) one-vs-two-unit boundary at this stage; stop at the Units Generation completion gate.
+- **Status**: requirements.md APPROVED 2026-06-17. User Stories APPROVED at gate 2026-06-18. Workflow Planning APPROVED at the gate 2026-06-18 ("Approve & Continue"). **Application Design APPROVED at the completion gate 2026-06-29** — the five artifacts (components.md, component-methods.md, services.md, component-dependency.md, application-design.md) generated and finalized after the reviewer-feedback batch (CON-AUDIT-1 → 6-tuple + `engine_version`; OOS-7/OOS-8 Phase-3 deferrals with Phase-1 seams; deterministic `confidence` in the core; explicit `missing_information` output; MCP retrieval-miss guard; authz defense-in-depth on the commit path; replay match/mismatch branch; §6 unhappy-paths sequence; FastAPI-orchestrator container rewrite; semicolon/Mermaid render fixes) and signed off. DISCOVER phase now has only Units Generation remaining.
 
 ## Open Items Carried Into Application Design
 1. **Per-unit depth "lighter" classifications are RECOMMENDATIONS, not a locked floor** — the execution-plan's per-unit "lighter" depth notes (e.g. `secrets-config`, `admin-cli`, `deploy-config`, display-only `ui-queue`/`ui-history`/`ui-memo-view`) are revisitable per-unit at each BUILD design stage; any such unit can be given comprehensive depth when its design stage is reached, without amending execution-plan.md. (Invariant-bearing UI — `ui-approval-gate`, `ui-override-form` — remain comprehensive per FR-UI-2 / CON-BR4 / FR-UI-4.)

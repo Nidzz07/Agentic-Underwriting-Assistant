@@ -46,7 +46,7 @@ flowchart TB
     C5 --> API
     API --> C1
     C1 --> C2
-    C1 -->|profile| C3
+    C1 --> C3
     C2 --> C4
     C3 --> C4
     C4 --> PA
