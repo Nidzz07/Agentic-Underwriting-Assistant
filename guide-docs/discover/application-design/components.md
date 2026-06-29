@@ -40,21 +40,26 @@ flowchart TB
         DB[("PostgreSQL")]
     end
 
+    API["FastAPI orchestrator"]
+
     C5 --> AUTH
-    C5 --> C1
+    C5 --> API
+    API --> C1
     C1 --> C2
-    C1 --> C3
+    C1 -->|profile| C3
     C2 --> C4
     C3 --> C4
     C4 --> PA
     MCPR -. read only .-> C4
     MCPD -. read only .-> C4
-    C5 --> DCS
+    C4 -. recommendation + memo .-> API
+    API -. recommendation + memo .-> C5
+    API --> DCS
     DCS --> AUD
     AUD --> DB
-    CORP --> C3
-    C4 -. recommendation + memo .-> C5
-    DCS -. committed decision .-> C5
+    DCS -. committed decision .-> API
+    API -. committed decision .-> C5
+    CORP -->|seeds corpus| C3
 ```
 
 > **Deterministic boundary cue**: **C1, C2, and C3 are the deterministic core** (pure
@@ -68,7 +73,7 @@ flowchart TB
   flows **in parallel** to **C2 Deterministic Rulebook Engine** (rule evaluation) and
   **C3 Outlier Detection** (profile scoring) — C3 scores the profile, **not** rule results.
   C2 and C3 results both feed **C4 Decision-Memo Agent**; the recommendation + memo are then
-  surfaced in **C5 Underwriter UI**.
+  surfaced (via the **FastAPI orchestrator**) in **C5 Underwriter UI**.
 - **The recommendation is produced by C2** (pure Python) and flows into C4 as a
   **read-only** input; C4 never produces or alters it.
 - **C4** calls the **ProviderAbstraction** for LLM completion and reads grounding from
@@ -76,13 +81,16 @@ flowchart TB
   read-only (dashed) and cannot write.
 - **C5** authenticates via **Auth/RBAC** and, at the human approval gate, commits through
   **DecisionCommitService**, which persists the audit tuple to **AuditStore** (PostgreSQL).
-- **C5 receives two return paths for display** (dashed): the **recommendation + memo**
-  surface in the UI for review (drawn `C4 -. recommendation + memo .-> C5` at this
-  abstraction level — orchestration/FastAPI is abstracted out, so this represents the memo
-  surfacing for display, not C4 calling the UI directly), and the **committed decision**
-  returns from **DecisionCommitService** (`DCS -. committed decision .-> C5`). This matches
-  the `services.md` sequences (`API-->>UI: pending recommendation + memo`;
-  `DCS-->>UI: CommittedDecision`).
+- **All C5↔backend flows route through the `FastAPI orchestrator` node.** The UI's entry
+  is `C5 --> API --> C1` and the **commit request** is `C5 --> API --> DCS` (so the API
+  layer enforces RBAC on the commit path, per G7 / `services.md` §5); **both return paths
+  are mediated by FastAPI**: the **recommendation + memo** returns
+  `C4 -. recommendation + memo .-> API -. .-> C5`, and the **committed decision** returns
+  `DCS -. committed decision .-> API -. .-> C5`. The deterministic-core edges
+  (`C1 --> C2`, `C1 --> C3`, `C2 --> C4`, `C3 --> C4`) stay direct. This makes the
+  request/response symmetry truthful and removes the prior "FastAPI is abstracted out"
+  caveat — the node now carries those flows. It matches the `services.md` sequences
+  (`API-->>UI: pending recommendation + memo`; `DCS-->>UI: CommittedDecision`).
 - **CorpusGenerator** feeds the seeded synthetic corpus into **C3**.
 - The Platform & Services layer (right) is fully designed in `services.md` (Q4=B).
 
@@ -108,7 +116,10 @@ flowchart TB
   **pure Python and zero LLM**, and **produce the recommendation**.
 - **Responsibilities**: load a specific `rulebook_version`; evaluate all rules; report
   each fired rule's exact triggering value + comparison; emit the exact recommendation
-  enum (`APPROVE` / `REFER` / `DECLINE-RECOMMEND`); stamp output with `rulebook_version`;
+  enum (`APPROVE` / `REFER` / `DECLINE-RECOMMEND`); **produce the `confidence` level
+  (Low/Med/High) as a deterministic function of rule-proximity** (Phase 2 also folds in
+  C3's outlier score) — confidence originates in the **deterministic core, never in the
+  LLM** (preserves reproducibility, AC-1); stamp output with `rulebook_version`;
   keep published versions immutable.
 - **Interface (high-level)**:
   `RulesEngine.evaluate(profile, rulebook_version) -> RuleResultReport` (which carries the
@@ -134,7 +145,10 @@ flowchart TB
   `RuleResultReport` (incl. its read-only `recommendation`) + `OutlierResult`; enforce
   `temperature=0` and structured XML→Pydantic output via the ProviderAbstraction; validate
   every cited rule ID against the YAML (hallucination guard); deterministic borderline
-  routing to extended thinking; advisory-only language.
+  routing to extended thinking; advisory-only language. **Cite strictly from the handed
+  `RuleResultReport`**; the read-only `rulebook-tools` MCP server is consulted for
+  **supplementary human-readable rule descriptions only**, never to re-derive or re-fetch
+  which rules fired (retrieval-miss guard).
 - **Interface (high-level)**: `MemoAgent.draft(profile, rule_report, outlier_result) ->
   DecisionMemo`. **`DecisionMemo` carries no field that can change the recommendation.**
 - **Invariants**: **CON-BR2** (read-only recommendation; QA-5 test seam asserts the LLM
@@ -144,10 +158,11 @@ flowchart TB
 ### C5 — Underwriter UI
 - **Purpose**: The underwriter (and read-only auditor) surface: review a recommendation
   with its evidence and act at the human approval gate.
-- **Responsibilities**: application queue; memo view with rule citations (and outlier
-  flags in Phase 2); the human approval gate; override-with-mandatory-reason form;
-  decision history; advisory-only copy; `data-testid` on every interactive element;
-  RBAC-gated views (underwriter acts; auditor read-only).
+- **Responsibilities**: application queue; memo view with rule citations, confidence, and
+  the explicit **missing-information list** (and outlier flags in Phase 2); the human
+  approval gate; override-with-mandatory-reason form; decision history; advisory-only copy;
+  `data-testid` on every interactive element; RBAC-gated views (underwriter acts; auditor
+  read-only).
 - **Interface (high-level)**: React + Tailwind views calling FastAPI endpoints;
   the gate/override actions call `DecisionCommitService`.
 - **Invariants**: FR-UI-1..5, **CON-BR4** (the gate is enforced in the backend commit

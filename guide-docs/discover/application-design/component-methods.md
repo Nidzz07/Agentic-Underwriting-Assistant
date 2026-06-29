@@ -17,12 +17,20 @@ are defined in Functional Design.
 | Type | Role |
 |---|---|
 | `ApplicantProfile` | Validated, typed applicant data produced by C1; the single input downstream steps trust. |
-| `RuleResultReport` | Per-rule pass/fail + each fired rule's exact triggering value & comparison; **carries `recommendation`** and `rulebook_version`. |
+| `RuleResultReport` | Per-rule pass/fail + each fired rule's exact triggering value & comparison; **carries `recommendation`**, the **deterministic `confidence`** (Low/Med/High, produced in the core — see C2), and `rulebook_version`. |
 | `Recommendation` | Enum — exactly `APPROVE` / `REFER` / `DECLINE-RECOMMEND`. |
 | `OutlierResult` | Outlier score + flagged features + SHAP explanation (Phase 2). |
-| `DecisionMemo` | Structured memo prose + cited rule IDs + confidence + missing-docs list. **No field that can alter `recommendation`.** |
+| `DecisionMemo` | Structured memo prose + cited rule IDs + **`confidence`** (Low/Med/High — produced **deterministically upstream in the core** and received by C4 **read-only**; C4 does **not** generate it) + an explicit **`missing_information` list** (named memo output, surfaced to the underwriter). **No field that can alter `recommendation`.** |
 | `CommittedDecision` | The human-committed outcome: links recommendation + `underwriter_id` + action + reason. |
-| `AuditTuple` | `{rulebook_version, rule_results, timestamp, model_version, memo_hash}`. |
+| `AuditTuple` | `{rulebook_version, rule_results, timestamp, model_version, memo_hash, engine_version}` — `engine_version` (git SHA of the rules engine) detects engine **code drift**; captured Phase 1, per CON-AUDIT-1. |
+
+> **Reserved Phase-3-amendment seam (contract responsibility, not built now).** The
+> `CommittedDecision` / persisted decision record additionally carries a stable
+> `decision_id`, a `status` (`active` / `superseded`), and a nullable
+> `supersedes_decision_id` — the reserved seam for Phase-3 append-only supersession
+> (committed-decision amendment). **Phase 1/2 only ever writes `status=active`.** This is
+> named here at contract altitude only; field-level schema is defined in Functional Design.
+> (Per requirements.md OOS-7 / §12.)
 
 ---
 
@@ -75,7 +83,7 @@ routing are **Phase 2**.
 | View / action | Purpose | Interaction |
 |---|---|---|
 | `QueueView` | List applications awaiting review with their recommendation. | UI → `GET /applications` (RBAC-gated) |
-| `MemoView` | Show recommendation + cited rules + confidence + missing docs (+ outlier flags, Phase 2). | UI → `GET /applications/{id}/memo` |
+| `MemoView` | Show recommendation + cited rules + confidence + the explicit **missing-information list** (+ outlier flags, Phase 2). | UI → `GET /applications/{id}/memo` |
 | `ApprovalGateAction` | Underwriter **Approve** at the human gate. | UI → `DecisionCommitService.commit(...)` |
 | `OverrideForm` | **Override-with-mandatory-reason** when the underwriter disagrees. | UI → `DecisionCommitService.commit(..., reason)` |
 | `HistoryView` | Full decision history; each entry links to its audit tuple. | UI → `GET /decisions` |
@@ -90,11 +98,11 @@ layout/state logic → Functional Design.*
 | Service.method (signature) | Purpose | Invariant |
 |---|---|---|
 | `ProviderAbstraction.complete(prompt, schema) -> StructuredOutput` | Provider-agnostic LLM call; **`temperature=0` enforced centrally**; per-provider structured-output adapters. | FR-PROV-1..5 |
-| `MCPRulebookTools` / `MCPDecisionsTools` (**read-only**) | Expose rulebook + decisions DB to C4 as **read-only** grounding tools — **cannot write**. | FR-MEMO-5, SEC-4 |
+| `MCPRulebookTools` / `MCPDecisionsTools` (**read-only**) | Expose rulebook + decisions DB to C4 as **read-only** grounding tools — **cannot write**. `rulebook-tools` supplies **supplementary human-readable rule descriptions only**; the memo cites strictly from the handed `RuleResultReport` and **never** re-derives/re-fetches which rules fired via MCP (retrieval-miss guard). | FR-MEMO-5, SEC-4 |
 | `DecisionCommitService.commit(recommendation_id, underwriter_id, action, reason=None) -> CommittedDecision` | The human-approval-gate backend boundary; **rejects any write lacking `underwriter_id` + `reason`**. | **CON-BR4** |
-| `AuditStore.persist(audit_tuple: AuditTuple) -> None` | Persist the full audit tuple on every recommendation. | CON-AUDIT-1, SEC-5 |
+| `AuditStore.persist(audit_tuple: AuditTuple) -> None` | Persist the full audit tuple on every committed decision. | CON-AUDIT-1, SEC-5 |
 | `ReplayService.replay(decision_id) -> RuleResultReport` | Re-evaluate a past decision against its **original** `rulebook_version`. | CON-AUDIT-1 |
-| `AuthRBAC.authorize(user, action) -> bool` | Enforce underwriter (act) vs auditor (read-only); structured for later OIDC. | PER-4..6, SEC-4 |
+| `AuthRBAC.authorize(user, action) -> bool` | Enforce underwriter (act) vs auditor (read-only); structured for later OIDC. **Enforcement points: the API layer (request authz) AND inside `DecisionCommitService` (commit re-check) — defense in depth, so a read-only auditor is structurally unable to reach commit.** | PER-4..6, SEC-4 |
 | `CorpusGenerator.generate(seed, manifest) -> Corpus` | Seeded, version-stamped, skew-audited synthetic corpus. | CON-BR3 |
 
 *Write path for committed decisions is `DecisionCommitService` only — never via an MCP

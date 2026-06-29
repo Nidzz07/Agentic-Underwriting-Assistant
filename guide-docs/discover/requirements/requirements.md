@@ -3,7 +3,7 @@
 **Phase / Stage**: DISCOVER → Requirements Analysis
 **Depth**: Comprehensive (complex, high-stakes, regulated BFSI system)
 **Generated**: 2026-06-17
-**Status**: Draft — pending user approval at the Requirements approval gate
+**Status**: APPROVED 2026-06-17 at the Requirements approval gate (comprehensive depth, after 2 revision rounds). Living document — subsequent amendments (REFER resolution 2026-06-18; reviewer-feedback batch 2026-06-29) are tracked in audit.md.
 
 ## Sources & Traceability Convention
 
@@ -63,6 +63,8 @@ scope as Phase 2 (NFR-DEPLOY-1)**; only the **production deploy** is Phase 3.
 | OOS-4 | **Production** cloud deployment | **Phase 3 — Future Release.** Validation/staging deploy is **in scope (Phase 2, NFR-DEPLOY-1)**; only production deploy is Phase 3. | Q11 |
 | OOS-5 | OpenAI provider | **Phase 3 — Future Release** (abstraction leaves it wireable; not wired this build) | Q4 |
 | OOS-6 | Full admin UI | **Phase 3 — Future Release** (admin remains CLI/migration-based this engagement) | Q5 (D) |
+| OOS-7 | Committed-decision amendment / correction (append-only supersession) | **Phase 3 — Future Release** (documented; not built, no stories this engagement). **Phase-1 seam reserved now**: every decision record carries a stable `decision_id`, a `status` (`active` / `superseded`), and a nullable `supersedes_decision_id`; Phase 1/2 only ever writes `status=active`. Field-level schema implemented in Functional Design. **Documentation commitment (reviewer direction)**: this limitation MUST be explicitly named in the README and the 2-page case study when those deliverables are built — wording: *"commit is final in v1; append-only supersession designed, deferred to Phase 3."* | Reviewer feedback 2026-06-29 (Scope Q1) |
+| OOS-8 | Replay non-reproducibility incident-handling workflow | **Phase 3 — Future Release** (documented; not built, no stories this engagement). **Phase-1 seam**: `engine_version` is captured in the audit tuple now (CON-AUDIT-1) so Phase 3 has forensic data; **detection-on-mismatch is in scope now** — a replay that does not reproduce the recorded `rule_results` is flagged as a blocking reproducibility failure (see services.md §4). | Reviewer feedback 2026-06-29 (Scope Q2) |
 
 ---
 
@@ -143,7 +145,7 @@ them are defects, not stylistic choices.
 | CON-BR2 | **LLM stays OUT of the decision path; temperature 0 is NOT determinism.** The recommendation is produced entirely by the deterministic Python rules engine; the LLM only drafts prose and may not change it. A test MUST assert the LLM cannot change a recommendation. | BR2 |
 | CON-BR3 | **Synthetic corpus = seeded + versioned + skew-audited.** Generated with a fixed seed, version-stamped with a manifest, and skew-audited (40/35/25 split + all mandatory edge cases present) before use. It feeds the outlier model, the reproducibility suite, and the bias suite. | BR3 |
 | CON-BR4 | **"Advisory only" is enforced in the system, not as a disclaimer.** Every finalised decision requires explicit underwriter action carrying a reason; the decision-write path MUST reject any record lacking `underwriter_id` + `reason`. Backend constraint, not UI copy. | BR4 |
-| CON-AUDIT-1 | Persist the full audit tuple on every recommendation: `rulebook_version`, `rule_results`, `timestamp`, `model_version`, `memo_hash`. Any past decision MUST be replayable against the exact rulebook version active at decision time. | Brief §5.3, Skill |
+| CON-AUDIT-1 | Persist the full audit tuple on every committed decision: `rulebook_version`, `rule_results`, `timestamp`, `model_version`, `memo_hash`, `engine_version` (git SHA of the rules engine). `engine_version` detects rules-engine **code drift** — an engine change without a `rulebook_version` bump would otherwise make a replay mismatch indistinguishable from a real regression. Any past decision MUST be replayable against the exact rulebook version active at decision time. `engine_version` forensic capture is **Phase 1**; the replay non-reproducibility **incident-handling workflow is Phase 3** (see OOS-8). | Brief §5.3, Skill, Reviewer feedback 2026-06-29 |
 | CON-DET-1 | No unseeded randomness, wall-clock-dependent logic, or dict-ordering assumptions anywhere in evaluation. | Skill, Brief §5.1 |
 
 ---
@@ -247,6 +249,8 @@ requirement; scoping keeps "enforce all" bounded.
 | Synthetic-corpus generation timing relative to phases | Appropriate later stage | Deferred Register, Q8 |
 | Senior-underwriter escalation persona (Q5-B) | If/when escalation workflow enters scope | Deferred Register, Q5 |
 | ~~Occupation: legitimate risk factor vs. protected bias proxy~~ — **RESOLVED 2026-06-17** | Decided: legitimate underwriting input + proxy guard, mirroring income (per proxy-check instruction). No longer deferred. | FR-RULES-2, CON-BR1 |
+| Committed-decision amendment (append-only supersession) — **DEFERRED to Phase 3** (per reviewer feedback 2026-06-29) | Decided: Phase 3 (append-only supersession); commit stays final in Phase 1/2. **Phase-1 seam reserved now**: `decision_id` + `status` (`active`/`superseded`) + nullable `supersedes_decision_id`; Phase 1/2 writes only `status=active`. Field-level schema at Functional Design. See OOS-7. | Reviewer feedback (Scope Q1), CON-AUDIT-1 |
+| Replay non-reproducibility incident-handling — **DEFERRED to Phase 3** (per reviewer feedback 2026-06-29) | Decided: Phase 3 incident workflow. **Phase-1 seam in scope now**: `engine_version` captured in the audit tuple (forensic data) + detection-on-mismatch (replay flags a blocking reproducibility failure). See OOS-8, CON-AUDIT-1, services.md §4. | Reviewer feedback (Scope Q2), CON-AUDIT-1 |
 
 *Per project direction: do not over-fixate decisions now. Where a decision is
 clearer at a later GUIDE stage (especially User Stories), defer and re-raise it

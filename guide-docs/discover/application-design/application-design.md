@@ -53,31 +53,39 @@ flowchart TB
         DB[("PostgreSQL")]
     end
 
+    API["FastAPI orchestrator"]
+
     C5 --> AUTH
-    C5 --> C1
+    C5 --> API
+    API --> C1
     C1 --> C2
-    C1 --> C3
+    C1 -->|profile| C3
     C2 --> C4
     C3 --> C4
     C4 --> PA
     MCPR -. read only .-> C4
     MCPD -. read only .-> C4
-    C5 --> DCS
+    C4 -. recommendation + memo .-> API
+    API -. recommendation + memo .-> C5
+    API --> DCS
     DCS --> AUD
     AUD --> DB
-    CORP --> C3
-    C4 -. recommendation + memo .-> C5
-    DCS -. committed decision .-> C5
+    DCS -. committed decision .-> API
+    API -. committed decision .-> C5
+    CORP -->|seeds corpus| C3
 ```
 
 **Text alternative**: C1 Intake produces the `ApplicantProfile`, which flows **in parallel**
 to C2 Rules (**produces the read-only recommendation**) and C3 Outlier (scores the profile,
 not rule results); C2 and C3 results both feed C4 Memo. C4 calls ProviderAbstraction
-(`temperature=0`) and reads two **read-only** MCP servers. C5 authenticates via Auth/RBAC,
-**receives the recommendation + memo for display** (dashed `C4 -. recommendation + memo .-> C5`
-— orchestration abstracted, so this is the memo surfacing for display, not C4 calling the UI
-directly) and commits at the gate through DecisionCommitService → AuditStore → PostgreSQL,
-with the **committed decision returned to C5** (`DCS -. committed decision .-> C5`);
+(`temperature=0`) and reads two **read-only** MCP servers. **All C5↔backend flows route
+through the `FastAPI orchestrator` node**: the UI entry (`C5 --> API --> C1`), the **commit
+request** (`C5 --> API --> DCS`, so the API layer enforces RBAC on the commit path per G7),
+and both return paths are mediated by FastAPI — the recommendation + memo returns
+`C4 -. recommendation + memo .-> API -. .-> C5`, and the committed decision returns
+`DCS -. committed decision .-> API -. .-> C5`. The deterministic-core edges
+(`C1 --> C2`, `C1 --> C3`, `C2 --> C4`, `C3 --> C4`) stay direct. C5 authenticates via
+Auth/RBAC and commits at the gate through DecisionCommitService → AuditStore → PostgreSQL;
 CorpusGenerator feeds C3.
 
 See [`components.md`](components.md) for full per-component purpose, responsibilities, and
@@ -89,11 +97,15 @@ interfaces, and [`component-methods.md`](component-methods.md) for signatures.
 
 FastAPI owns the deterministic pipeline (intake → rules → outlier) + persistence;
 LangGraph orchestrates only the C4 memo sub-flow; the human gate is outside the graph.
-Three sequence diagrams are in [`services.md`](services.md):
-1. **Intake → commit** (happy path)
-2. **Decision replay** (auditor, read-only, against the original rulebook version)
+Four sequence diagrams are in [`services.md`](services.md):
+1. **Intake → commit** (happy path; C3 Outlier marked Phase 2)
+2. **Decision replay** (auditor, read-only, against the original rulebook version; drawn as a
+   **match → ok / mismatch → blocking reproducibility failure** branch)
 3. **Uniform approval gate** (Approve / Override-with-reason for **all** recommendations
-   incl. REFER — **no REFER escalation branch**; escalation = Phase 3 / OOS-2)
+   incl. REFER — **no REFER escalation branch**; escalation = Phase 3 / OOS-2; commit path
+   shows the API-layer + DecisionCommitService RBAC enforcement)
+4. **Unhappy paths** (intake rejection / incomplete-package; memo citation-validation
+   failure; provider/tool-call error or timeout — flows only, retry/backoff deferred)
 
 Dependency matrix, communication patterns, and the data-flow diagram (with the explicit
 **deterministic/LLM line** and the **read-only MCP boundary**) are in

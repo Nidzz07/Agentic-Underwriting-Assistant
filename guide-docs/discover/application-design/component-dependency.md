@@ -29,6 +29,9 @@ Notes:
   `MemoAgent.draft(profile, rule_report, outlier_result)`) for memo prose; it does not
   invoke or alter scoring.
 - **C4 → MCP** is **read-only** grounding via two servers; **no write path** through MCP.
+  The memo cites **only** from the handed `RuleResultReport`; `rulebook-tools` supplies
+  **supplementary human-readable rule descriptions only** and is **never** used to re-derive
+  or re-fetch which rules fired (prevents a retrieval-miss inconsistency).
 - **C2/C3 do not depend on C4** — the deterministic pipeline never calls the LLM.
 - The **decision write path is `DecisionCommitService` only** (C5 → CommitService → Audit/DB).
 
@@ -41,7 +44,7 @@ Notes:
 | FastAPI → C4 | Invoke LangGraph memo sub-flow with **immutable** state | Q1=B |
 | C4 → ProviderAbstraction | Provider-agnostic call; `temperature=0` | FR-PROV-3 |
 | C4 → MCP `rulebook-tools` / `decisions-tools` | **Read-only** tool calls | Two servers (Q3=B) |
-| C5 → DecisionCommitService | Commit at the human gate | Rejects missing `underwriter_id`+`reason` |
+| C5 → DecisionCommitService | Commit at the human gate | **RBAC-gated at the API layer AND re-checked inside `DecisionCommitService`** (defense in depth; a read-only auditor is structurally unable to reach commit, SEC-4); rejects missing `underwriter_id`+`reason` |
 | DecisionCommitService → AuditStore → DB | Persist audit tuple | CON-AUDIT-1 |
 | ReplayService → C2 | Re-evaluate at **original** `rulebook_version` | CON-AUDIT-1 |
 
@@ -96,7 +99,10 @@ flowchart LR
 
 - **Deterministic Core (pure Python, no LLM)**: Documents → C1 Intake (parse + validate)
   → `ApplicantProfile` → C2 Rules Engine → **Recommendation (read-only)**. The profile also
-  flows to C3 Outlier (score + SHAP).
+  flows to C3 Outlier (score + SHAP). The **`confidence` level (Low/Med/High) is produced
+  here in the deterministic core** (rule-proximity; Phase 2 folds in C3's outlier score),
+  **not by the LLM** — it rides with the `RuleResultReport`/Recommendation on the existing
+  `REC -. read only .-> MEMO` edge into C4 (no separate edge), consumed read-only.
 - **The deterministic/LLM line — all five inputs into C4 are read-only**: C4 (the LLM Zone)
   has **five inputs**, and **every one is drawn as a dashed read-only edge** to visually
   prove CON-BR2 (the LLM consumes everything, mutates nothing): the **Recommendation**

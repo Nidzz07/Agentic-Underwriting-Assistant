@@ -4,7 +4,7 @@
 - **Project Name**: Agentic Underwriting Assistant
 - **Project Type**: Greenfield
 - **Start Date**: 2026-06-14T09:01:22Z
-- **Current Stage**: DISCOVER - Application Design (Workflow Planning COMPLETED/approved 2026-06-18; not yet started — awaiting user signal to begin)
+- **Current Stage**: DISCOVER - Application Design (artifacts generated; at the completion gate awaiting approval — NOT yet marked complete. Reviewer-feedback edit batch applied 2026-06-29.)
 
 ## Workspace State
 - **Existing Code**: No (only a Python `venv/` and root `requirements.txt`; no application source)
