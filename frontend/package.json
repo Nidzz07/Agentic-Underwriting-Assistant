@@ -1,0 +1,26 @@
+{
+  "name": "underwriting-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic Underwriting Assistant frontend. ui-shell (U10) shared design-system. JS-native, NO TypeScript. Bundler/dev-server + Vercel topology deferred to deploy-config (D6).",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
+  }
+}

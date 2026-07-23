@@ -1,0 +1,43 @@
+# Render Blueprint — deploy-config (U23, EPIC-6, Phase 2).
+# Validation/staging deploy, FREE-TIER (distinct from Phase-3 production, OOS-4).
+# SEC-3: variable-name SHAPES only, never values (sync: false prompts each secret in the
+# Render dashboard). The frozen backend.app.main:app is PACKAGED, never edited (BR-DEP-1).
+services:
+  - type: web
+    name: underwriting-backend
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    # Migration release step (register #8 resolved): run BOTH forward-only, idempotent
+    # migration sequences — database (U15) then case_lifecycle (U24, collision-guard first) —
+    # BEFORE traffic. The runnable entrypoint now EXISTS at backend/scripts/run_migrations.py:
+    # a cross-unit orchestrator that builds the owner engine from secrets-config and applies
+    # both sequences (fail-loud, idempotent). See deploy/README.md (MIGRATION).
+    preDeployCommand: "python -m backend.scripts.run_migrations"
+    envVars:
+      # Phase-1 required (the six the fail-closed Settings validates at construction).
+      - key: DATABASE_URL
+        sync: false
+      - key: AUDIT_WRITER_URL
+        sync: false
+      - key: AUDIT_READER_URL
+        sync: false
+      - key: AUDIT_WRITER_PASSWORD
+        sync: false
+      - key: AUDIT_READER_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # Phase-2 reserved (set-not-consumed by U23; the langfuse callback + provider
+      # adapters that consume these are composition/application's — OBS-SINK-DEFERRED code half).
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OLLAMA_HOST
+        sync: false

@@ -1,0 +1,32 @@
+{
+  "class_counts": {
+    "APPROVE": 120,
+    "DECLINE-RECOMMEND": 75,
+    "REFER": 105
+  },
+  "class_proportions": {
+    "APPROVE": "0.4",
+    "DECLINE-RECOMMEND": "0.25",
+    "REFER": "0.35"
+  },
+  "content_hash": "57821891ba502e2e213c096bf3b0f5d3ab9e60107b13b687753b437bb7290525",
+  "corpus_version": "1.0.0",
+  "edge_case_checklist": {
+    "age_18": true,
+    "age_65": true,
+    "bmi_25": true,
+    "bmi_30": true,
+    "dti_40": true,
+    "self_employed_irregular": true,
+    "single_missing_document": true,
+    "thin_file": true
+  },
+  "engine_version": "corpus-build-1",
+  "generation_timestamp": "2026-07-23T06:26:08.318487+00:00",
+  "model_version": "OFFLINE-DOUBLE-NOT-A-REAL-LLM",
+  "profile_count": 300,
+  "provider": "gemini",
+  "rulebook_version": "1.0.0",
+  "seed": 42,
+  "tolerance_pp": "3"
+}

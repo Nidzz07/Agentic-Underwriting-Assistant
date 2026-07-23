@@ -1,0 +1,3008 @@
+{
+  "delta_count": 0,
+  "generated_at": "2026-07-23T06:26:11.334452+00:00",
+  "passed": true,
+  "profiles_tested": 300,
+  "swaps": [
+    {
+      "application_id": "corpus-42-0",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-1",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-2",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-3",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-4",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-5",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-6",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-7",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-8",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-9",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-10",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-11",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-12",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-13",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-14",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-15",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-16",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-17",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-18",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-19",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-20",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-21",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-22",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-23",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-24",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-25",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-26",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-27",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-28",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-29",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-30",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-31",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-32",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-33",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-34",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-35",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-36",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-37",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-38",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-39",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-40",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-41",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-42",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-43",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-44",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-45",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-46",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-47",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-48",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-49",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-50",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-51",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-52",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-53",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-54",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-55",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-56",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-57",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-58",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-59",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-60",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-61",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-62",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-63",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-64",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-65",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-66",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-67",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-68",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-69",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-70",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-71",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-72",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-73",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-74",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-75",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-76",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-77",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-78",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-79",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-80",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-81",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-82",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-83",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-84",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-85",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-86",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-87",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-88",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-89",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-90",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-91",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-92",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-93",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-94",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-95",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-96",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-97",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-98",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-99",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-100",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-101",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-102",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-103",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-104",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-105",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-106",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-107",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-108",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-109",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-110",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-111",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-112",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-113",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-114",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-115",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-116",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-117",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-118",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-119",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-120",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-121",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-122",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-123",
+      "baseline_recommendation": "APPROVE",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "APPROVE"
+    },
+    {
+      "application_id": "corpus-42-124",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-125",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-126",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-127",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-128",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-129",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-130",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-131",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-132",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-133",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-134",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-135",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-136",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-137",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-138",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-139",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-140",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-141",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-142",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-143",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-144",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-145",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-146",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-147",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-148",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-149",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-150",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-151",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-152",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-153",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-154",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-155",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-156",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-157",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-158",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-159",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-160",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-161",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-162",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-163",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-164",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-165",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-166",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-167",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-168",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-169",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-170",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-171",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-172",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-173",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-174",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-175",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-176",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-177",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-178",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-179",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-180",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-181",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-182",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-183",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-184",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-185",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-186",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-187",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-188",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-189",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-190",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-191",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-192",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-193",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-194",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-195",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-196",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-197",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-198",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-199",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-200",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-201",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-202",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-203",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-204",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-205",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-206",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-207",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-208",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-209",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-210",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-211",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-212",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-213",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-214",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-215",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-216",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-217",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-218",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-219",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-220",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-221",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-222",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-223",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-224",
+      "baseline_recommendation": "REFER",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "REFER"
+    },
+    {
+      "application_id": "corpus-42-225",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-226",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-227",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-228",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-229",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-230",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-231",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-232",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-233",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-234",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-235",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-236",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-237",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-238",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-239",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-240",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-241",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-242",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-243",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-244",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-245",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-246",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-247",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-248",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-249",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-250",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-251",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-252",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-253",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-254",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-255",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-256",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-257",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-258",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-259",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-260",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-261",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-262",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-263",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-264",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-265",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-266",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-267",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-268",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-269",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-270",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-271",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-272",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-273",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-274",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-275",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-276",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-277",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-278",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-279",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-280",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-281",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-282",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-283",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-284",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-285",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-286",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-287",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-288",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-289",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-290",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-291",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-292",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-293",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-294",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-295",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-296",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-297",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-298",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    },
+    {
+      "application_id": "corpus-42-299",
+      "baseline_recommendation": "DECLINE-RECOMMEND",
+      "swapped_fields": [
+        "full_name",
+        "gender",
+        "city"
+      ],
+      "swapped_recommendation": "DECLINE-RECOMMEND"
+    }
+  ]
+}

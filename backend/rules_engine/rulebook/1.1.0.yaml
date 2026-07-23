@@ -1,0 +1,114 @@
+# Representative rulebook v1.1.0 — rules-engine (C2)
+#
+# APPEND-ONLY successor to 1.0.0 (NFR-RULES-AUDIT-2): a NEW version, not an edit of
+# a published one. It tightens the DTI ceiling (0.40 -> 0.35) and the income-multiple
+# ceiling (12 -> 10). Different rule bytes -> different content_hash; 1.0.0 stays
+# loadable and unchanged, so any past decision still replays against its original
+# version. Same authoring convention + STRING thresholds as 1.0.0.
+
+rulebook_version: "1.1.0"
+content_hash: ""
+confidence_bands:
+  high_margin: "0.15"
+  low_margin: "0.03"
+
+rules:
+  - rule_id: "AGE-BAND-1"
+    category: "age_eligibility"
+    input_fields: ["age_years_derived"]
+    operator: "between"
+    threshold: {low: "18", low_inclusive: true, high: "65", high_inclusive: true}
+    outcome: "decline_fail"
+    rationale_message: "applicant age {actual_value} is outside the eligible band 18-65"
+    irdai_ref: ""
+
+  - rule_id: "BMI-OBESE-1"
+    category: "medical_bmi"
+    input_fields: ["bmi_derived"]
+    operator: "lt"
+    threshold: "30"
+    outcome: "refer_trigger"
+    rationale_message: "bmi {actual_value} is at or above the obese threshold 30"
+    irdai_ref: ""
+
+  - rule_id: "DTI-CEIL-1"
+    category: "financial_dti"
+    input_fields: ["dti_ratio"]
+    operator: "lte"
+    threshold: "0.35"                         # tightened from 0.40 in 1.0.0
+    outcome: "decline_fail"
+    rationale_message: "debt-to-income {actual_value} exceeds the ceiling 0.35"
+    irdai_ref: ""
+
+  - rule_id: "INCM-CEIL-1"
+    category: "financial_income_multiple"
+    input_fields: ["income_multiple"]
+    operator: "lte"
+    threshold: "10"                           # tightened from 12 in 1.0.0
+    outcome: "refer_trigger"
+    rationale_message: "cover-to-income multiple {actual_value} exceeds the review ceiling 10"
+    irdai_ref: ""
+
+  - rule_id: "SMOKE-STATUS-1"
+    category: "lifestyle_smoking"
+    input_fields: ["smoking_status"]
+    operator: "in"
+    threshold: ["non_smoker"]
+    outcome: "refer_trigger"
+    rationale_message: "smoking status {actual_value} needs underwriter review"
+    irdai_ref: ""
+
+  - rule_id: "OCC-LOWRISK-1"
+    category: "lifestyle_occupation"
+    input_fields: ["occupation"]
+    operator: "in"
+    threshold: ["engineer", "teacher", "doctor", "clerk", "analyst"]
+    outcome: "refer_trigger"
+    rationale_message: "occupation {actual_value} is outside the sanctioned low-risk set"
+    irdai_ref: ""
+
+  # non-scalar categories via derived scalar operands (FD §4.2 back-annotation)
+  - rule_id: "MED-HEALTH-1"
+    category: "medical_health"
+    input_fields: ["health_flag_count"]
+    operator: "lte"
+    threshold: "0"
+    outcome: "refer_trigger"
+    rationale_message: "applicant has {actual_value} reported health flag(s) needing review"
+    irdai_ref: ""
+
+  - rule_id: "DOCS-COMPLETE-1"
+    category: "document_completeness"
+    input_fields: ["documents_missing_count"]
+    operator: "lte"
+    threshold: "0"
+    outcome: "refer_trigger"
+    rationale_message: "{actual_value} required document(s) missing or unparseable"
+    irdai_ref: ""
+
+  - rule_id: "IRDAI-INCOME-FLOOR-1"
+    category: "compliance_irdai"
+    input_fields: ["verifiable_income_annual"]
+    operator: "gte"
+    threshold: "120000"
+    outcome: "decline_fail"
+    rationale_message: "verifiable income {actual_value} is below the regulatory floor 120000"
+    irdai_ref: "IRDAI-2024-INCOME-3.1"
+
+  - rule_id: "IRDAI-COVER-POSITIVE-1"
+    category: "compliance_irdai"
+    input_fields: ["requested_cover_amount"]
+    operator: "gt"
+    threshold: "0"
+    outcome: "decline_fail"
+    rationale_message: "requested cover {actual_value} must be greater than 0"
+    irdai_ref: "IRDAI-2024-COVER-1.0"
+
+  - rule_id: "IRDAI-EMP-SALARIED-1"
+    category: "compliance_irdai"
+    input_fields: ["employment_type"]
+    operator: "eq"
+    threshold: "salaried"
+    outcome: "refer_trigger"
+    rationale_message: "employment type {actual_value} needs irregular-income review"
+    irdai_ref: "IRDAI-2024-EMP-2.4"

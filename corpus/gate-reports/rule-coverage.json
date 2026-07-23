@@ -1,0 +1,21 @@
+{
+  "coverage_pct": 100.0,
+  "covered_rule_ids": [
+    "AGE-BAND-1",
+    "BMI-OBESE-1",
+    "DTI-CEIL-1",
+    "INCM-CEIL-1",
+    "SMOKE-STATUS-1",
+    "OCC-LOWRISK-1",
+    "MED-HEALTH-1",
+    "DOCS-COMPLETE-1",
+    "IRDAI-INCOME-FLOOR-1",
+    "IRDAI-COVER-POSITIVE-1",
+    "IRDAI-EMP-SALARIED-1"
+  ],
+  "generated_at": "2026-07-23T06:26:11.334452+00:00",
+  "passed": true,
+  "rulebook_version": "1.0.0",
+  "total_rules": 11,
+  "uncovered_rule_ids": []
+}

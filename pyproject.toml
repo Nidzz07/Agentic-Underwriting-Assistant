@@ -1,0 +1,132 @@
+[project]
+name = "underwriting-assistant"
+version = "0.1.0"
+description = "Agentic Underwriting Assistant — deterministic-core BFSI underwriting co-pilot"
+# Pinned minor for NFKC/Unicode-version determinism across dev/test/CI/Render
+# (CON-DET-1). Single source of truth: .python-version (3.12). See
+# tech-stack-decisions.md D6.
+requires-python = ">=3.12,<3.13"
+
+# ---------------------------------------------------------------------------
+# pytest / coverage configuration
+#
+# Scope note: the ≥90% coverage gate (QA-6) is scoped to the FIRST BUILD unit
+# now under generation — `intake` + `document-sanitizer` + the shared
+# `common/` CANON-SER utility. As later units are generated their packages are
+# added to `--cov`. Running with `--cov-fail-under=90` enforces QA-6 on every
+# full run; intermediate per-step runs may pass `--cov-fail-under=0`.
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["backend"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    # backend/app — the composition root, authored in the out-of-band integration pass
+    # (see guide-docs/build/plans/composition-root-integration-plan.md). Counted like every
+    # other tree so QA-6 (>=90%) covers it too; the --cov-fail-under gate below is UNCHANGED.
+    "--cov=backend/app",
+    "--cov=backend/intake",
+    "--cov=backend/common",
+    "--cov=backend/rules_engine",
+    "--cov=backend/audit_store",
+    "--cov=backend/memo_agent_core",
+    "--cov=backend/database",
+    "--cov=backend/auth_rbac",
+    "--cov=backend/secrets_config",
+    "--cov=backend/corpus_generator",
+    "--cov=backend/quality_gates",
+    "--cov=backend/admin_cli",
+    # outlier-model (U18) — the FIRST Phase-2 unit; pure sklearn/numpy/shap scorer.
+    # Counted like every other tree so QA-6 (>=90%) covers it; the --cov-fail-under
+    # gate below is UNCHANGED. No omit — the unit is pure logic, fully unit-coverable
+    # (no live-DB/subprocess module, unlike pg_repository.py). See build/outlier-model/
+    # code/code-summary.md.
+    "--cov=backend/outlier_model",
+    # memo-extensions (U19, C4) — the 3rd Phase-2 unit; pure-Python provider/routing/
+    # MCP-tool extension of memo-agent-core. Counted like every other tree so QA-6
+    # (>=90%) covers it; the --cov-fail-under gate below is UNCHANGED. No omit — the
+    # unit is pure logic, fully unit-coverable (no live-DB/subprocess/network module).
+    # See build/memo-extensions/code/code-summary.md.
+    "--cov=backend/memo_extensions",
+    # observability (U21, EPIC-6) — the 4th Phase-2 unit; pure-Python injected trace/metric
+    # Protocols + the plane-neutral allowlist projection (the live langfuse/prometheus SDK
+    # binding is deferred to composition — OBS-SINK-DEFERRED). Counted like every other tree so
+    # QA-6 (>=90%) covers it; the --cov-fail-under gate below is UNCHANGED. No omit — the unit is
+    # pure logic, fully unit-coverable (no live-SDK/subprocess/network module at tier-U).
+    # See build/observability/code/code-summary.md.
+    "--cov=backend/observability",
+    # case-lifecycle (U24, Scope B) — the FIRST unit added after the original 23-unit
+    # decomposition. Pure-Python state machine + canonicalization + pipeline orchestration over
+    # an injected CaseStore Protocol. Counted like every other tree so QA-6 (>=90%) covers it;
+    # the --cov-fail-under gate below is UNCHANGED.
+    "--cov=backend/case_lifecycle",
+    # llm-judge (U22, EPIC-6) — the 6th and FINAL Phase-2 unit and the last of the 23-unit
+    # decomposition; pure-Python rubric/scope-filter/aggregation/report over an injected
+    # RubricEngine Protocol (the real promptfoo CLI binding is deferred —
+    # PROMPTFOO-CLI-DEFERRED; the real >=4/5 corpus run — JUDGE-EVAL-DEFERRED). Counted like
+    # every other tree so QA-6 (>=90%) covers it; the --cov-fail-under gate below is
+    # UNCHANGED. No omit — the unit is pure logic, fully unit-coverable (no
+    # promptfoo/Node/subprocess/network module at tier-U). NOTE: BR-JUDGE-6/8/9 are
+    # governance/deferral targets verified by presence/absence scans — ORTHOGONAL to line
+    # coverage, so this number must not be read as covering them.
+    # See build/llm-judge/code/code-summary.md.
+    "--cov=backend/llm_judge",
+    "--cov-report=term-missing",
+    "--cov-fail-under=90",
+    "--strict-markers",
+]
+markers = [
+    "posix_only: requires POSIX resource limits (resource.setrlimit); auto-skipped on non-POSIX (Windows dev). MUST run in Linux CI so the setrlimit sandbox half is exercised.",
+    "property: Hypothesis property-based test asserting a universal-quantifier invariant.",
+    "integration: requires Docker + a real Postgres (testcontainers); auto-skipped when unavailable (local dev). MUST run in CI so the DB-role / atomicity / append-only halves are exercised (DATA-5, no SQLite).",
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/parse_worker.py",  # subprocess entrypoint — exercised via SubprocessParseWorker integration, not import-covered
+    "*/pg_repository.py",  # SQLAlchemy/Postgres impl — exercised via testcontainers integration in CI, not unit-import-covered
+    # database (U15) — live-DB modules exercised only via testcontainers integration in
+    # CI (auto-skipped without Docker); omitted from unit-tier coverage exactly like
+    # pg_repository.py. The pure-logic modules (db_url_guard, migration_checksum) stay
+    # counted and are unit-covered to >=90% (QA-6). See build/database/code/code-summary.md.
+    "*/database/migration_runner.py",
+    "*/database/schema_introspector.py",
+    "*/database/fidelity_comparator.py",
+    # corpus-generator (U14) — the tier-B out-of-band real-client entrypoint
+    # (live google-genai LLMClient + GEMINI_API_KEY + full-corpus run) is exercised
+    # only out of band, never in CI; omitted from unit-tier coverage exactly like
+    # pg_repository.py. All pure-logic C1–C8 modules stay counted and unit-covered
+    # to >=90% (QA-6). See build/corpus-generator/code/code-summary.md.
+    "*/corpus_generator/build.py",
+    # admin-cli (U17) — the SQL-exec shim (engine.begin()+execute) is exercised only
+    # via testcontainers integration in CI (auto-skipped without Docker); omitted from
+    # unit-tier coverage exactly like pg_repository.py. __main__.py is the composition-
+    # root entry (builds the injected Engine from secrets-config), likewise omitted. The
+    # pure role-gate + publisher + writer interpretation + dispatch + taxonomy stay
+    # counted and unit-covered to >=90% (QA-6). See build/admin-cli/code/code-summary.md.
+    "*/admin_cli/pg_writer.py",
+    "*/admin_cli/__main__.py",
+    # case-lifecycle (U24, Scope B) — the SQL-exec shim is exercised via testcontainers
+    # integration in CI (auto-skipped without Docker); omitted from unit-tier coverage exactly
+    # like pg_repository.py. All pure-logic modules — states.py (incl. LEGAL_TRANSITIONS + the
+    # pure wire projection), schemas.py, store.py (the Protocol), pipeline.py, provider.py and
+    # migrate.py (incl. the PRODUCTION collision guard) — stay counted and unit-covered to
+    # >=90% (QA-6). NOTE: repository.py is OMITTED FROM COVERAGE but REMAINS IN ADAPTER-1's
+    # SCAN SET (CASE-Req-Fold-3) — the omit governs where a module is exercised, never what it
+    # may contain. See build/case-lifecycle/code/code-summary.md.
+    "*/case_lifecycle/repository.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    ': \.\.\.\s*$',   # typing.Protocol method stubs (def f(...) -> T: ...) — never executed
+    '^\s*\.\.\.\s*$',
+]

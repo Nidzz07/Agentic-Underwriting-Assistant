@@ -1,0 +1,42 @@
+{
+  "title": "Agentic Underwriting Assistant Observability",
+  "schemaVersion": 39,
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "title": "decision latency",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "decision_latency_ms" }]
+    },
+    {
+      "id": 2,
+      "title": "decisions by recommendation type",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "decisions_by_recommendation_type" }]
+    },
+    {
+      "id": 3,
+      "title": "rule-evaluation duration",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rule_evaluation_duration_micros" }]
+    },
+    {
+      "id": 4,
+      "title": "LLM-call errors",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "llm_call_errors" }]
+    },
+    {
+      "id": 5,
+      "title": "outlier-flag rate",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "outlier_flag" }]
+    }
+  ]
+}

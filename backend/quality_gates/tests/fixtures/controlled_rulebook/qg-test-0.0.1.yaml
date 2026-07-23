@@ -1,0 +1,45 @@
+# P3a controlled fixture rulebook (Q3-A / NFR-QG-Fold-2) — RULECOV-1 teeth.
+#
+# A small 3-rule test-scoped rulebook, DISTINCT from the production 1.0.0, loaded
+# via the REAL RulebookLoader (its Pydantic Rulebook schema IS the validator — no
+# bespoke validator). Thresholds are quoted strings (CON-DET-1); input_fields are
+# in the ALLOWED_INPUT_FIELDS allowlist. All data synthetic; content_hash is
+# recomputed + stamped by the loader.
+#
+# t_dti / t_age are covered when the stub populates their operands; T-BMI-UNCOVERED-1
+# reaches NOT_EVALUATED (uncovered) when the teeth stub leaves height/weight absent
+# so bmi_derived is None — the deliberate uncovered rule.
+
+rulebook_version: "qg-test-0.0.1"
+content_hash: ""
+confidence_bands:
+  high_margin: "0.15"
+  low_margin: "0.03"
+
+rules:
+  - rule_id: "T-DTI-1"
+    category: "financial_dti"
+    input_fields: ["dti_ratio"]
+    operator: "lte"
+    threshold: "0.40"
+    outcome: "decline_fail"
+    rationale_message: "debt-to-income {actual_value} exceeds the ceiling 0.40"
+    irdai_ref: ""
+
+  - rule_id: "T-AGE-1"
+    category: "age_eligibility"
+    input_fields: ["age_years_derived"]
+    operator: "gte"
+    threshold: "18"
+    outcome: "decline_fail"
+    rationale_message: "applicant age {actual_value} is below the minimum 18"
+    irdai_ref: ""
+
+  - rule_id: "T-BMI-UNCOVERED-1"
+    category: "medical_bmi"
+    input_fields: ["bmi_derived"]
+    operator: "lt"
+    threshold: "30"
+    outcome: "refer_trigger"
+    rationale_message: "bmi {actual_value} is at or above the obese threshold 30"
+    irdai_ref: ""

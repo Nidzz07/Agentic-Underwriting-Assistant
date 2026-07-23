@@ -1,0 +1,10 @@
+# deploy-config (U23) — Prometheus scrape config (the observability deployment half,
+# OBS-SINK-DEFERRED). Pull-based: Prometheus scrapes the Render backend's /metrics path.
+# No app-side key. The public backend host is a SHAPE (set at deploy), never a credential.
+scrape_configs:
+  - job_name: underwriting-backend
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets:
+          - REPLACE_WITH_RENDER_BACKEND_HOST

@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "format": 3,
+    "version": "7.6.1",
+    "note": "synthetic fixture coverage-data artifact (coverage.py JSON shape) for COVEVID-1"
+  },
+  "totals": {
+    "covered_lines": 934,
+    "num_statements": 940,
+    "percent_covered": 99.36170212765957,
+    "missing_lines": 6
+  }
+}

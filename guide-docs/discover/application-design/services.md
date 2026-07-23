@@ -221,12 +221,13 @@ sequenceDiagram
 
     Note over UW,PROV: Scenario 1 - intake rejection / incomplete package
     UI->>API: submit application + documents
-    API->>INT: parse + validate + sanitize
-    alt malformed, injection-laden, or missing required fields
+    API->>INT: parse then sanitize then validate at the gate
+    Note over INT: injection-laden free-text is neutralized by the sanitizer SEC-1 and continues - injection alone is never a rejection trigger
+    alt malformed, unparseable, or missing required primitive value
         INT-->>API: RejectedIntake - reasons + missing-items list
         API-->>UI: rejected - show reasons + missing-items to underwriter
-    else valid
-        INT-->>API: ApplicantProfile validated
+    else valid - neutralized-injection and thin-file incomplete included
+        INT-->>API: ApplicantProfile validated - incomplete flag maybe true
     end
 
     Note over UW,PROV: Scenario 2 - citation-validation failure in the memo flow
@@ -251,10 +252,13 @@ sequenceDiagram
     Note over UW,PROV: flows only - retry / backoff / dead-letter internals deferred to NFR Design
 ```
 
-**Text alternative**: three failure flows. **(1) Intake rejection / incomplete package** —
-malformed, injection-laden, or incomplete documents hit the SEC-1/SEC-2 validation gate in
-C1; intake returns a `RejectedIntake` carrying the reasons + a missing-items list, and the UI
-shows the underwriter the rejection + what's missing (no agent runs on rejected input).
+**Text alternative**: three failure flows. **(1) Intake rejection / incomplete package** — the
+C1 pipeline runs **parse → sanitize (SEC-1) → validate gate (SEC-2)**. **Injection-laden
+free-text is neutralized by the sanitizer and the pipeline continues** — injection alone is
+**never** a rejection trigger. Only **malformed, unparseable, or missing-required-primitive-value**
+input returns a `RejectedIntake` (reasons + missing-items list; the UI shows the underwriter what's
+missing; no agent runs on rejected input). **Thin-file / single-missing-document** input is **not**
+rejected — it yields a valid `ApplicantProfile` flagged `incomplete`, which C2 routes to REFER.
 **(2) Citation-validation failure** — C4 validates every cited rule ID against the YAML
 rulebook; if any cited ID is not in the rulebook the memo is **blocked, not surfaced**, and
 the UI shows it flagged (this is the flagship "how AI fails" guard against hallucinated

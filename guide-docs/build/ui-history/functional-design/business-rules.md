@@ -1,0 +1,82 @@
+# Business Rules — `ui-history` (U9)
+
+**Stage**: BUILD → Functional Design (per-unit) · **Unit**: U9 `ui-history` · **Date**: 2026-07-14 · Story **US-UI-6**.
+**Nature**: `ui-history` owns **no domain business rules** (no rule eval, no authorization decision, no LLM, no commit, **no write path**). The rules below are **display / structural / behavioral conformance rules** (BR-HIST-*) governing how the history view renders WIRE-1 **R6** (paged `DecisionSummary` list) and **R7** (full `AuditRecord` detail), and how it conforms to the frozen `ui-shell`, `audit-store`, and WIRE-1 contracts. Each is **checkable** (test/lint) and grounded in a frozen contract — none introduces new domain logic. The load-bearing ones are **BR-HIST-2** (advisory namespace-distinctness in a display context that renders BOTH the system recommendation and the human decision) and **BR-HIST-3** (INV-FAITHFUL: the read-only, no-edit, no-mutation-seam guarantee over an immutable forensic record).
+
+---
+
+## Rules
+
+### BR-HIST-1 — Display strings come from `shell/copy` (enums) + history-local copy (chrome) only — never inlined
+Every human-visible `Recommendation` / `Confidence` / `CommitAction` label is looked up from `ui-shell`'s `shell/copy` (`RECOMMENDATION_LABELS`, `CONFIDENCE_LABELS`, `COMMIT_ACTION_LABELS`) **by value** (via the reused shell badges or a direct value lookup); every history-specific chrome string (region headings, empty/loading/retry/back text, forensic field labels) comes from the **history-local copy module** (`domain-entities.md §5`). The view **inlines no display string** in a component. Conformance to the frozen U10 `BR-UI-1` fold, extended by the local copy module (the `ui-queue`/`ui-memo-view` precedent).
+- **Grounded**: `shell/copy/index.js` (single-source label maps; **`COMMIT_ACTION_LABELS` already frozen** — reused, none added); the sibling local-`copy.js` precedent.
+- **Checkable**: no string literal used as a display label in `frontend/src/history/` components; badges/labels receive a **value**, not a label; the reused `no-inline-label` lint passes.
+
+### BR-HIST-2 — Advisory namespace-distinctness in a DUAL-display context: system `Recommendation` vs human `CommittedDecision` (the first unit to render BOTH)
+`ui-history` is the **first UI unit that renders both** the **system** `Recommendation` (advisory: `APPROVE` / `REFER` / **`DECLINE-RECOMMEND`** — never a bare `DECLINE`) **and** the **human** `CommitAction` (`approve` / `override`, + `reason`). The two are rendered as **structurally distinct, distinctly-labelled regions**: the **system** recommendation/confidence render **only** inside the read-only, **engine-attributed** `SystemRecommendationRegion` (from `audit_tuple.rule_results`); the **human** committed action renders **only** inside the `CommittedActionRegion` (from `committed_decision`). The human `override` is **never** rendered as, adjacent to, or conflated with the system `DECLINE-RECOMMEND`.
+- **Advisory-vocabulary scope (HIST-Fold-4 — the "decision" token):** the frozen `FORBIDDEN_TERMS.systemOutput` = `['DECLINE', 'decision', 'approved', 'declined']`, forbidden **as SYSTEM output** ("`decision`" is explicitly *reserved for the HUMAN underwriter's committed action, never system output*). The reused `advisory-vocabulary` lint therefore applies to the view's **system-output** copy (the system region + generic chrome), which must never contain those tokens. The **human committed-action region** legitimately concerns the CON-BR4 "decision" concept; because the reused lint is a **blanket lexical scan** (safe for `ui-memo-view` only because it had no human-namespace copy), `ui-history`'s conformance must be **system-output-scoped**, realized **without modifying frozen `shell`** — either a system-output-scoped lint block for `src/history/**`, or human-region wording that stays namespace-distinct while avoiding the bare lexical token (e.g. "Underwriter's committed action"). The **exact lint scoping / final heading wording** is an **NFR-Design/Code-Gen** realization (flagged for the reviewer).
+- **Grounded**: WIRE-1 §1 namespace-distinctness (binding); `shell/copy` `RECOMMENDATION_LABELS`/`COMMIT_ACTION_LABELS` + `forbiddenTerms.js` (one list, two checks — lexical + contextual); `audit_store.record_schema` (`CommittedDecision` = "the one place 'decision' is correct — the human's committed action"); Q4-A; HIST-Fold-4.
+- **Checkable**: the system recommendation/confidence render **exactly once**, inside `history-detail-system-region`, and **never** inside `history-detail-human-region`; the human `action`/`reason` render **only** inside `history-detail-human-region`; the two are **distinct DOM nodes** (neither an ancestor of the other); no bare `DECLINE` and no forbidden system-output token appears in the view's **system-output** static copy; a detector self-test confirms a synthetic forbidden term in system-output copy fails the (system-output-scoped) lint.
+
+### BR-HIST-3 — INV-FAITHFUL: strictly read-only over an immutable forensic record; no edit affordance, no write/mutation seam
+The history view is a **pure read surface** over an **immutable, forensic** audit record (SEC-4 "cannot edit"). It exposes **no** edit control, **no** commit/override affordance, **no** `submit*` builder, **no** write transport, and **no** mutation seam of any kind; it never implies the record could be altered. This is the **read-surface mirror** of the write-path units' single-call-site guarantee, verified structurally rather than behaviorally.
+- **Grounded**: user-journey auditor path ("open a past decision read-only — **cannot edit**", SEC-4 / US-PLAT-2); the underwriting-rules human-in-the-loop constraint (a `CommittedDecision` is created only by the U7/U8 commit path, never here); Q1-A / Q6-A; INV-FAITHFUL.
+- **Checkable** (StructuralGuard): **no** module under `frontend/src/history/` imports a commit/write seam, defines a `buildCommitRequest`-analog / `submitOverride`/`submitApprove`-analog, or issues a write request; `historyFetchSeam` exposes **only** `fetchList` / `fetchDetail` (read builders + `normalizeError`) and **no** request-body builder; no interactive element mutates or submits the record (a `noWriteSeam` scan mirroring the write-path units' single-call-site guards, inverted to "zero call sites").
+
+### BR-HIST-4 — Master-detail: one stateful `HistoryView` owns BOTH reads (R6 list + R7 detail-by-id); the detail is in-unit
+`ui-history` renders a **paged list** (R6) and, on selecting a row, a **by-id detail** (R7) as **two states of one self-contained `HistoryView`** — the audit tuple belongs to history itself, so the detail is kept **in-unit** (contrast `ui-queue`, which emitted `onSelect` **upward** to a *different* unit). `HistoryView` owns its own local `historyFetchSeam` (`fetchList(page,size)` + `fetchDetail(decision_id)`), mirroring — never importing — the frozen sibling read-only seam shapes (`ui-queue` list, `ui-memo-view` by-id). No router dependency; the master-detail navigation is internal state.
+- **Grounded**: WIRE-1 §3 R6 (list) + R7 (by-id, mirrors R3/R4 single-resource); Q2-A; `queue/fetchSeam.js` + `memoView/memoFetchSeam.js` (mirror-not-import); US-UI-6 "each entry links to the audit tuple".
+- **Checkable**: `HistoryView` is the only stateful history component; a row `onSelect(decision_id)` triggers a single R7 fetch by that id; `historyFetchSeam.fetchDetail` builds `GET /decisions/{decision_id}`; no sibling-unit import and no router import exist under `frontend/src/history/`.
+
+### BR-HIST-5 — Faithful detail rendering: the forensic tuple in full; `rule_results` summarized/expandable with NO lossy omission
+The `DecisionDetail` renders the `AuditRecord` **faithfully**: the decision linkage (`decision_id`, `application_id`, `recommendation_id`), the human committed action, the **full forensic/replay tuple** (`rulebook_version`, `model_version`, `engine_version`, `memo_hash`, `content_hash`, tuple `timestamp`, `status`), the system recommendation/confidence, and the read-only profile snapshot. `rule_results` is rendered at a **summarized/expandable** (progressive-disclosure) level that **preserves every entry and the backend order — never dropping data** (HIST-Fold-2). The concrete expand/collapse widget is an NFR-Design/Code-Gen realization; the FD pins the **faithfulness rule + shape**.
+- **Grounded**: `audit_store.record_schema.AuditRecord`/`AuditTuple` (the persisted superset); user-journey auditor path (views `rulebook_version`/`rule_results`/`memo_hash`); full-explainability constraint (no dropped rule result); Q6-A; HIST-Fold-2.
+- **Checkable**: each forensic field renders under its own `history-detail-*` testid; `rule_results` renders **all** report entries (count preserved, order preserved, no client re-sort, no truncation-that-hides-data); the profile snapshot renders read-only; the memo body is **not** rendered (only `memo_hash`, as data isn't present — Q6-A rejected C).
+
+### BR-HIST-6 — The human committed action: `action` + conditional `reason`, from `committed_decision` only
+The human committed action renders from `committed_decision` (`action`, `reason`, `underwriter_id`): `action` via `COMMIT_ACTION_LABELS` (`Approve`/`Override`); `reason` is rendered **when `action === 'override'`** (where it is present/non-blank per the frozen gate) and omitted on `approve`; `underwriter_id` identifies WHO. This is the **human** namespace (BR-HIST-2) — never merged with the system region.
+- **Grounded**: `audit_store.record_schema.CommittedDecision` (`reason` optional, conditionally mandatory on override — enforced at the gate, U7/U8); WIRE-1 §5 `CommittedDecision`; Q4-A.
+- **Checkable**: `history-detail-action` renders `COMMIT_ACTION_LABELS[action]`; `history-detail-reason` renders `committed_decision.reason` **iff** `action === 'override'` and is absent for `approve`; `history-detail-underwriter` renders `underwriter_id`; these appear only within `history-detail-human-region`.
+
+### BR-HIST-7 — View-only for all authenticated roles; no `RoleGate`, no router import (VIEWONLY-1)
+The history view renders **no** `RoleGate`, gates **no** affordance by Role, and renders **identically** for every authenticated role. R6/R7 are authenticated **any-role**; there is **no act-affordance to gate** (it is a pure read surface). `RoleGate can="read"` is deliberately **not** used — it would cosmetically **exclude `admin`** (`read:false`), a UI/contract divergence from R6/R7's any-authenticated (and `admin` has no UI journey anyway). The view imports **no router**.
+- **Grounded**: WIRE-1 §3 (R6/R7 authenticated any role) + §6 (Role is chrome, not authz); `RoleGate.jsx` `COSMETIC_CAPABILITIES` (admin `read:false`); `ui-queue` VIEWONLY-1 + `noRoleGateImport` precedent; Q3-A.
+- **Checkable**: no `RoleGate` import/usage and no router import in `frontend/src/history/` (a `noRoleGateImport` StructuralGuard mirroring `ui-queue`'s); the view renders identically across `underwriter`/`auditor`/`admin`/null.
+
+### BR-HIST-8 — Empty history → a single page-level "no decisions yet" state (derived from `items.length`)
+When R6 resolves with `items: []`, the view renders a **single page-level** "no decisions yet" message (`history-state-empty`) — **no** empty table, no partial render. The `listEmpty` state is derived from `items.length === 0` (the `ui-queue` `empty` precedent — an array-length check, contrast `ui-memo-view`'s `status` discriminator).
+- **Grounded**: WIRE-1 §3 list wrapper (`items`); `ui-queue` `empty`-state precedent; Q5-A.
+- **Checkable**: an R6 body with `items: []` renders `history-state-empty` and **no** list/pagination; the derivation keys on `items.length`.
+
+### BR-HIST-9 — Error surfaces `message` only; `code` via testid; `detail` never raw; Retry is position/id-preserving; 404 is generic
+On an R6 **or** R7 failure, the visible error text is **`error.message`** only. `error.code` is exposed **only** through the `history-error-code` testid/console binding (for test assertion), **not** as visible UI text; `error.detail` is **never** rendered raw. **Retry** is state-aware: a `listError` Retry re-fetches the **last-requested page** (position-preserving, HIST-Fold-1); a `detailError` Retry re-fetches the **same `decision_id`**. The R7 **404 `not_found`** (invalid/non-existent decision) is surfaced through the **generic** `detailError` path with **no special-casing** (HIST-Fold-3).
+- **Grounded**: WIRE-1 §4 error envelope `{error:{code,message,detail?}}` ("no secret VALUE in message/detail") + status table (404 `not_found`); the mirrored `normalizeError` convention (well-formed envelope guaranteed); `QueueView.jsx` position-preserving Retry (Fold-B); Q6-A; HIST-Fold-1 / HIST-Fold-3.
+- **Checkable**: `history-error-message` renders `error.message`; `history-error-code` carries `error.code`; no element renders `error.detail`; a `listError` Retry issues R6 for the last-requested page; a `detailError` Retry issues R7 for the same `decision_id`; a 404 renders `history-state-error-detail` with `error.code === 'not_found'` and **no** dedicated not-found branch.
+
+### BR-HIST-10 — `data-testid` naming convention holds, incl. history rows + region-level testids
+Every assertion-relevant history element carries a stable `data-testid` of shape **`history-<element>-<purpose>`** (the inventory in `domain-entities.md §6`), applying the frozen `shell-`/`queue-`/`memo-` convention to the history namespace. US-UI-6 **requires** history **rows** to carry data-testid; the **region-level** detail testids (`history-detail-system-region` / `history-detail-human-region`, plus the per-field ids) are **required** so BR-HIST-2's namespace-distinct separation is testable.
+- **Grounded**: FR-UI-3 / US-UI-6 ("history rows carry data-testid") / US-UI-7; the sibling `*-testid-convention` lints.
+- **Checkable**: a `history-testid-convention` ESLint rule (mirroring `queue-testid-convention`) + a self-test assert the convention across history elements; every row carries `history-row-<decision_id>`; the two detail region testids are present and distinct.
+
+### BR-HIST-11 — Immutable/versioning fields are display-only; NO premature superseded handling
+`status` (write-once `active` in Phase 1/2) and `supersedes_decision_id` (**always `null`** in Phase 1/2) are rendered **display-only**. The view designs **no** "superseded" branch, **no** dereference/link of `supersedes_decision_id`, and **no** supersede/version affordance — that is the OOS-7 / Phase-3 seam, **named-not-designed** (HIST-Fold-3). Designing for a state that cannot occur would be premature abstraction and is deliberately avoided (an INV-FAITHFUL guardrail).
+- **Grounded**: `audit_store.record_schema` (`DecisionStatus` OOS-7 seam; "write-once `active`"; `supersedes_decision_id` "always null in Phase 1/2"); HIST-Fold-3.
+- **Checkable**: `history-detail-status` renders the `status` value read-only; there is **no** conditional branch keyed on `status === 'superseded'`, **no** navigation/dereference using `supersedes_decision_id`, and **no** supersede affordance anywhere under `frontend/src/history/`.
+
+---
+
+## Rule → source traceability
+
+| Rule | Frozen source / decision |
+|---|---|
+| BR-HIST-1 | `shell/copy/index.js` (BR-UI-1; `COMMIT_ACTION_LABELS` frozen); sibling local-`copy.js` precedent |
+| BR-HIST-2 | WIRE-1 §1 namespace-distinctness; `shell/copy` + `forbiddenTerms.js` (one list, two checks); `audit_store.record_schema` (CommittedDecision = human "decision"); Q4-A; HIST-Fold-4 |
+| BR-HIST-3 | user-journey auditor "cannot edit" (SEC-4/US-PLAT-2); human-in-the-loop constraint; Q1-A/Q6-A; INV-FAITHFUL |
+| BR-HIST-4 | WIRE-1 §3 R6+R7; `queue/fetchSeam.js` + `memoView/memoFetchSeam.js` (mirror-not-import); Q2-A; US-UI-6 |
+| BR-HIST-5 | `audit_store.record_schema` AuditRecord/AuditTuple; auditor path; full-explainability; Q6-A; HIST-Fold-2 |
+| BR-HIST-6 | `audit_store.record_schema.CommittedDecision`; WIRE-1 §5; Q4-A |
+| BR-HIST-7 | WIRE-1 §3/§6; `RoleGate.jsx` COSMETIC_CAPABILITIES (admin read:false); `ui-queue` VIEWONLY-1; Q3-A |
+| BR-HIST-8 | WIRE-1 §3 list wrapper; `ui-queue` empty-state; Q5-A |
+| BR-HIST-9 | WIRE-1 §4 error envelope + status table; `normalizeError` convention; `QueueView.jsx` Fold-B; HIST-Fold-1/3 |
+| BR-HIST-10 | FR-UI-3 / US-UI-6 / US-UI-7; sibling testid-convention lints |
+| BR-HIST-11 | `audit_store.record_schema` (OOS-7 seam; write-once active; supersedes null Phase 1/2); HIST-Fold-3 |

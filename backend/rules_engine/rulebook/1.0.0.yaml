@@ -1,0 +1,132 @@
+# Representative rulebook v1.0.0 — rules-engine (C2)
+#
+# SCOPE (FD domain-entities §7, plan Q3=A): the ENGINE-proving MINIMAL rulebook —
+# the boundary rules + >=1 profile-backed rule across the SCALAR/ENUM categories,
+# exercising every engine path (all 7 operators, all 3 outcome tiers, >=1 set
+# threshold) on the pinned Python 3.12. The full production 25-40-rule set (complete
+# IRDAI clause set, occupation-risk table) is a deferred data-authoring pass.
+#
+# AUTHORING CONVENTION (frozen evaluator, business-logic-model §2):
+#   a rule's operator/threshold encodes the ACCEPTABLE condition -> PASS; on FAIL
+#   the rule contributes its `outcome` tier. So "obese is bad" is authored as the
+#   acceptable "bmi < 30" (obese fails -> refer), NOT "bmi >= 30".
+#
+# All thresholds are STRINGS so pyyaml never yields a float (CON-DET-1). All data
+# is synthetic; no real PII. content_hash is recomputed + stamped by the loader.
+#
+# NOTE: categories `medical_health` (health_flags: list) and `document_completeness`
+# (documents: DocumentManifest) are NOT authored here — their operands are
+# non-scalar and the frozen scalar/enum evaluator + allowlist do not express them;
+# authoring them needs a design decision (flagged at the Code-Gen gate).
+
+rulebook_version: "1.0.0"
+content_hash: ""
+confidence_bands:
+  high_margin: "0.15"
+  low_margin: "0.03"
+
+rules:
+  # --- boundary rules (FD business-rules §1) ---
+  - rule_id: "AGE-BAND-1"
+    category: "age_eligibility"
+    input_fields: ["age_years_derived"]
+    operator: "between"                       # both ends inclusive
+    threshold: {low: "18", low_inclusive: true, high: "65", high_inclusive: true}
+    outcome: "decline_fail"
+    rationale_message: "applicant age {actual_value} is outside the eligible band 18-65"
+    irdai_ref: ""
+
+  - rule_id: "BMI-OBESE-1"
+    category: "medical_bmi"
+    input_fields: ["bmi_derived"]
+    operator: "lt"                            # acceptable = not obese (bmi < 30)
+    threshold: "30"
+    outcome: "refer_trigger"
+    rationale_message: "bmi {actual_value} is at or above the obese threshold 30"
+    irdai_ref: ""
+
+  - rule_id: "DTI-CEIL-1"
+    category: "financial_dti"
+    input_fields: ["dti_ratio"]
+    operator: "lte"                           # acceptable = dti <= 0.40
+    threshold: "0.40"
+    outcome: "decline_fail"
+    rationale_message: "debt-to-income {actual_value} exceeds the ceiling 0.40"
+    irdai_ref: ""
+
+  - rule_id: "INCM-CEIL-1"
+    category: "financial_income_multiple"
+    input_fields: ["income_multiple"]
+    operator: "lte"                           # acceptable = cover <= 12x income
+    threshold: "12"
+    outcome: "refer_trigger"
+    rationale_message: "cover-to-income multiple {actual_value} exceeds the review ceiling 12"
+    irdai_ref: ""
+
+  # --- categorical / set-threshold rules (CANON-1 set-order invariance) ---
+  - rule_id: "SMOKE-STATUS-1"
+    category: "lifestyle_smoking"
+    input_fields: ["smoking_status"]
+    operator: "in"                            # acceptable = non_smoker
+    threshold: ["non_smoker"]
+    outcome: "refer_trigger"
+    rationale_message: "smoking status {actual_value} needs underwriter review"
+    irdai_ref: ""
+
+  - rule_id: "OCC-LOWRISK-1"
+    category: "lifestyle_occupation"
+    input_fields: ["occupation"]
+    operator: "in"                            # acceptable = a low-risk occupation (set)
+    threshold: ["engineer", "teacher", "doctor", "clerk", "analyst"]
+    outcome: "refer_trigger"
+    rationale_message: "occupation {actual_value} is outside the sanctioned low-risk set"
+    irdai_ref: ""
+
+  # --- non-scalar categories via derived scalar operands (FD §4.2 back-annotation) ---
+  # acceptable = no health flags (count <= 0); any flag fails -> refer_trigger
+  - rule_id: "MED-HEALTH-1"
+    category: "medical_health"
+    input_fields: ["health_flag_count"]
+    operator: "lte"
+    threshold: "0"
+    outcome: "refer_trigger"
+    rationale_message: "applicant has {actual_value} reported health flag(s) needing review"
+    irdai_ref: ""
+
+  # acceptable = no missing/unparseable docs (count <= 0); thin-file -> refer, never decline
+  - rule_id: "DOCS-COMPLETE-1"
+    category: "document_completeness"
+    input_fields: ["documents_missing_count"]
+    operator: "lte"
+    threshold: "0"
+    outcome: "refer_trigger"
+    rationale_message: "{actual_value} required document(s) missing or unparseable"
+    irdai_ref: ""
+
+  # --- compliance rules (exercise gte / gt / eq) ---
+  - rule_id: "IRDAI-INCOME-FLOOR-1"
+    category: "compliance_irdai"
+    input_fields: ["verifiable_income_annual"]
+    operator: "gte"                           # acceptable = income >= floor
+    threshold: "120000"
+    outcome: "decline_fail"
+    rationale_message: "verifiable income {actual_value} is below the regulatory floor 120000"
+    irdai_ref: "IRDAI-2024-INCOME-3.1"
+
+  - rule_id: "IRDAI-COVER-POSITIVE-1"
+    category: "compliance_irdai"
+    input_fields: ["requested_cover_amount"]
+    operator: "gt"                            # acceptable = cover > 0
+    threshold: "0"
+    outcome: "decline_fail"
+    rationale_message: "requested cover {actual_value} must be greater than 0"
+    irdai_ref: "IRDAI-2024-COVER-1.0"
+
+  - rule_id: "IRDAI-EMP-SALARIED-1"
+    category: "compliance_irdai"
+    input_fields: ["employment_type"]
+    operator: "eq"                            # acceptable = salaried (eq x == in {x})
+    threshold: "salaried"
+    outcome: "refer_trigger"
+    rationale_message: "employment type {actual_value} needs irregular-income review"
+    irdai_ref: "IRDAI-2024-EMP-2.4"
