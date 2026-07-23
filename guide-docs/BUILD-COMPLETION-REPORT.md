@@ -799,3 +799,94 @@ modified**) · U22's `DEFERRED_REGISTER` and its three frozen tests untouched ·
 exactly 5**) · no new route · **Stages 2 and 3 not authorized** · #18's spend guardrails neither weakened nor
 bypassed (`max_calls=20` default unchanged; the `--real-llm` path still requires both gates) · **no API call, no
 money spent**.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-07-23T07:55:16Z · item #24 OPENED **and** DISCHARGED in one pass
+
+Resolved by `guide-docs/build/plans/repo-tracking-gap-plan.md` (Q1–Q6 answered). Opened and closed in the same
+pass per **Q6(a)** — the register has consistently tracked **disclosure and reproducibility** gaps, not only
+behavioural defects (**#12** housekeeping, **#13** a stale filename are both precedents), so the correction gets a
+citable permanent record without leaving a perpetually-open item for something genuinely finished.
+
+## #24 `REPO-TRACKING-GAP` (surfaced as `GUIDE-DOCS-BUILD-GITIGNORED`) — **DISCHARGED**
+
+**⚑ The item as surfaced UNDERSTATED the problem, and the scoping pass says so plainly.** It was reported as
+*"`guide-docs/build/` is untracked because of a frontend-intended `build/` rule."* True — and a **subset**. Fresh
+ground truth found that **only 81 files were tracked in the entire repository and `backend/` had ZERO**; the last
+commit was **`2edaba4`, the DISCOVER-phase close**. **The entire BUILD phase was uncommitted.**
+
+**Two DISTINCT problems**, and conflating them was the trap:
+
+| | Problem | Size | Would `git add -A` have caught it? |
+|---|---|---|---|
+| **(A)** | Never committed — untracked but **not ignored** | 650 files | ✅ yes |
+| **(B)** | **Actively ignored** by `.gitignore:19`'s unanchored `build/` | 311 files | ⛔ **NO — silently** |
+
+**(B) was the dangerous half**: a `git add -A` "fix" would have committed 650 files, shown a clean `git status`,
+and **still omitted the entire BUILD design record**, with no error and no warning.
+
+**⚑ Second victim, newly found**: `.project-guide-rule-details/build/` (6 files) — the workflow's **own BUILD-phase
+rule files, which `CLAUDE.md` instructs the workflow to load**. Its 21 siblings were already tracked, so the
+directory was **half-committed**.
+
+**⚑ The rule protected nothing**: `frontend/vite.config.js` sets `outDir: 'dist'`, and `dist/` already had its own
+rule. No `build/` output directory existed anywhere.
+
+### What was done — two commits, per Q4(b)
+
+* **`b8d184a`** — `.gitignore` **alone**: `build/` → **`frontend/build/`** (Q2-b), with a comment recording *why*
+  so a future "cleanup" cannot silently revert it; plus `testresults.txt` ignored (Q5-b); plus the pre-existing,
+  previously-uncommitted `!.env.example` negation from U16's pass.
+* **`51935ac`** — the BUILD phase: **966 files** (961 A / 4 M / 1 D) — `backend/` 406 · `guide-docs/` 310 ·
+  `frontend/` 228 · `corpus/` 7 · `.project-guide-rule-details/build/` 6 · `deploy/` 3 · `pyproject.toml`,
+  `render.yaml`, `.python-version`, `.env.example`.
+
+⚑ **Deliberately NOT a reconstructed per-unit commit sequence** (Q4 rejected option (d)): the work happened across
+many sessions and was never committed as it went, so synthesising a plausible-looking history would misrepresent
+when things actually occurred — against the audit-trail discipline this build has held throughout. **One honest
+"state at close of BUILD" commit is the truthful record.**
+
+### Ambiguity-check — three directed checks, all CLEAN
+
+* **(i)** `guide-docs/build/` and `.project-guide-rule-details/build/` **freed**; `frontend/build/assets/app.js`
+  **still ignored** (`.gitignore:24`); `frontend/dist/index.html` still ignored (`.gitignore:18`). Before/after
+  captured with `git check-ignore -v`.
+* **(ii)** U16's `test_governance.py` — the **only** test reading `.gitignore` — **7/7 pass**; `.env` still
+  ignored and still untracked.
+* **(iii)** ⚑ **the one that mattered — no over-un-ignoring.** All ten probed paths stay ignored: `.env`, `venv/`,
+  `frontend/node_modules/`, `__pycache__/`, `.coverage`, `.pytest_cache/`, `.hypothesis/`, `backend/.coverage`,
+  `dist/`, `node_modules/`. **Nothing became stageable as a side effect.**
+
+**Git identity, confirmed before staging**: `Nidhi Dhyani <nsdhyani22@gmail.com>`, branch **`main`**.
+⚑ Committed **directly to `main`**, as every prior commit in this repository was, per explicit instruction.
+
+### Verification — all four checks RUN, including the load-bearing one
+
+1. ✅ `git check-ignore -v guide-docs/build/plans/x.md` → **no match**.
+2. ✅ `git status --porcelain` → **empty**; `git ls-files` → **1041** (predicted ≈1040).
+3. ✅ ⚑ **THE CLEAN-CHECKOUT TEST RAN AND PASSED — it was NOT skipped.** `git clone --no-hardlinks` to a temp
+   directory produced: `backend/` **406**, `guide-docs/build/` **306**, `.project-guide-rule-details/build/`
+   **6**, `corpus/` **7**, `frontend/` **228**, `deploy/` **3**; the clone's tracked count **1041 — exact match**.
+   Load-bearing files spot-checked present (`BUILD-COMPLETION-REPORT.md`, both tier-B plans, U22's `engine.py`,
+   `build_corpus.py`, `corpus/manifest.json`, the workflow rule files, `.env.example`), and **`.env` and
+   `node_modules/` confirmed ABSENT** from the clone. **This is the check that actually tested the broken
+   property**, and it is genuinely green — no downgrade to "verified by the other three only" is needed.
+4. ✅ **Full suite unchanged: 1578 passed / 0 failed / 43 skipped / 5 errors (same `audit_store` names) /
+   99.87%** — exactly as predicted; no code changed.
+
+### ⚑ What this does NOT do
+
+**It does not discharge register #12** (`testresults.txt` append-vs-overwrite). Ignoring that file stops future
+diff churn; **#12 is about losing per-unit history**, which is untouched. **#12 stays OPEN**, exactly as the Q5(b)
+answer required be stated explicitly.
+
+**Register now stands at 24 tracked — 17 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed (#3,
+#8, #18, #19).** ⚑ Count: **#24 is new and immediately discharged**, so open is **unchanged at 17**, discharged
+**2 → 3**, tracked **23 → 24** (17 + 3 + 4 = 24).
+
+**HOLDS upheld:** no frozen-23 unit internal or test edited · U22's `DEFERRED_REGISTER` and its three frozen tests
+untouched · WIRE-1 unamended · `not_wired.py` not renamed · U23's frozen test unedited · `audit_store`
+Docker-guard gap untouched (**5 errors stay exactly 5**) · **tier-B Stages 2 and 3 not authorized** · #18's spend
+guardrails untouched · **no API call, no money spent** · no file moved, renamed or deleted beyond the
+pre-existing `unhappy paths.png` deletion, which is disclosed in the commit message.

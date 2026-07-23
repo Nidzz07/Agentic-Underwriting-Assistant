@@ -4679,3 +4679,65 @@ renamed · U23's frozen test unedited · `audit_store` Docker-guard gap untouche
 route · Stages 2/3 not authorized · #18's guardrails neither weakened nor bypassed · **no API call, no spend**.
 
 **Next: decision 2 — `GUIDE-DOCS-BUILD-GITIGNORED` — to be taken up as its own scoping prompt.**
+
+---
+
+## DECISION 2 CLOSED — #24 `REPO-TRACKING-GAP` OPENED **and** DISCHARGED (2026-07-23T07:55:16Z)
+
+**The repository now contains the BUILD phase for the first time.** Two commits on `main`.
+
+### The item as surfaced UNDERSTATED the problem
+
+Reported as *"`guide-docs/build/` is untracked because of a frontend-intended `build/` rule."* Ground truth found
+**only 81 files tracked and `backend/` at ZERO** — the last commit was **`2edaba4`, the DISCOVER close**. **The
+entire BUILD phase was uncommitted.** Two distinct problems: **(A)** 650 files never committed (`git add -A`
+would have caught them) and **(B)** 311 files **actively ignored** (`git add -A` would have **silently skipped**
+them). **(B) was the dangerous half** — a naive fix would have looked complete while omitting the whole design
+record. **Second victim, newly found**: `.project-guide-rule-details/build/`, the workflow's **own** BUILD rule
+files that `CLAUDE.md` loads, in a directory otherwise **21/27 tracked**. The rule protected nothing — Vite writes
+to `dist/`, already covered.
+
+### Ambiguity-check — 3 directed checks, before/after captured, ALL CLEAN
+
+* **(i)** both doc directories **freed**; `frontend/build/assets/app.js` **still ignored** (line 24);
+  `frontend/dist/` still ignored (line 18) — exactly the intended discrimination.
+* **(ii)** U16's `test_governance.py`, the **only** test reading `.gitignore`: **7/7 pass**.
+* **(iii)** ⚑ **the one that mattered** — all ten probed paths (`.env`, `venv/`, `node_modules/`, `__pycache__/`,
+  `.coverage`, `.pytest_cache/`, `.hypothesis/`, `backend/.coverage`, `dist/`, `node_modules/`) **stay ignored**.
+  **Nothing became stageable as a side effect.**
+
+**Git identity confirmed before staging**: `Nidhi Dhyani <nsdhyani22@gmail.com>`, branch `main`.
+
+### Two commits (Q4-b)
+
+* **`b8d184a`** — `.gitignore` alone: `build/` → **`frontend/build/`** with a comment recording *why*;
+  `testresults.txt` ignored (Q5-b) **with an in-file note that this does NOT discharge #12**; plus U16's
+  pre-existing `!.env.example` negation.
+* **`51935ac`** — **966 files** (961 A / 4 M / 1 D): `backend/` 406 · `guide-docs/` 310 · `frontend/` 228 ·
+  `corpus/` 7 · `.project-guide-rule-details/build/` 6 · `deploy/` 3 · `pyproject.toml`, `render.yaml`,
+  `.python-version`, `.env.example`. **Pre-commit safety sweep clean** — no `.env`, `*.pem`, `*.key`,
+  `node_modules/`, `__pycache__/`, `venv/`, `.coverage` staged.
+
+⚑ **Deliberately NOT a reconstructed per-unit sequence** — synthesising a plausible history would misrepresent
+when the work actually happened, against this build's audit-trail discipline.
+
+### Verification — all four RUN, including the load-bearing one
+
+1. ✅ `git check-ignore` → no match. 2. ✅ working tree **clean**; `git ls-files` → **1041** (predicted ≈1040).
+3. ✅ ⚑ **THE CLEAN-CHECKOUT TEST RAN AND PASSED** — `git clone` produced `backend/` 406, `guide-docs/build/` 306,
+`.project-guide-rule-details/build/` 6, `corpus/` 7, `frontend/` 228, `deploy/` 3; clone tracked count **1041,
+exact match**; load-bearing files present; **`.env` and `node_modules/` absent**. No downgrade to
+"verified-by-the-other-three" needed. 4. ✅ **Suite unchanged: 1578 / 0 / 43 / 5 / 99.87%.**
+
+### ⚑ What this does NOT do
+
+**It does not discharge register #12.** Ignoring `testresults.txt` stops diff churn; **#12 is about losing
+per-unit history**, untouched. **#12 stays OPEN.**
+
+**Register now 24 tracked — 17 open (unchanged) · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed
+(#3, #8, #18, #19).**
+
+**HOLDS upheld:** no frozen-23 unit internal or test edited · U22's `DEFERRED_REGISTER` + 3 frozen tests untouched
+· WIRE-1 unamended · `not_wired.py` not renamed · U23's frozen test unedited · `audit_store` Docker-guard gap
+untouched (**5 stays 5**) · **tier-B Stages 2 and 3 not authorized** · #18's guardrails untouched · **no API call,
+no spend**.
