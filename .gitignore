@@ -2,6 +2,8 @@
 .env
 *.env
 .env.*
+# ...but the placeholder-only template IS committed (secrets-config U16 / SEC-3)
+!.env.example
 
 # Python
 venv/
@@ -14,7 +16,12 @@ htmlcov/
 # Node / frontend
 node_modules/
 dist/
-build/
+# ⚑ ANCHORED to the frontend deliberately — do NOT revert to a bare `build/`.
+# An unanchored `build/` matches ANY directory named "build" at ANY depth, which silently
+# excluded `guide-docs/build/` (the entire BUILD-phase design record, 305 files) and
+# `.project-guide-rule-details/build/` (the workflow's own BUILD rule files that CLAUDE.md
+# loads). Vite writes to `dist/`, already covered above, so the bare rule protected nothing.
+frontend/build/
 
 # IDE / OS
 .vscode/
@@ -23,3 +30,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Generated per-run test output (Q5-b). Overwritten by every suite run, so tracking it would
+# make every future run a spurious diff.
+# ⚑ This does NOT discharge register #12 (`testresults.txt` append-vs-overwrite). That item is
+# about LOSING PER-UNIT HISTORY, not about diff noise; ignoring the file stops the churn and
+# changes nothing about the underlying gap. #12 stays OPEN.
+testresults.txt
