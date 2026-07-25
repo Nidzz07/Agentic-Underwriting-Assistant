@@ -51,7 +51,7 @@ from backend.app.errors import (
     validation_error_handler,
     wire_error_handler,
 )
-from backend.app.routes import decisions, not_wired, session
+from backend.app.routes import auth, decisions, not_wired, session
 
 
 def create_app() -> FastAPI:
@@ -69,6 +69,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
+    app.include_router(auth.router)        # R8, R9 — the handshake (WIRE1-Fold-5)
     app.include_router(session.router)     # R1
     app.include_router(decisions.router)   # R6, R7
     app.include_router(not_wired.router)   # R2-R5 (stale filename — register #13)

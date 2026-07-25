@@ -290,11 +290,12 @@ class TestTheFrozenServiceIsTheRealGateNotTheLayerGuard:
             get_audit_service,
             get_case_store,
             get_commit_service,
+            get_auth_service,
             get_user_role_repository,
             require_commit,
         )
         from backend.app.main import create_app
-        from backend.app.tests.conftest import USERS
+        from backend.app.tests.conftest import USERS, seeded_auth_service
         from backend.audit_store.audit_service import AuditService
         from backend.audit_store.commit_service import DecisionCommitService
         from backend.audit_store.seams import FixedClock, SequenceIdGenerator
@@ -305,6 +306,9 @@ class TestTheFrozenServiceIsTheRealGateNotTheLayerGuard:
 
         role_repository = InMemoryUserRoleRepository(dict(USERS))
         app = create_app()
+        # ⚑ MIGRATED — this test builds its app INLINE, so it needs the same auth
+        # override the shared fixtures got. Mechanical; no assertion changed.
+        app.dependency_overrides[get_auth_service] = seeded_auth_service
         app.dependency_overrides[get_user_role_repository] = lambda: role_repository
         app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
         app.dependency_overrides[get_case_store] = lambda: case_store
@@ -344,11 +348,12 @@ class TestAnUnevaluatedCaseDegradesGracefully:
 
         from backend.app.dependencies import (
             get_audit_service,
+            get_auth_service,
             get_case_store,
             get_user_role_repository,
         )
         from backend.app.main import create_app
-        from backend.app.tests.conftest import USERS
+        from backend.app.tests.conftest import USERS, seeded_auth_service
         from backend.app.tests.factories import InMemoryCaseStore, make_profile
         from backend.audit_store.audit_service import AuditService
         from backend.audit_store.canon_adapter import CanonSerAdapter
@@ -366,6 +371,8 @@ class TestAnUnevaluatedCaseDegradesGracefully:
         store = InMemoryCaseStore().seed(bare)
 
         app = create_app()
+        # ⚑ MIGRATED — second inline app build in this module. Mechanical; no assertion changed.
+        app.dependency_overrides[get_auth_service] = seeded_auth_service
         app.dependency_overrides[get_user_role_repository] = lambda: InMemoryUserRoleRepository(dict(USERS))
         app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
         app.dependency_overrides[get_case_store] = lambda: store

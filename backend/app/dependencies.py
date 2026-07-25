@@ -35,11 +35,12 @@ does not exist. Replacing this with the real OIDC handshake touches only this mo
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 
 import sqlalchemy as sa
-from fastapi import Depends, Header
+from fastapi import Cookie, Depends, Header
 
 from backend.app.errors import FORBIDDEN, UNAUTHENTICATED, WireError
 from backend.audit_store.audit_service import AuditService
@@ -50,12 +51,35 @@ from backend.auth_rbac.api_guard import ApiAuthGuard
 from backend.auth_rbac.authorizer import AuthRBAC
 from backend.auth_rbac.pg_repository import PostgresUserRoleRepository
 from backend.auth_rbac.roles import READ_AUDIT, Role, to_role
+from backend.authn.repository import PostgresCredentialStore, PostgresSessionStore
+from backend.authn.service import AuthenticationService
 from backend.case_lifecycle.provider import PendingCommitContextProvider
 from backend.case_lifecycle.repository import PostgresCaseStore
 from backend.secrets_config import get_settings
 
-#: The stub identity header (Q4-A).
+#: ⚑ SUPERSEDED 2026-07-25 (register #25 / WIRE1-Fold-5). Retained because the name is still
+#: referenced by the historical record; it is NO LONGER READ by ``current_identity``. The stub
+#: it named WAS authentication — any caller who knew a ``user_id`` was that user.
 USER_ID_HEADER = "X-User-Id"
+
+#: The session cookie. Opaque, server-side, revocable — never a JWT, never signed.
+SESSION_COOKIE_NAME = "session"
+
+#: ⚑ Behavioural switch, NOT a credential — so reading it from ``os.environ`` is not a SEC-3
+#: violation, on the ``llm_client.py`` precedent (*"dependencies.py's rejection of os.environ
+#: is scoped to credentials and secret material specifically"*). Reading it here also avoids
+#: C-B: frozen ``Settings`` stays at exactly six fields.
+#:
+#: **FAIL-SAFE**: only the exact literal ``"false"`` disables ``Secure``. Absent, misspelt, or
+#: any other value yields a Secure cookie, so a forgotten variable can never silently
+#: downgrade production. Mirrors ``ALLOW_REAL_LLM_CALLS``'s exact-match rule, polarity flipped
+#: to match the semantics.
+SESSION_COOKIE_SECURE_ENV = "SESSION_COOKIE_SECURE"
+
+
+def session_cookie_is_secure() -> bool:
+    """``False`` only on an exact ``"false"``; safe by default."""
+    return os.environ.get(SESSION_COOKIE_SECURE_ENV) != "false"
 
 
 @dataclass(frozen=True)
@@ -155,24 +179,53 @@ def get_commit_service(
     )
 
 
+# --- authn (register #25 / PER-4) — credential + session construction --------------------
+# ⚑ Both stores bind to the OWNER engine. ``0003_auth.sql`` grants nothing (it applies after
+# ``0002_grants.sql``), so ``user_credential``/``user_session`` are owner-only by
+# construction — the same posture ``app_user`` has, ratified as CORE-RATIONALE-20.
+
+def get_auth_service() -> AuthenticationService:
+    """authn's service — the ONLY place a credential is verified or a session issued."""
+    engine = app_engine()
+    return AuthenticationService(
+        credentials=PostgresCredentialStore(engine),
+        sessions=PostgresSessionStore(engine),
+    )
+
+
 # --- identity + authorization ----------------------------------------------------------
 
 def current_identity(
-    x_user_id: str | None = Header(default=None, alias=USER_ID_HEADER),
+    session: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
     repository=Depends(get_user_role_repository),
+    auth: AuthenticationService = Depends(get_auth_service),
 ) -> Identity:
-    """Resolve the stub header to an ``Identity``, fail-closing to 401 (Decision 2 / Q4-A).
+    """Resolve the SESSION COOKIE to an ``Identity``, fail-closing to 401.
 
-    Missing/blank header -> 401. Unknown user, or a role that is blank/non-canonical -> 401
-    (``to_role`` is the frozen TOTAL canonicalizer and fail-closes to None). No role value is
-    ever trusted from the header itself — only the user id is, and the ROLE comes from app_user.
+    ⚑ **REPLACES the ``X-User-Id`` stub (register #25 / PER-4 / WIRE1-Fold-5).** The header
+    is no longer read: it *was* authentication, in the sense that any caller who knew a
+    ``user_id`` was that user. The caller now proves identity by presenting a session that
+    this server issued against an Argon2id-verified credential.
+
+    Missing/blank cookie -> 401. Unknown, expired or revoked session -> 401 (checked
+    server-side on EVERY request, which is what makes logout and role changes immediate).
+    Unknown user, or a blank/non-canonical role -> 401.
+
+    ⚑ **Unchanged and still load-bearing**: the ROLE is never taken from the request — it is
+    read from ``app_user`` through auth-rbac's own repository, and ``to_role`` is the frozen
+    TOTAL canonicalizer that fail-closes. Only the *identity* mechanism changed.
+
+    ⚑ **R1's response shape is untouched** (WIRE-1 §6, Q6a): ``{user_id, role}``.
     """
-    if x_user_id is None or not x_user_id.strip():
+    if session is None or not session.strip():
         raise WireError(UNAUTHENTICATED, "Authentication is required.")
-    role = to_role(repository.get_role(x_user_id))
+    user_id = auth.resolve(session)
+    if user_id is None:
+        raise WireError(UNAUTHENTICATED, "Authentication is required.")
+    role = to_role(repository.get_role(user_id))
     if role is None:
         raise WireError(UNAUTHENTICATED, "Authentication is required.")
-    return Identity(user_id=x_user_id, role=role)
+    return Identity(user_id=user_id, role=role)
 
 
 def require_read_audit(

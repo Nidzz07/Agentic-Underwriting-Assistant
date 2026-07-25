@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from backend.case_lifecycle.states import CaseState
 
-UNDERWRITER = {"X-User-Id": "UW-1"}
-AUDITOR = {"X-User-Id": "AUD-1"}
+# ⚑ MIGRATED 2026-07-25 — local duplicates of conftest's role constants, moved from the
+# retired X-User-Id stub to a real session cookie. Values only; no assertion changed.
+from backend.app.tests.conftest import AUDITOR, UNDERWRITER  # noqa: E402
 
 
 def _state(case_store, application_id: str = "APP-1") -> CaseState:
@@ -179,6 +180,7 @@ class TestTheProviderStillGuardsTheCommitPath:
         from fastapi.testclient import TestClient
 
         from backend.app.dependencies import (
+    get_auth_service,
             get_audit_service,
             get_case_store,
             get_commit_service,
@@ -192,11 +194,14 @@ class TestTheProviderStillGuardsTheCommitPath:
         from backend.auth_rbac.repository import InMemoryUserRoleRepository
         from backend.case_lifecycle.provider import PendingCommitContextProvider
 
-        from .conftest import USERS
+        from .conftest import USERS, seeded_auth_service
         from .factories import InMemoryCaseStore
 
         role_repository = InMemoryUserRoleRepository(dict(USERS))
         app = create_app()
+        # ⚑ MIGRATED — inline app build, so it needs the same auth override the shared
+        # fixtures got. Mechanical; no assertion changed.
+        app.dependency_overrides[get_auth_service] = seeded_auth_service
         app.dependency_overrides[get_user_role_repository] = lambda: role_repository
         app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
         app.dependency_overrides[get_case_store] = lambda: case_store

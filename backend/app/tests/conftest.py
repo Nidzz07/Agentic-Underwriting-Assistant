@@ -11,6 +11,8 @@ structurally in ``test_engine_binding.py`` — it needs no live server to verify
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,7 +24,11 @@ from backend.app.dependencies import (
     get_commit_service,
     get_user_role_repository,
 )
+from backend.app.dependencies import SESSION_COOKIE_NAME, get_auth_service
 from backend.app.main import create_app
+from backend.authn.constants import SESSION_TTL
+from backend.authn.service import AuthenticationService, session_id_for
+from backend.authn.store import InMemoryCredentialStore, InMemorySessionStore, SessionRecord
 from backend.app.tests.factories import (
     InMemoryCaseStore,
     make_case,
@@ -47,9 +53,53 @@ USERS = {
     "GHOST-1": "",  # present but role blank -> to_role fail-closes -> 401
 }
 
-UNDERWRITER = {"X-User-Id": "UW-1"}
-AUDITOR = {"X-User-Id": "AUD-1"}
-ADMIN = {"X-User-Id": "ADM-1"}
+#: ⚑ MIGRATED 2026-07-25 (register #25 / WIRE1-Fold-5). These were ``{"X-User-Id": "..."}``
+#: until ``current_identity`` stopped trusting that header. They remain **dicts passed as
+#: ``headers=``**, so every existing call site works verbatim — only the contents changed,
+#: from a forgeable id to a real session cookie. An explicit ``Cookie`` header is simply how
+#: you send a cookie.
+#:
+#: ⚑ **Why sessions are SEEDED rather than obtained by calling R8.** (1) Argon2id is
+#: deliberately slow, and paying that cost in ~98 route tests would buy nothing — they test
+#: ROUTING, not the handshake. (2) It would couple every route test to R8, so one login
+#: regression would cascade into ~98 unrelated failures. (3) The real login path IS proven
+#: end-to-end, once, in ``test_auth_routes.py``. This is the same seam the fixtures already
+#: use for ``app_user`` via ``InMemoryUserRoleRepository(USERS)``.
+#: ⚑ Includes ORPHAN-1, which deliberately has NO ``app_user`` row. It is how the suite tests
+#: the distinction the header stub used to test with an unknown id: a session that RESOLVES
+#: but whose user cannot be found is a failure to AUTHENTICATE (401), never to authorize (403).
+SESSION_TOKENS = {
+    **{user_id: f"test-session-{user_id}" for user_id in USERS},
+    "ORPHAN-1": "test-session-ORPHAN-1",
+}
+
+UNDERWRITER = {"Cookie": f"{SESSION_COOKIE_NAME}={SESSION_TOKENS['UW-1']}"}
+AUDITOR = {"Cookie": f"{SESSION_COOKIE_NAME}={SESSION_TOKENS['AUD-1']}"}
+ADMIN = {"Cookie": f"{SESSION_COOKIE_NAME}={SESSION_TOKENS['ADM-1']}"}
+
+#: A live session for a user whose ``app_user.role`` is BLANK — ``to_role`` fail-closes to 401.
+#: ⚑ This is what the GHOST-1 seed exists for; without a cookie constant it would be dead code.
+GHOST = {"Cookie": f"{SESSION_COOKIE_NAME}={SESSION_TOKENS['GHOST-1']}"}
+
+#: A live session whose user has NO ``app_user`` row at all.
+ORPHAN = {"Cookie": f"{SESSION_COOKIE_NAME}={SESSION_TOKENS['ORPHAN-1']}"}
+
+
+def seeded_auth_service() -> AuthenticationService:
+    """An AuthenticationService with one live session per seeded user.
+
+    ⚑ ``GHOST-1`` gets a session too, deliberately: its test asserts that a **blank role**
+    fail-closes to 401. If it had no session it would fail at session lookup instead, and the
+    test would silently stop testing what it was written to test.
+    """
+    sessions = InMemorySessionStore()
+    now = datetime.now(timezone.utc)
+    for user_id, token in SESSION_TOKENS.items():
+        sessions.create(SessionRecord(
+            session_id=session_id_for(token), user_id=user_id,
+            created_at=now, expires_at=now + SESSION_TTL, revoked_at=None,
+        ))
+    return AuthenticationService(credentials=InMemoryCredentialStore(), sessions=sessions)
 
 
 @pytest.fixture
@@ -72,6 +122,7 @@ def audit_repository(records):
 def client(audit_repository):
     """A TestClient over the REAL app with in-memory storage adapters injected."""
     app = create_app()
+    app.dependency_overrides[get_auth_service] = seeded_auth_service
     app.dependency_overrides[get_user_role_repository] = lambda: InMemoryUserRoleRepository(dict(USERS))
     app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
     with TestClient(app) as test_client:
@@ -82,6 +133,7 @@ def client(audit_repository):
 def empty_client():
     """A TestClient whose audit store is EMPTY — the empty-page / not-found paths."""
     app = create_app()
+    app.dependency_overrides[get_auth_service] = seeded_auth_service
     app.dependency_overrides[get_user_role_repository] = lambda: InMemoryUserRoleRepository(dict(USERS))
     app.dependency_overrides[get_audit_service] = lambda: AuditService(InMemoryAuditRepository())
     with TestClient(app) as test_client:
@@ -128,6 +180,7 @@ def wired_client(audit_repository, case_store, commit_repository):
     # the fixture is function-scoped — so existing decision_id assertions are unaffected.
     id_generator = SequenceIdGenerator()
     app = create_app()
+    app.dependency_overrides[get_auth_service] = seeded_auth_service
     app.dependency_overrides[get_user_role_repository] = lambda: role_repository
     app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
     app.dependency_overrides[get_case_store] = lambda: case_store
@@ -146,6 +199,7 @@ def wired_client(audit_repository, case_store, commit_repository):
 def empty_case_client(audit_repository):
     """A TestClient whose PENDING store is empty — R2's empty page, R3/R4's 404."""
     app = create_app()
+    app.dependency_overrides[get_auth_service] = seeded_auth_service
     app.dependency_overrides[get_user_role_repository] = lambda: InMemoryUserRoleRepository(dict(USERS))
     app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
     app.dependency_overrides[get_case_store] = lambda: InMemoryCaseStore()

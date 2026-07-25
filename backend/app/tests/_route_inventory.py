@@ -36,6 +36,8 @@ ROUTE_INVENTORY: tuple[tuple[str, str], ...] = (
     ("/recommendations/{recommendation_id}/commit", "post"),  # R5 — the human approval gate
     ("/decisions", "get"),                                    # R6 — decision history
     ("/decisions/{decision_id}", "get"),                      # R7 — one committed decision
+    ("/login", "post"),                                       # R8 — the handshake (WIRE1-Fold-5)
+    ("/logout", "post"),                                      # R9 — session revocation (WIRE1-Fold-5)
 )
 
 #: The routes permitted to be non-GET, each with the reason it must be.
@@ -47,6 +49,12 @@ NON_GET_ALLOWLIST: tuple[tuple[str, str], ...] = (
     # R5 — the ONLY route that changes underwriting state. An explicit underwriter action
     # is the sole way a CommittedDecision comes into existence (WIRE-1 §2 advisory-only).
     ("/recommendations/{recommendation_id}/commit", "post"),
+    # R8 — the authentication handshake. Non-GET because it accepts credentials in a body,
+    # which must never appear in a URL (logs, history, referrers). Reaches NO domain state.
+    ("/login", "post"),
+    # R9 — session revocation. Non-GET because it MUTATES server-side session state; a GET
+    # that logs you out would be actionable by any cross-origin image tag. Reaches NO domain state.
+    ("/logout", "post"),
 )
 
 #: The exact set of modules permitted under ``backend/app/routes/``.
@@ -58,4 +66,5 @@ ROUTE_MODULE_INVENTORY: tuple[str, ...] = (
     "session.py",     # R1
     "decisions.py",   # R6, R7
     "not_wired.py",   # R2-R5 (name is stale — register #13, deliberately still open)
+    "auth.py",        # R8, R9 (WIRE1-Fold-5)
 )
