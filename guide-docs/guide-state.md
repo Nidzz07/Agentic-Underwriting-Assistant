@@ -5439,3 +5439,476 @@ tier-B untouched · **no route, no migration, no production code** · **#25 OPEN
 
 **Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Backend **1582 / 0 / 43 / 5 /
 99.87%**; frontend not run (nothing touched JS) — carried at **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP IMPLEMENTATION PASS **BEGUN**: PLAN WRITTEN, 5 QUESTIONS OPEN (2026-07-25T10:42:13Z)
+
+**Status**: **PLAN ONLY — no code, no migration, no route, no WIRE-1 amendment performed, no commit.**
+Stopped at the plan-file gate. **Plan of record**: `guide-docs/build/plans/login-signup-code-gen-plan.md`
+(**5 `[Answer]` tags, all BLANK**).
+
+### Ground truth re-confirmed against the committed Phase A state (`ceb32f6`)
+
+`login-signup-plan.md` **13/13 answered** · `frozen-assertion-relaxation-plan.md` **3/3** · relaxation code-gen
+**§1 Phase A/B split** confirmed (**Phase B = the 8 flips, executed INSIDE this pass, immediately before the code
+that satisfies them**) · all six Phase-A files match what was committed — both inventory copies at **today's
+seven** routes / one non-GET / four modules, the text-reading cross-check, R-3's split live, and **A-4
+(`:239`/`:258`/`:275`) AST-identical to pre-Phase-A HEAD**.
+
+### ⛔ A prior answer's premise is contradicted by disk — surfaced, not glossed
+
+**`admin-cli create-user` takes `user_id, subject, role` and NO credential** (`admin_cli/cli.py:43-47`). It
+provisions the `app_user` row only, so **a user it creates cannot log in**. **Q3(a) is right that user
+provisioning exists and wrong that credential provisioning does** — that half has **no implementation anywhere**,
+and `admin_cli` is **frozen U17**. Raised as plan **Q3**; recommended resolution is a new entrypoint inside the
+new package (the only option that adds the capability **without a frozen-unit edit**), with its real cost —
+**two admin entrypoints** — disclosed rather than hidden.
+
+### Two other facts newly verified, plus one correction to the brief
+
+* **No test asserts `requirements.txt`'s contents** ⇒ adding `argon2-cffi` breaks nothing.
+* **`test_coverage_gate.py` checks only that `--cov-fail-under` is present and ≥90**, not the `--cov=` package
+  list ⇒ adding a line is safe; **omitting** one would silently leave the new package outside QA-6.
+* ⚑ **Correction, in the safer direction**: the brief called `httpTransport.js`'s credentials setting *"a one-line
+  non-frozen change"*. Per **Fold-3** it is **no change at all** — `fetch` defaults to `credentials:
+  'same-origin'` and the topology already is same-origin, so cookies flow automatically and a **frozen-classified
+  file is not touched**. If implementation shows otherwise, that is a **stop-gate**, not a quiet edit.
+
+### What the plan pins
+
+`0003_auth.sql` (`user_credential` + `user_session`) owned by **U15**, placed after `0002_grants.sql` and
+therefore **owner-only BY CONSTRUCTION** — the audit roles already exist and receive no grant, inheriting
+**CORE-RATIONALE-20** rather than re-arguing it; glob discovery means **no `backend/scripts/` edit**. ⚑ The
+session token is stored as its **SHA-256**, never raw, so a DB read yields no usable credential. Stores authored
+**outside `backend/app/`** on the U24 pattern (**the constraint that preserves A-4**). Argon2id with every
+non-negotiable mapped to a **named test**, including a **dummy verify on the unknown-user path** so it is not a
+timing oracle. The **WIRE-1 §3 amendment is written out in full as a GATED sub-step requiring sign-off before any
+route is written** — two additive rows, **no new error code**, lockout returning the **same uniform 401** because
+*"you are locked out"* is itself an enumeration oracle. R1's shape **unchanged**; only `current_identity()`
+changes. **Phase B is steps 1–2**, predicting **exactly 6 RED**. **+27 tests predicted → 1609**, broken down by
+area. **8 stop-gates**, incl. *"A-4 or `app.test.jsx:261` changes state ⇒ design-invalidating."* Login client
+**NOT** registered in `seams.js` (Q13a).
+
+⚑ **One figure deliberately NOT predicted exactly**: post-pass coverage — **≥99.8%**, not a pinned decimal.
+Inventing a digit would be false precision.
+⚑ **Expected outcome stated in advance**: with **no Docker and no live Postgres here**, #25's honest close is
+**NARROWED, not DISCHARGED** (#18/#8 precedent).
+
+### Five open questions (all BLANK)
+
+**Q1** 25th unit with the full five-stage loop vs remediation pass (rec **(a)**) · **Q2** package name (rec **(a)**
+`backend/authn/` — the authn/authz contrast that makes BR-AUTH-10's implicit boundary explicit) · **Q3** the
+credential-setting gap above · **Q4** cookie `Secure` in local dev (rec **(a)** `os.environ` on the Fold-2
+precedent, **defaulting to SECURE** so a missing var fails safe) · **Q5** session TTL + lockout thresholds
+(rec **(a)** 8h absolute / no idle / 5 failures / 15 min).
+
+**HOLDS upheld**: no code · `backend/app/routes/` untouched (`auth.py` **specified, not created**) ·
+`llm_client.py`, `backend/scripts/`, tier-B untouched · **WIRE-1 unamended** · U15's `0001`/`0002` +
+`checksums.json` untouched, **no migration written** · U16's six-field `Settings` untouched · **`auth_rbac` (U11)
+and `admin_cli` (U17) untouched** (Q2(d)/Q3(b) excluded, reasons recorded) · `not_wired.py` not renamed (#13
+open) · `audit_store` gap untouched (5 stays 5) · **#25 still OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried, not re-run: backend
+**1582 / 0 / 43 / 5 / 99.87%** (`ceb32f6`) · frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: Q1–Q5 ANSWERED · AMBIGUITY-CHECK ✅ **CLEAN** · FULL TDD EXECUTION STEPS WRITTEN (2026-07-25T10:42:13Z)
+
+**Status**: **PLAN ONLY — no code, no migration, no route, WIRE-1 unamended, no commit.** Stopped at the
+execution-plan gate. **Plan of record**: `login-signup-code-gen-plan.md` (**5/5 answered**, §12 check, §13 steps).
+
+**Answers embedded verbatim**: **Q1(a)** remediation pass (not a 25th unit — the state is designed across 16
+gated answers, unlike U24's genuinely un-designed lifecycle) · **Q2(a)** `backend/authn/` · **Q3(a)** a new
+in-package credential entrypoint (`python -m backend.authn.admin set-password`, stdin not argv), accepting two
+admin entrypoints · **Q4(a)** `SESSION_COOKIE_SECURE` via `os.environ`, **fail-safe default `Secure=True`** ·
+**Q5(a)** 8h absolute TTL / no idle / 5 failures / 15 min, as **named constants in one module**.
+
+### ✅ Ambiguity-check — 4 directed checks, 4 folds, no stop
+
+* **(i) `authn/admin.py` vs `backend/scripts/` off-limits — CLEAN.** **Nothing under `backend/` asserts what
+  lives in `backend/scripts/`** (two prose docstrings only). **`admin_cli` claims no CLI exclusivity** —
+  `test_reference_not_own.py:123` is a **subset** check over its own modules. **AUTHN-Fold-1**: adopt
+  `admin_cli`'s split — injection-pure `admin.py` + thin coverage-omitted `__main__.py`.
+* **(ii) the constants vs existing assumptions — CLEAN, more strongly than expected.** Scan for
+  `lockout|rate.?limit|throttle|429|idle.?timeout|session.?(ttl|timeout|expiry)` across `backend/`, WIRE-1 and
+  `requirements/` → **ZERO hits**. **No existing rate-limiting, lockout or session-lifetime assumption exists
+  anywhere**, and no NFR pins a session lifetime. ⚑ **`NFR-AUTH-PERF-1` governs `authorize`, not login** —
+  Argon2id is deliberately slow, `authorize` is unchanged, so **login latency must not be reported as a
+  regression of a budget that does not govern it.**
+* **(iii) `SESSION_COOKIE_SECURE` vs `ALLOW_REAL_LLM_CALLS` — CLEAN, one REQUIRED constraint.** Same pattern:
+  each needs an **exact-match literal** to leave its safe default (`"true"` to enable spend; `"false"` to disable
+  Secure), both safe when absent or misspelt. `backend/conftest.py` **does not touch `os.environ`**.
+  ⚑ **AUTHN-Fold-2 (required)**: `backend/authn/tests/conftest.py` **must clear the variable**, on the
+  `secrets_config` conftest precedent — *"so a real shell-set variable can never leak into or mask a case"* —
+  else a developer's shell silently changes test outcomes.
+* **(iv) `backend/authn/` vs allowlists — CLEAN.** `FROZEN_UNITS` is a hardcoded **11-name Phase-1 set** that
+  **already excludes** six later packages; `is_under_frozen` treats `authn` exactly as it treats
+  `case_lifecycle`, which has been live since Scope B **with no breakage — a direct precedent**.
+  **AUTHN-Fold-3**: `authn` must assert its **own** one-way import direction, since `FROZEN_UNITS` won't cover
+  it — **closing the gap `case_lifecycle` carries** rather than replicating it. **AUTHN-Fold-4**: follow U24's
+  **explicit-omit** coverage precedent (`pyproject.toml:121`) — `--cov=backend/authn` **plus** omits for
+  `repository.py` and `__main__.py`; omitting the `--cov=` line would leave the package outside QA-6 **silently**.
+
+### §13 — the execution plan
+
+**12 steps, RED-before-GREEN throughout.** Step 1 is the **GATED WIRE-1 §3 sign-off** (no code until signed off;
+refusal returns Q7(b) to the table). **Step 2 is Phase B**, predicting **exactly 6 RED** (R-1, R-2, R-3a, R-5,
+R-6, R-7; R-4 green, R-8 skips, R-3b green). Steps 4/5/6/8/9 each RED-first. Step 10 is docs, incl. the
+SECURITY-12 narrowing naming **MFA** and **breached-password-list checking** explicitly (Q11c).
+
+⚑ **§13.0 SUPERSEDES §8's prediction** — Fold-3 adds one test, so **+28 → 1610**, not +27 → 1609. Recorded as a
+supersession, not a silent edit. Skipped stays **43**, errors stay exactly **5**. **Coverage predicted `≥99.8%`,
+deliberately NOT a pinned decimal** — `repository.py`/`__main__.py` omitted and the rest is pure logic; inventing
+a digit would be false precision.
+
+**11 stop-gates**, three new from the folds — including *"any `authn` test behaves differently depending on the
+developer's shell"* and *"`httpTransport.js` turns out to need a change after all — a stop-gate, not a quiet
+one-line edit."*
+
+**HOLDS upheld**: no code · no migration · no route · **WIRE-1 unamended** (step 1 is the gate) · U15's
+`0001`/`0002` + `checksums.json`, U16's six-field `Settings`, `auth_rbac` (U11) and `admin_cli` (U17) **all
+untouched** · **A-4 and `app.test.jsx:261` preserved** (stop-gate 5) · `backend/scripts/`, `llm_client.py`,
+tier-B untouched · `not_wired.py` not renamed (#13 open) · `audit_store` gap untouched (5 stays 5) · **#25 still
+OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried, not re-run: backend
+**1582 / 0 / 43 / 5 / 99.87%** (`ceb32f6`) · frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD - LOGIN/SIGNUP STEP 1 (WIRE-1 SIGN-OFF): SIDE-BY-SIDE PRESENTED; AMENDMENT NOT CONFINED TO SECTION 3; SURFACE-AND-STOP AT Q6 (2026-07-25T10:42:13Z)
+
+**Status**: STOPPED AT STEP 1. Steps 2-12 NOT begun. No code. WIRE-1 NOT amended (the amendment is specified and awaiting sign-off, which is what step 1 is). NO COMMIT.
+
+**Section 3 side-by-side: PURELY ADDITIVE, confirmed.** All seven rows R1-R7 byte-identical in path, method, purpose, success body and Auth. Two rows appended (R8 POST /login, R9 POST /logout). Matches the WIRE1-Fold-4 precedent, which added a field and left R1-R7 byte-unchanged.
+
+**Auth semantics unchanged - three pieces of evidence, not assertion**: (1) Section 6 already reserved the handshake as an abstract deferred seam naming session cookies explicitly; (2) Section 4 401 row ALREADY reads "unauthenticated (no/invalid session)"; (3) verified by scan - NO test asserts every route requires authentication, so R8 being the first unauthenticated row breaks nothing.
+
+**THE FINDING - the users stop-condition was triggered.** The plans own section 5.1 specified 204 No Content for login. Re-reading section 2 verbatim: it pins "Content-Type application/json request and response" and describes exactly two success shapes (bare resource body, list wrapper). A 204 has no body and no Content-Type, so it is neither. Using 204 therefore amends SECTION 2 as well as section 3 - additive, but a second section the sign-off did not name. Surfaced as Q6 with three options; recommendation is 204 plus one additive section-2 convention.
+
+**Also confirmed unchanged**: section 4 gains no status code (lockout returns the uniform 401); section 5 gains no shape under the 204 option; section 1 enum map untouched; advisory-only invariant untouched, and Phase As domain-seam test will enforce that structurally.
+
+**Fold-2 confirmed ahead of any code**: backend/authn/tests/conftest.py will clear SESSION_COOKIE_SECURE before every test, on the secrets_config conftest precedent. Scan confirms SESSION_COOKIE_SECURE is the ONLY new environment variable this design introduces (Q4a avoids C-B, so no Settings field is added).
+
+**HOLDS**: A-4, app.test.jsx:261, U15 migrations/checksums.json, U16 Settings, auth_rbac, admin_cli ALL untouched. backend/app/routes/ untouched. No migration, no route, no code. Register unchanged at 25 tracked. #25 still OPEN. Backend carried at 1582/0/43/5/99.87
+---
+
+## POST-BUILD — LOGIN/SIGNUP STEP 1 (WIRE-1 SIGN-OFF): SIDE-BY-SIDE PRESENTED · ⛔ AMENDMENT NOT CONFINED TO §3 · SURFACE-AND-STOP AT Q6 (2026-07-25T10:42:13Z)
+
+**Status**: **STOPPED AT STEP 1.** Steps 2–12 **NOT begun**. **No code.** **WIRE-1 NOT amended** — the amendment
+is *specified and awaiting sign-off*, which is precisely what step 1 is. **NO COMMIT.**
+
+### §3 side-by-side — PURELY ADDITIVE, confirmed
+
+All seven rows **R1–R7 byte-identical** in path, method, purpose, success body and Auth. Two rows appended
+(**R8 `POST /login`**, **R9 `POST /logout`**). Matches the **WIRE1-Fold-4** precedent, which added a *field* and
+left R1–R7 *"byte-unchanged"*.
+
+### Auth semantics unchanged — three pieces of evidence, not assertion
+
+1. **§6 already reserved this**: *"the auth handshake mechanism (bearer token / **session cookie** / OIDC) is an
+   abstract seam, deferred — Phase-1 may stub it."* A session cookie is the seam **used as designed**.
+2. ⚑ **§4's 401 row ALREADY reads *"unauthenticated (no/invalid **session**)"*** — the contract has used session
+   language since it was pinned.
+3. **Verified by scan: NO test asserts that every route requires authentication**, so R8 being the contract's
+   first unauthenticated row breaks no existing assertion.
+
+### ⛔ THE FINDING — the user's stop-condition was triggered
+
+The plan's own **§5.1 specified `204 No Content`** for login. Re-reading **§2 verbatim**: it pins
+*"`Content-Type: application/json` request **and** response"* and describes **exactly two** success shapes —
+*"bare resource body"* and *"list wrapper"*. **A 204 has no body and no `Content-Type`, so it is neither**, and it
+contradicts §2's Content-Type sentence as written. **Using 204 therefore amends §2 as well as §3** — additive
+(no existing convention's meaning changes), but a **second section the sign-off did not name**.
+**Surfaced as Q6**, three options, recommending **204 + one additive §2 convention**.
+
+### Also confirmed unchanged
+
+**§4** gains no status code — lockout returns the **uniform 401** (§5.1: *"you are locked out"* is itself an
+enumeration oracle) · **§5** gains no response shape under the 204 option · **§1**'s enum wire map untouched ·
+the **advisory-only invariant** untouched, and Phase A's
+`test_no_non_get_route_but_the_commit_reaches_domain_state` will **enforce that structurally** once `auth.py`
+exists.
+
+### Fold-2 re-confirmed ahead of any code
+
+`backend/authn/tests/conftest.py` will clear **`SESSION_COOKIE_SECURE`** before every test, on the
+`secrets_config/tests/conftest.py` precedent (*"so a real shell-set variable can never leak into or mask a
+case"*). ⚑ Scan performed: **`SESSION_COOKIE_SECURE` is the ONLY new environment variable this design
+introduces** — Q4(a) avoids C-B, so no `Settings` field is added and `authn` reads no other variable. Stop-gate 9
+covers the property behaviourally.
+
+**HOLDS**: **A-4**, **`app.test.jsx:261`**, U15's migrations + `checksums.json`, U16's `Settings`, `auth_rbac`
+(U11) and `admin_cli` (U17) **ALL untouched** · `backend/app/routes/` untouched · **no migration, no route, no
+code** · `backend/scripts/`, `llm_client.py`, tier-B untouched · **#25 still OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried, not re-run: backend
+**1582 / 0 / 43 / 5 / 99.87%** · frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN/SIGNUP: Q6 ANSWERED · ⛔ SECTION AUDIT FINDS **TWO MORE** (§5, §6) · SURFACE-AND-STOP AT Q7 (2026-07-25T10:42:13Z)
+
+**Status**: **STOPPED at step 1, second round.** Steps 2–12 **NOT begun** · Phase B **not flipped** · **no code** ·
+**WIRE-1 not amended** · **NO COMMIT**.
+
+**Q6(a) recorded**: 204 for both R8/R9 + the additive §2 convention (*"a state-changing route that returns no
+resource responds 204 with an empty body and no Content-Type"*).
+
+### ⛔ Asked to confirm §2+§3 was complete — it is NOT. Two more sections.
+
+* **§5 — REQUIRED.** §5 **documents request bodies**, not only responses: it carries *"**Commit request body**
+  (R5 — explicit approve/override, WIRE1-Fold-1)"* with its JSON shape and binding notes. **§3's table has NO
+  Request column** (`# | Method · Route | Purpose | Success body | Auth`), so R8's `{user_id, password}` has **no
+  home in §3**; by the R5 precedent it belongs in **§5**. ⚑ **This also exposed an error in the previous turn's
+  side-by-side, which showed a "Request" column for R8/R9** — that was implicitly restructuring §3. Adding a
+  column is a **structural** change, strictly worse than an additive §5 entry. Caught and reported, not carried.
+* **§6 — REQUIRED.** Verbatim today: *"The auth **handshake** mechanism (bearer token / session cookie / OIDC) is
+  an **abstract seam, deferred** — Phase-1 may stub it."* **Once the cookie ships that sentence is FALSE.** A
+  pinned contract carrying a false statement is **register #13's exact defect shape**, and #13 is open precisely
+  because of that cost. §6 needs at minimum a supersession note.
+
+⚑ **§5's R5 note needs no change and gets STRONGER**: *"`underwriter_id` … derived from the **authenticated
+session** (the same identity R1 returns)"* — aspirational while identity was a forgeable header; **literally true
+for the first time** after this pass.
+
+### Confirmed UNCHANGED
+
+**§1** enum wire map (R8 carries plain strings; a 204 has no body — no enum crosses the wire) · **§4** status
+table (400/401 already exist; lockout returns the **uniform 401**) · **§8** Holds.
+
+### Flagged as a judgment call, NOT counted as substantive
+
+**§7** is the ambiguity-check record and **§7.1 is where WIRE1-Fold-4 was written up**; by that precedent this
+amendment would conventionally be recorded as a **§7.2**. That is **documentation OF the amendment, not a change
+to what the contract requires** — listed separately, left to the user.
+
+**Corrected complete set — four substantive sections: §2, §3, §5, §6** (+ optionally §7.2 as the record).
+Surfaced as **Q7**.
+
+**Fold-2 re-confirmed ahead of any code**: `backend/authn/tests/conftest.py` clears **`SESSION_COOKIE_SECURE`**
+before every test (the `secrets_config` conftest precedent), and it remains the **only** new environment variable
+this design introduces.
+
+**HOLDS**: A-4 · `app.test.jsx:261` · U15's migrations + `checksums.json` · U16's `Settings` · `auth_rbac` (U11) ·
+`admin_cli` (U17) — **all untouched** · `backend/app/routes/` untouched · no migration, no route, no code ·
+`backend/scripts/`, `llm_client.py`, tier-B untouched · **#25 still OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried, not re-run: backend
+**1582 / 0 / 43 / 5 / 99.87%** · frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: STEPS 1–9 + FIXTURE MIGRATION EXECUTED · SUITE GREEN **1610 / 0 / 43 / 5 / 99.65%** (2026-07-25T10:42:13Z)
+
+**Status**: **IMPLEMENTED — suite green at the exact predicted count. NOT COMMITTED.** Stopped at the 2-option gate.
+
+### WIRE-1 AMENDED — WIRE1-Fold-5, the build's SECOND amendment
+
+Signed off in **three rounds**, each expansion found by an audit and **surfaced-and-stopped on** rather than
+absorbed: **§3 only → §2+§3 → §2+§3+§5+§6** (+ §7.2 and the header record). Applied to
+`guide-docs/build/wire-1/api-contract.md`: **§2** gains the 204-no-content convention · **§3** gains **R8
+`POST /login`** / **R9 `POST /logout`** · **§5** gains the login request body (placed there because §3 has **no
+request column** — the R5 precedent) · **§6** + the header's *"deferred"* statements **superseded as now-false**
+(struck through, retained) · **§7.2** records the amendment.
+⚑ **R1–R7 verified byte-unchanged** — the diff contains **zero route-table deletions**.
+
+### Delivered
+
+**`0003_auth.sql`** (U15, after `0002_grants.sql`) — `user_credential` + `user_session`, **owner-only by
+construction** (no GRANT; the audit roles already exist and get nothing), session ids stored as **SHA-256 of the
+raw token** so a DB read yields no usable credential. The two existing checksums are **byte-identical**;
+`checksums.json` gained a third entry.
+**`backend/authn/`** — `hashing.py` (Argon2id), `constants.py` (8h TTL / 5 failures / 15 min, one reviewable
+location), `store.py`, `service.py` (**uniform failure**, incl. a **dummy verify on the unknown-user path** so it
+is not a timing oracle), `repository.py`, `admin.py` (the credential-setting entrypoint `admin-cli` lacks),
+plus the **Fold-2 hermetic conftest** written *before* any test depending on it.
+**`backend/app/routes/auth.py`** + `dependencies.py` — `current_identity()` now resolves the **session cookie**;
+`X-User-Id` is **no longer read**. **R1's shape is byte-unchanged**, so no frozen UI unit changed.
+
+### Step deltas by name
+
+Phase B **exactly 6 RED** as predicted (R-1, R-2, R-3a, R-5, R-6, R-7; R-4 green, R-8 skipped, R-3b green) ·
+hashing **+5** · service **+12** · import guard **+1** · admin **+3** · routes **+7** = **+28 → 1610**.
+
+### ⛔ Stop-gate 4 fired mid-pass, and the fixture migration that followed
+
+Switching `current_identity` broke **98 existing tests at once** — the whole composition-root suite authenticated
+through the stub being removed, which **no approved plan predicted**. Halted, reported, and option (a) was
+authorized. **Migration delta: 0 tests added, 0 removed, 0 assertions changed.** `conftest.py`'s 4 app-building
+fixtures gained a `get_auth_service` override; the 3 role constants moved from `{"X-User-Id": …}` to
+`{"Cookie": "session=…"}` — **still `headers=` dicts, so ~90 call sites needed no edit**; three inline app
+constructions in `test_commit_claim.py` / `test_wire1_pending_shapes.py` got the same one line. **Nothing outside
+`backend/app/tests/`.**
+⚑ **Sessions are SEEDED, not obtained by calling R8** — Argon2id is deliberately slow, endpoint logins would
+couple all 98 route tests to R8, and the login path is already proven end-to-end once in `test_auth_routes.py`.
+
+### ⛔ Two honest deviations
+
+* **Coverage 99.65%, below my predicted ≥99.8% floor.** My floor was wrong; reported rather than shrugged off.
+  Accounted for exactly: `dependencies.py` 95% (189-190, 227), `routes/auth.py` 97% (branch 94→96),
+  `authn/store.py` 93% (line 70 + two branch exits) — all defensive guards. **No tests were added to chase the
+  number**, which would have overshot the 1610 the delta was predicted to hit.
+* **Four `test_auth_stub.py` tests now pass VACUOUSLY** — named, assertions **left unchanged** per instruction:
+  `test_a_blank_header_is_401[×3]`, `test_an_unknown_user_is_401_not_403`,
+  `test_a_user_whose_role_is_blank_is_401`, `test_an_unknown_user_cannot_authenticate_by_claiming_a_role`. Each
+  sends an `X-User-Id` that is now **ignored** and gets its 401 from the **absent cookie**, not the property it
+  was written to test. ⚑ Also disclosed: the `GHOST-1` session seed is **currently unused**, because the test it
+  was meant to serve sends a header rather than that cookie.
+
+⚑ **Earlier claim corrected**: I had said *"NO test asserts that every route requires authentication."*
+`test_auth_stub.py:40` is literally named `test_every_wired_route_requires_authentication`. The conclusion held
+(it iterates a hardcoded 3-path list, not the route table), but the wording was wrong and was relied on at
+sign-off.
+
+**HOLDS**: **A-4 (`:239`/`:258`/`:275`) and `app.test.jsx:261` untouched** · U15's `0001`/`0002` untouched (a NEW
+`0003` only) · U16's `Settings` **still six fields** (Q4a avoided C-B) · **`auth_rbac` (U11) and `admin_cli`
+(U17) untouched** · `backend/scripts/`, `llm_client.py`, tier-B untouched · **frontend untouched** · **#25 still
+OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Frontend carried at **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: VACUOUS-TEST FIX (test_auth_stub.py) · SUITE **1610 / 0 / 43 / 5 / 99.70%** (2026-07-25T10:42:13Z)
+
+**Status**: **Green at the same 1610.** The four vacuously-passing tests are **fixed, not accepted**. NO COMMIT.
+
+### The four, re-expressed against the cookie
+
+* `test_a_missing_header_is_401` → **`test_no_session_cookie_is_401`** (renamed; property unchanged).
+* `test_a_blank_header_is_401[×3]` → **`test_a_blank_session_cookie_is_401[×3]`** — now sends a **present but
+  blank** cookie. ⚑ Docstring states precisely what it proves: the **behaviour**, not one line (a blank token
+  would also miss the store, so it does not isolate the `.strip()` guard).
+* `test_an_unknown_user_is_401_not_403` → **`test_an_unresolvable_session_is_401_not_403`** — asserts **both**
+  forms: an unmatched token, **and** a session that resolves to a user with **no `app_user` row** (the case the
+  original actually covered). Required a new **`ORPHAN-1`** seeded session.
+* `test_a_user_whose_role_is_blank_is_401` → **`test_a_session_whose_resolved_role_is_blank_is_401`** — now
+  presents the **GHOST-1 cookie**, so the request reaches `to_role` and fail-closes there. ⚑ **This is what the
+  previously-dead GHOST-1 seed exists for; it now has a consumer.**
+
+### Consolidated, not deleted silently
+
+**`test_an_unknown_user_cannot_authenticate_by_claiming_a_role`** had become an **exact duplicate** of
+*"no session is 401"* with an ignored header attached — the server reads **neither** `X-User-Id` nor `X-Role`.
+Its surviving distinct content (*a role claim cannot bootstrap authentication*) is folded into
+**`test_a_role_header_cannot_elevate_the_caller`** as a second assertion, with the consolidation recorded in that
+test's docstring.
+
+### `test_every_wired_route_requires_authentication` — the name DID overpromise
+
+Register **#13**'s shape again: it promised *"every wired route"* and checked a **hardcoded three of seven**.
+**Renamed + WIDENED** to **`test_every_authenticated_route_requires_a_session`**, deriving the surface from the
+**declared route inventory** — it now exercises **all 8** authenticated routes (asserting `checked == len(
+ROUTE_INVENTORY) - 1`, so the inventory cannot be silently under-exercised). **R8 `/login` is excluded
+deliberately** — it *is* the handshake — and that exclusion is **asserted, not assumed**, by the new
+`test_the_handshake_itself_is_reachable_without_a_session`.
+
+⚑ **Non-vacuity proven**: a synthetic route with no auth dependency returns **200**, which the loop's
+`== 401` assertion flags. The widened test genuinely catches a route that forgets authentication.
+
+### Delta by name — net 0; suite stays 1610
+
+**+1** `test_the_handshake_itself_is_reachable_without_a_session` · **−1**
+`test_an_unknown_user_cannot_authenticate_by_claiming_a_role` (consolidated) · **5 renamed/re-expressed**
+(3 of them the one parametrized case) · **0 assertions weakened or removed**.
+Coverage **99.70%** (was 99.65% — the widened loop exercises more route code). Errors **exactly 5**, same
+`audit_store` Docker-absence names; skipped **43**.
+
+**HOLDS**: A-4 and `app.test.jsx:261` untouched · only `test_auth_stub.py` + `conftest.py`'s two new cookie
+constants touched · **#25 still OPEN** · **NO COMMIT**.
+
+---
+
+## ✅ POST-BUILD — LOGIN & SIGNUP IMPLEMENTATION PASS **COMPLETE AND ACCEPTED** (2026-07-25T10:42:13Z)
+
+**Final state**: backend **1610 passed / 0 failed / 43 skipped / 5 errors** (same `audit_store` Docker-absence
+names) **/ 99.70% coverage** · frontend **687 / 137 / 0**, untouched. **NOT COMMITTED.**
+
+### What this pass closed
+
+Before it, **`X-User-Id` WAS authentication** — any caller who knew a `user_id` was that user. **SEC-4's
+segregation of duties was unenforceable against anyone willing to edit a header**, and
+**`AuditRecord.underwriter_id` — the CON-BR4 "WHO" — was a self-asserted string** in a build whose stated
+invariant is full auditability. That is register **#25 / PER-4**, now closed in substance.
+
+### WIRE1-Fold-5 — the build's SECOND contract amendment, signed off in THREE rounds
+
+Each expansion was found by an audit demanded before sign-off, and each was **surfaced-and-stopped on**:
+**§3 only → §2+§3 → §2+§3+§5+§6** (+ §7.2 and the header). **§2** gained the 204-no-content convention (a 204
+fits neither existing success shape and contradicts §2's Content-Type sentence — it could not be smuggled in
+under §3). **§3** gained **R8 `POST /login`** / **R9 `POST /logout`**. **§5** gained the login request body,
+placed there because §3 has **no request column** (the R5 precedent) — an earlier side-by-side had implicitly
+added one, which would have been a **structural** change. **§6** + the header's *"deferred"* statements
+**superseded as now-false** (struck through, retained) — leaving them would have been **register #13's exact
+defect**. **§7.2** records it, mirroring §7.1's treatment of Fold-4.
+⚑ **R1–R7 byte-unchanged — the diff has ZERO route-table deletions.**
+
+### What `backend/authn/` delivers
+
+**Argon2id** with per-call salt, library-delegated constant-time verify **structurally asserted** (an AST scan
+forbids `==`/`!=` on hash material), fail-closed on malformed hashes · **uniform failure** — unknown user, no
+credential row, wrong password and lockout all return a bare `None`, so the route **structurally cannot**
+distinguish them, with a **dummy verify on the unknown-user path** so timing leaks nothing · **revocable
+server-side sessions** (logout and role changes take effect on the *next* request) · stores **authored outside
+`backend/app/`**, the constraint that **preserved A-4 intact** · constants in **one reviewable location** ·
+the **Fold-2 hermetic conftest**, written before any test depending on it.
+
+### The admin credential gap — found on disk, contradicting a prior answer
+
+Q3(a) recorded signup as *"already built via `admin-cli create-user`"*. Verified: `admin_cli/cli.py:43-47` takes
+`user_id, subject, role` and **no credential** — **a user it creates cannot log in**. Right about *user*
+provisioning, wrong about *credential* provisioning. `admin_cli` is frozen (U17), so the missing half became
+**`python -m backend.authn.admin set-password`**: injection-pure, password read from **stdin/prompt never
+`argv`**, refuses an unknown user rather than creating an orphan credential, clears lockout on reset.
+**Disclosed cost**: two admin entrypoints; unifying them is a future U17 decision.
+
+### `0003_auth.sql`
+
+U15-owned, applied **after** `0002_grants.sql` ⇒ **owner-only BY CONSTRUCTION** (audit roles already exist and
+receive no grant), inheriting **CORE-RATIONALE-20**. ⚑ `session_id` stores the **SHA-256 of the raw token** — a
+database read yields **no usable credential**. Both existing checksums **byte-identical**.
+
+### ⛔ Stop-gate 4 fired mid-pass, and was honoured
+
+Switching `current_identity` broke **98 existing tests at once** — the whole composition-root suite authenticated
+through the stub being removed, which **no approved plan predicted**. Halted and reported rather than pushed
+through. The authorized migration then changed **0 tests, 0 assertions**: four fixtures gained one override, the
+role constants moved to `{"Cookie": …}` while staying `headers=` dicts (**~90 call sites unedited**), and three
+inline app builds got the same line. **Sessions are seeded, not obtained via R8** — Argon2 is deliberately slow,
+endpoint logins would couple 98 route tests to R8, and the login path is proven once in `test_auth_routes.py`.
+
+### ⚑ Two imprecise claims of my own, caught and corrected
+
+1. **The auth-requirement grep miss** — I told the user *"NO test asserts that every route requires
+   authentication"* while confirming the amendment. **`test_auth_stub.py:40` was literally named
+   `test_every_wired_route_requires_authentication`.** The conclusion survived (hardcoded 3-path list, not the
+   route table), but the wording was **wrong and load-bearing at a sign-off gate**.
+2. **The vacuous-test docstring overclaim** — my first fix claimed the blank-cookie test isolates the `.strip()`
+   guard. **It does not**; a blank token would also miss the store. Corrected to pin the **behaviour**, not a line.
+
+### The vacuity fix
+
+Four tests had gone green **for the wrong reason**. All re-expressed against the cookie; one was an **exact
+duplicate** and was **consolidated with its rationale recorded, not deleted silently**; the dead **GHOST-1 seed
+now has a consumer** and a new **ORPHAN-1** session covers *"resolves but has no `app_user` row"*.
+**`test_every_wired_route_requires_authentication`'s name DID overpromise** — renamed and **widened from a
+hardcoded 3 to all 8 authenticated routes**, derived from the declared inventory, R8's exclusion **asserted not
+assumed**. **Non-vacuity proven**: a synthetic no-auth route returns 200, which the loop flags.
+
+### ⛔ #25 closes NARROWED, not DISCHARGED — stated in advance and honoured
+
+The mechanism is **structurally complete and tier-U-proven**, but **no live Postgres run has occurred here** (no
+Docker, no database), so **no real login against a real database has been confirmed end-to-end**. On the **#18 /
+#8 precedent**, DISCHARGED would overclaim exactly the confirmation not performed. Full discharge requires a real
+login against real Postgres, driving R2–R7 with that session, and a commit whose `AuditRecord.underwriter_id` is
+the authenticated user.
+
+**HOLDS**: **A-4 verified AST-identical to HEAD** · **`app.test.jsx:261` intact, frontend untouched** · U15's
+`0001`/`0002` untouched · U16's `Settings` **still six fields** · **`auth_rbac` and `admin_cli` untouched** ·
+`backend/scripts/`, `llm_client.py`, tier-B untouched · `not_wired.py` not renamed (#13 open) · `audit_store`
+gap untouched (**5 stays 5**) · **NO COMMIT**.
+
+**Register: 25 tracked — 17 open · 3 discharged · 5 narrowed (#3, #8, #18, #19, and now #25).**
