@@ -5912,3 +5912,71 @@ the authenticated user.
 gap untouched (**5 stays 5**) · **NO COMMIT**.
 
 **Register: 25 tracked — 17 open · 3 discharged · 5 narrowed (#3, #8, #18, #19, and now #25).**
+
+---
+
+## REGISTER #26 `CRLF-CHECKSUM-MANIFEST-FRAGILE` OPENED — pre-existing, NOT fixed (2026-07-25)
+
+Surfaced by verifying each login/signup commit at its own SHA in isolated worktrees rather than trusting a
+working-tree run. Every fresh checkout shows **two checksum failures the working tree does not**:
+`test_migname.py::test_verify_checksums_passes_against_u24s_own_manifest` and
+`test_migration_checksum.py::test_committed_manifest_matches_committed_migrations`.
+
+**Cause, proven by bytes**: `core.autocrlf=true` with **no `.gitattributes`**, so git rewrites `.sql` line
+endings on checkout. `0001_initial_schema.sql` — manifest `848f6eec…`; working tree `848f6eec…` (0 CRLF);
+fresh checkout `14fdf782…` (57 CRLF). Same file, same commit, two digests.
+
+**PREDATES this pass** — reproduced at `ceb32f6` (Phase A close), where both fail identically. **Affects U24s own
+manifest**, never touched here; `0003_auth.sql` inherits the property identically. **CI misses it** because Linux
+defaults to `autocrlf=false`.
+
+⚑ **Same defect shape as `test_the_module_imports_without_the_sdk_installed`** (fixed earlier this session at
+`86e2725`) — an **environment-dependent** test outcome rather than a property-dependent one. Second instance in
+one session; kinship recorded so the pattern is recognised rather than re-diagnosed.
+
+**Fix named, NOT applied**: a `.gitattributes` pinning line endings. Repo-wide, needs its own authorization (the
+#24 precedent), and must first decide re-compute-manifests vs normalise-checkout.
+
+**Follow-up correction, not a history rewrite**: commit `d6a6876`s *"verified programmatically"* claim is true but
+under-qualified — verified against **this working trees bytes**, not universally.
+
+**Register now 26 tracked — 18 open / 3 discharged / 5 narrowed (#3, #8, #18, #19, #25).**
+Suite unchanged: **1610 / 0 / 43 / 5 / 99.70
+---
+
+## REGISTER #26 `CRLF-CHECKSUM-MANIFEST-FRAGILE` OPENED — pre-existing, NOT fixed (2026-07-25)
+
+Surfaced by verifying each login/signup commit **at its own SHA in isolated worktrees** rather than trusting a
+working-tree run. Every fresh checkout shows **two checksum failures the working tree does not**:
+`test_migname.py::test_verify_checksums_passes_against_u24s_own_manifest` and
+`test_migration_checksum.py::test_committed_manifest_matches_committed_migrations`.
+
+**Cause, proven by bytes**: `core.autocrlf=true` with **no `.gitattributes`**, so git rewrites `.sql` line
+endings on checkout. `0001_initial_schema.sql` — manifest `848f6eec…`; working tree `848f6eec…` (**0** CRLF);
+fresh checkout `14fdf782…` (**57** CRLF). Same file, same commit, two digests.
+
+**PREDATES this pass** — reproduced at `ceb32f6` (the Phase A close), where both fail identically. **Affects
+U24's own manifest**, which this pass never touched; `0003_auth.sql` inherits the property **identically**.
+**CI misses it** because Linux defaults to `autocrlf=false`.
+
+⚑ **Why it matters**: these manifests are the integrity mechanism for the **frozen** migrations. A guard that
+passes or fails by **checkout platform** rather than **file contents** fails in both directions — it can go red
+on an untouched file, and its passing on one machine says nothing about another.
+
+⚑ **Same defect shape as `test_the_module_imports_without_the_sdk_installed`** (fixed earlier this session at
+`86e2725`) — an **environment-dependent** test outcome rather than a property-dependent one. **Second instance
+in a single session**; the kinship is recorded so the pattern is recognised on its third appearance rather than
+re-diagnosed from scratch.
+
+**Fix named, explicitly NOT applied**: a `.gitattributes` pinning line endings (`*.sql text eol=lf`, or
+`* text=auto eol=lf`). Repo-wide, so it needs its **own authorization** (the **#24** precedent), and must first
+decide **re-compute the manifests** vs **normalise the checkout** — different remedies, different blast radii.
+
+**Follow-up correction, not a history rewrite**: commit `d6a6876`'s *"verified programmatically"* claim is true
+but **under-qualified** — verified against **this working tree's bytes**, not universally. Recorded in the
+register entry; the commit message stands as written.
+
+**Register now 26 tracked — 18 open · 3 discharged (#2 partly, #20, #24) · 5 narrowed (#3, #8, #18, #19, #25).**
+
+**HOLDS**: no `.gitattributes` · no manifest recomputed · no `.sql` touched · no test edited · no git history
+rewritten. Suite unchanged: **1610 / 0 / 43 / 5 / 99.70%**.

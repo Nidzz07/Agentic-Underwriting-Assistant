@@ -1042,3 +1042,145 @@ itself was never implicated and was not touched.**
 
 **Register unchanged at 25 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed (#3,
 #8, #18, #19).** No item opened, closed, narrowed or discharged by this note.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-07-25 · item #26 OPENED (a PRE-EXISTING defect, surfaced by the login/signup pass's commit verification)
+
+**Opened by**: the per-commit verification at the close of the login/signup implementation pass. Each of that
+pass's four code commits was checked out into an **isolated worktree** and run there, rather than trusting a
+working-tree run — and every fresh checkout showed **two failures the working tree does not have**.
+
+⚑ **Opened only — NOT fixed.** The likely remedy is a **repo-wide** change and is explicitly withheld pending its
+own authorization (below).
+
+## #26 `CRLF-CHECKSUM-MANIFEST-FRAGILE` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | The **migration checksum manifests are environment-dependent, not content-dependent.** `core.autocrlf=true` with **no `.gitattributes`** anywhere in the repository, so git rewrites `.sql` line endings **on checkout**. A manifest whose sha256 was computed against **LF** bytes therefore does not match the **CRLF** bytes a fresh clone materialises, and checksum verification fails. |
+| **The two failing tests** | `backend/case_lifecycle/tests/test_migname.py::test_verify_checksums_passes_against_u24s_own_manifest` · `backend/database/tests/test_migration_checksum.py::test_committed_manifest_matches_committed_migrations` |
+| **Proven by bytes, not inferred** | `0001_initial_schema.sql` — manifest `848f6eec…` · **working tree** `848f6eec…` (**0** CRLF pairs) ✅ · **fresh checkout** `14fdf782…` (**57** CRLF pairs) ❌. Same file, same commit, two different digests. |
+| ⚑ **PREDATES this pass — confirmed, not assumed** | Reproduced at **`ceb32f6`** (the Phase A close, **before any login/signup work existed**), where **both tests fail identically**. **Nothing in this pass caused it.** |
+| ⚑ **Affects U24's manifest equally** | `test_migname` guards **U24's own `case_lifecycle/migrations/checksums.json`** — a file this pass never touched. The defect is in the **mechanism**, not in any one manifest, and it has been latent since U24 shipped. |
+| **The new entry inherits it identically** | `0003_auth.sql`'s digest was computed against **LF** bytes, exactly as the two existing entries were. It is **consistent with them and consistently fragile** — no better, no worse. |
+| **Why CI has never caught it** | **Linux defaults to `core.autocrlf=false`**, so a CI checkout materialises LF and the digests match. The failure is reachable **only** on a platform that translates line endings — i.e. a Windows contributor cloning fresh. The guard silently does not hold where it is most likely to be exercised by a newcomer. |
+| **Why it matters** | These manifests are the **integrity mechanism for the frozen migrations** — the thing that would catch a silent edit to `0001_initial_schema.sql`. A guard that passes or fails according to the *checkout platform* rather than the *file contents* is not doing the job it is relied on for, in either direction: it can fail on an untouched file, and its passing on one machine says nothing about another. |
+| **Likely fix — NAMED, EXPLICITLY NOT APPLIED** | A **`.gitattributes`** pinning line endings — minimally `*.sql text eol=lf`, or more broadly `* text=auto eol=lf` — so checked-out bytes are identical on every platform. ⛔ **Not applied here.** Even the narrow form changes how git materialises files repo-wide and would re-normalise existing checkouts; the broad form touches **every text file in the repository**. That is a repo-wide change requiring its **own authorization**, exactly like the `.gitignore` correction that became **#24**. ⚑ Note also that a fix must decide whether the **manifests are re-computed** or the **checkout is normalised** — those are different remedies with different blast radii, and choosing between them is part of the decision, not a detail. |
+| **Owner** | `database` (U15) + `case_lifecycle` (U24) + repo configuration, **as one change** |
+| **Blocking?** | **Non-blocking.** CI is green, the deployed path is unaffected (Linux), and no behaviour is wrong. It is a **guard-reliability** defect: the integrity check is weaker and less portable than it appears. |
+
+### ⚑ Structural kinship — the second instance of this shape in a single session
+
+**#26 is the same defect shape as `test_the_module_imports_without_the_sdk_installed`**, corrected earlier in this
+same session (commit `86e2725`): **a test whose outcome depends on the ENVIRONMENT rather than on the property it
+claims to check.**
+
+* That one asserted `find_spec("google.genai") is None` and inferred laziness from the SDK's **absence** — sound
+  only while the SDK was absent, and it broke the moment `requirements.txt` made it present.
+* This one asserts a digest match and inherits the **checkout platform's** line-ending policy — sound only while
+  every checkout uses LF.
+
+Both are green in one environment and red in another **with no change to the code under test**. The earlier one
+was fixed by re-expressing the assertion **structurally** (an AST scan, environment-independent); the analogous
+move here is to make the **bytes** environment-independent via `.gitattributes` rather than to weaken the digest
+check. **Recording the kinship so the pattern is recognised the third time it appears rather than re-diagnosed
+from scratch.**
+
+### ⚑ Follow-up correction to commit `d6a6876`'s message — appended here, NOT rewritten in git history
+
+`d6a6876` ("feat(database): add 0003_auth.sql") states:
+
+> *"The two existing entries are **BYTE-IDENTICAL** -- verified programmatically before writing, not assumed."*
+
+**The claim is true but under-qualified, and #26 is exactly why.** The verification compared the two existing
+digests **before and after** adding the third entry, in **this working tree**, where the `.sql` files carry **LF**.
+It establishes that this pass **did not recompute or alter** those two entries — which was the property being
+guarded, and that property genuinely holds.
+
+It does **not** establish that those digests match the file bytes **universally**. On a fresh CRLF checkout they
+match nothing, as #26 documents. ⚑ **"Verified programmatically" should be read as "verified against this
+working tree's bytes", not "verified as correct on every platform."**
+
+**Git history is not rewritten** — the commit message stands as written, and this entry is the correction, per
+the standing supersede-not-rewrite discipline.
+
+**Register now stands at 26 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 5 narrowed
+(#3, #8, #18, #19, #25).** ⚑ Count reconciliation: the login/signup pass moved **#25 from open to narrowed**
+(open 18 → 17, narrowed 4 → 5, tracked unchanged at 25); **#26 is new and open**, so open goes **17 → 18** and
+tracked **25 → 26** (18 + 3 + 5 = 26).
+
+**HOLDS**: **no `.gitattributes` added** · **no manifest recomputed** · **no `.sql` file touched** · no test
+edited · no git history rewritten · working tree clean at `d72ffe4` · suite **1610 / 0 / 43 / 5 / 99.70%**
+unchanged.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-07-25 · item #26 OPENED (a PRE-EXISTING defect, surfaced by the login/signup pass's commit verification)
+
+**Opened by**: the per-commit verification at the close of the login/signup implementation pass. Each of that
+pass's four code commits was checked out into an **isolated worktree** and run there, rather than trusting a
+working-tree run — and every fresh checkout showed **two failures the working tree does not have**.
+
+⚑ **Opened only — NOT fixed.** The likely remedy is a **repo-wide** change and is explicitly withheld pending its
+own authorization (below).
+
+## #26 `CRLF-CHECKSUM-MANIFEST-FRAGILE` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | The **migration checksum manifests are environment-dependent, not content-dependent.** `core.autocrlf=true` with **no `.gitattributes`** anywhere in the repository, so git rewrites `.sql` line endings **on checkout**. A manifest whose sha256 was computed against **LF** bytes therefore does not match the **CRLF** bytes a fresh clone materialises, and checksum verification fails. |
+| **The two failing tests** | `backend/case_lifecycle/tests/test_migname.py::test_verify_checksums_passes_against_u24s_own_manifest` · `backend/database/tests/test_migration_checksum.py::test_committed_manifest_matches_committed_migrations` |
+| **Proven by bytes, not inferred** | `0001_initial_schema.sql` — manifest `848f6eec…` · **working tree** `848f6eec…` (**0** CRLF pairs) ✅ · **fresh checkout** `14fdf782…` (**57** CRLF pairs) ❌. Same file, same commit, two different digests. |
+| ⚑ **PREDATES this pass — confirmed, not assumed** | Reproduced at **`ceb32f6`** (the Phase A close, **before any login/signup work existed**), where **both tests fail identically**. **Nothing in this pass caused it.** |
+| ⚑ **Affects U24's manifest equally** | `test_migname` guards **U24's own `case_lifecycle/migrations/checksums.json`** — a file this pass never touched. The defect is in the **mechanism**, not in any one manifest, and it has been latent since U24 shipped. |
+| **The new entry inherits it identically** | `0003_auth.sql`'s digest was computed against **LF** bytes, exactly as the two existing entries were. It is **consistent with them and consistently fragile** — no better, no worse. |
+| **Why CI has never caught it** | **Linux defaults to `core.autocrlf=false`**, so a CI checkout materialises LF and the digests match. The failure is reachable **only** on a platform that translates line endings — i.e. a Windows contributor cloning fresh. The guard silently does not hold where it is most likely to be exercised by a newcomer. |
+| **Why it matters** | These manifests are the **integrity mechanism for the frozen migrations** — the thing that would catch a silent edit to `0001_initial_schema.sql`. A guard that passes or fails according to the *checkout platform* rather than the *file contents* is not doing the job it is relied on for, in either direction: it can fail on an untouched file, and its passing on one machine says nothing about another. |
+| **Likely fix — NAMED, EXPLICITLY NOT APPLIED** | A **`.gitattributes`** pinning line endings — minimally `*.sql text eol=lf`, or more broadly `* text=auto eol=lf` — so checked-out bytes are identical on every platform. ⛔ **Not applied here.** Even the narrow form changes how git materialises files repo-wide and would re-normalise existing checkouts; the broad form touches **every text file in the repository**. That is a repo-wide change requiring its **own authorization**, exactly like the `.gitignore` correction that became **#24**. ⚑ Note also that a fix must decide whether the **manifests are re-computed** or the **checkout is normalised** — those are different remedies with different blast radii, and choosing between them is part of the decision, not a detail. |
+| **Owner** | `database` (U15) + `case_lifecycle` (U24) + repo configuration, **as one change** |
+| **Blocking?** | **Non-blocking.** CI is green, the deployed path is unaffected (Linux), and no behaviour is wrong. It is a **guard-reliability** defect: the integrity check is weaker and less portable than it appears. |
+
+### ⚑ Structural kinship — the second instance of this shape in a single session
+
+**#26 is the same defect shape as `test_the_module_imports_without_the_sdk_installed`**, corrected earlier in this
+same session (commit `86e2725`): **a test whose outcome depends on the ENVIRONMENT rather than on the property it
+claims to check.**
+
+* That one asserted `find_spec("google.genai") is None` and inferred laziness from the SDK's **absence** — sound
+  only while the SDK was absent, and it broke the moment `requirements.txt` made it present.
+* This one asserts a digest match and inherits the **checkout platform's** line-ending policy — sound only while
+  every checkout uses LF.
+
+Both are green in one environment and red in another **with no change to the code under test**. The earlier one
+was fixed by re-expressing the assertion **structurally** (an AST scan, environment-independent); the analogous
+move here is to make the **bytes** environment-independent via `.gitattributes` rather than to weaken the digest
+check. **Recording the kinship so the pattern is recognised the third time it appears rather than re-diagnosed
+from scratch.**
+
+### ⚑ Follow-up correction to commit `d6a6876`'s message — appended here, NOT rewritten in git history
+
+`d6a6876` ("feat(database): add 0003_auth.sql") states:
+
+> *"The two existing entries are **BYTE-IDENTICAL** -- verified programmatically before writing, not assumed."*
+
+**The claim is true but under-qualified, and #26 is exactly why.** The verification compared the two existing
+digests **before and after** adding the third entry, in **this working tree**, where the `.sql` files carry **LF**.
+It establishes that this pass **did not recompute or alter** those two entries — which was the property being
+guarded, and that property genuinely holds.
+
+It does **not** establish that those digests match the file bytes **universally**. On a fresh CRLF checkout they
+match nothing, as #26 documents. ⚑ **"Verified programmatically" should be read as "verified against this
+working tree's bytes", not "verified as correct on every platform."**
+
+**Git history is not rewritten** — the commit message stands as written, and this entry is the correction, per
+the standing supersede-not-rewrite discipline.
+
+**Register now stands at 26 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 5 narrowed
+(#3, #8, #18, #19, #25).** ⚑ Count reconciliation: the login/signup pass moved **#25 from open to narrowed**
+(open 18 → 17, narrowed 4 → 5, tracked unchanged at 25); **#26 is new and open**, so open goes **17 → 18** and
+tracked **25 → 26** (18 + 3 + 5 = 26).
+
+**HOLDS**: **no `.gitattributes` added** · **no manifest recomputed** · **no `.sql` file touched** · no test
+edited · no git history rewritten · working tree clean at `d72ffe4` · suite **1610 / 0 / 43 / 5 / 99.70%**
+unchanged.
