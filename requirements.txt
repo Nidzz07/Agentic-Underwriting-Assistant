@@ -6,6 +6,9 @@ langchain-anthropic>=0.3.0
 
 # Multi-model support
 google-genai>=1.0.0
+# authn (register #25 / PER-4) — Argon2id password hashing (Q4.1a). Adaptive,
+# memory-hard, OWASP's current first recommendation for a new credential store.
+argon2-cffi>=23.1.0
 openai>=1.50.0
 ollama>=0.3.0
 

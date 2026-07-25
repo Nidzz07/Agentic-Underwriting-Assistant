@@ -73,6 +73,11 @@ addopts = [
     # coverage, so this number must not be read as covering them.
     # See build/llm-judge/code/code-summary.md.
     "--cov=backend/llm_judge",
+    # authn (register #25 / PER-4) - authentication: credential verification +
+    # revocable server-side sessions. Counted like every other tree so QA-6 (>=90%)
+    # covers it; the --cov-fail-under gate below is UNCHANGED. The live-DB adapter is
+    # omitted below exactly like case_lifecycle/repository.py.
+    "--cov=backend/authn",
     "--cov-report=term-missing",
     "--cov-fail-under=90",
     "--strict-markers",
@@ -119,6 +124,13 @@ omit = [
     # SCAN SET (CASE-Req-Fold-3) — the omit governs where a module is exercised, never what it
     # may contain. See build/case-lifecycle/code/code-summary.md.
     "*/case_lifecycle/repository.py",
+    # authn (register #25) - the SQL-exec adapter is exercised via a real database in
+    # CI, never at unit tier; omitted exactly like case_lifecycle/repository.py.
+    # __main__.py is the composition entry (builds the injected Engine), omitted like
+    # admin_cli/__main__.py. All pure logic (hashing, store, service, constants,
+    # admin) stays counted and unit-covered to >=90% (QA-6).
+    "*/authn/repository.py",
+    "*/authn/__main__.py",
 ]
 
 [tool.coverage.report]
