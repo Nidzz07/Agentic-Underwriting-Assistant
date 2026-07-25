@@ -893,6 +893,105 @@ pre-existing `unhappy paths.png` deletion, which is disclosed in the commit mess
 
 ---
 
+# ⚑ REGISTER UPDATE — 2026-07-25T10:42:13Z · item #25 OPENED (a scope gap, not a deferral — the register's first)
+
+**Opened by**: the login/signup scoping pass's ground-truth reconstruction
+(`guide-docs/build/plans/login-signup-plan.md` §1.4). **Opened only — NOT resolved.** Designing its fix is a
+separate act, scoped in that plan and gated on the user's answers.
+
+## #25 `PER-4-AUTHN-UNIMPLEMENTED` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | **PER-4 — an in-scope Phase-1 requirement — was never built.** `requirements.md:78`: *"Authentication = **basic login with role-based access (JWT/session)**. RBAC MUST enforce the PER-1/PER-2 separation in the UI."* What exists instead is a stub: `VITE_USER_ID` → `X-User-Id` → an `app_user` lookup (`dependencies.py:160-175`), with **no credential verification of any kind**. **US-PLAT-1 (Phase 1) is half-delivered against its own acceptance criteria**: its Gherkin `Then` clauses (auditor denied, underwriter retains act capability) are built and tested; its `Given` clause — *"Given JWT/session authentication with roles underwriter and auditor"* — is **unsatisfied**. |
+| **Why it went unrecorded** | ⚑ **A silent scope-widening in `auth-rbac`'s FD.** **BR-AUTH-10** (`guide-docs/build/auth-rbac/functional-design/business-rules.md`) defers the authentication flow with the justification *"**authn is out of Phase-1 scope**"*. **That justification is not supported by the requirements record.** What DISCOVER put out of Phase-1 scope was **OOS-3 — *full SSO/OAuth federated identity*** (`requirements.md:62`, *"Phase 3 — Future Release"*). Requirements Q6 **rejected option A (no real auth)** and **rejected option C (full SSO)**, selecting **B, basic login (JWT/session)**, which became PER-4 and was phase-tagged **Phase 1** via US-PLAT-1. Between Requirements Analysis and the auth-rbac FD, *"authn deferred"* widened from *"federated SSO deferred"* to *"all authentication deferred."* **No artifact surfaces, questions, or approves that widening** — it appears in BR-AUTH-10 as an already-settled premise, and every downstream artifact inherits it in good faith: `unit-of-work.md:182` (U11 lists PER-4/5 among its invariants while covering only the authz half) → `domain-entities.md:150-151` (*"**Not** an authentication (authn) design"*) → WIRE-1 A6 / §6:137 (*"abstract seam, deferred… Phase-1 may stub it"*) → `dependencies.py:31-34` (the `X-User-Id` stub). **Each step is individually defensible; the sum is an in-scope requirement silently dropped.** |
+| **Citation chain (verbatim sources)** | `requirement-verification-questions.md` Q6 `[Answer]: B` · `requirements.md:78` (PER-4) · `requirements.md:79` (PER-5) · `requirements.md:62` (OOS-3 — *federated* only) · `personas.md:21` (*"Authenticated UI user (JWT/session)"*) · `user-journey.md:46` (*"1. Login with JWT/session; RBAC routes the user by role (PER-4)"*) · `stories.md` US-PLAT-1 (Phase 1, Traces PER-4/PER-5/SEC-4) · `unit-of-work.md:177-183` · `business-rules.md` BR-AUTH-10 · `business-logic-model.md:103` · `domain-entities.md:150-151` · `wire-1/api-contract.md:8,137` · `backend/app/dependencies.py:31-34,160-175` |
+| **What is NOT claimed** | **`auth-rbac` (U11) is not defective.** Its authorization model is correct, single-sourced, enforced at both points, and tested. #25 is about the **authentication** half that PER-4 required and no unit ever owned — not about the authz half that U11 built well. Nor is any prior pass at fault for relying on the stub: every one of them disclosed it accurately as a stub. |
+| **Severity — stated on the register's own scale** | **Non-blocking for the system as built and demonstrated today** (the stub works; the demo path runs; every test is green). **⛔ BLOCKING for any multi-user or publicly-reachable deployment**, and it **materially qualifies two headline claims**: **(1) SEC-4's segregation of duties is not adversarially enforceable** — the underwriter/auditor separation holds against mistakes, not against anyone who edits a header; **(2) `AuditRecord.underwriter_id` — the CON-BR4 "WHO" in every committed decision — is an unauthenticated, self-asserted string.** WIRE-1 §5:122 keeps `underwriter_id` out of the request body *precisely so* *"a client cannot commit **as another user**"*; with a forgeable header that protection is nominal. For a build whose stated invariant is **full auditability**, the audit trail's actor field currently has no authentication behind it. ⚑ On severity this sits alongside **#19** (*"a genuine BFSI-relevant defect"*) rather than with the housekeeping items — it is **not** a disclosure-only gap. |
+| **Also engaged (recorded, not resolved)** | The **Security Guardrails** extension is `Enabled (scoped)` (`guide-state.md:25-30`) and the recorded scope **excludes `SECURITY-12: Authentication and Credential Management`** — a scope fixed at Requirements Analysis under the *same* unsupported assumption. Any fix forces a second decision on whether that scope widens; per **CLAUDE.md**, an applicable enabled extension rule that is unmet is a **blocking finding**, and SECURITY-12 includes *"**MFA MUST be supported for administrative accounts**"*. Scoped as **Q4.2** in the login/signup plan. |
+| **Structural blocker on any fix (recorded here so it is not rediscovered)** | **Four frozen assertions across two units** would fail on any new route: `deploy_config/tests/test_routes.py:36` (exact-set equality over the seven WIRE-1 routes, *"LOAD-BEARING — full-highest"*, **app-level — binds wherever the router file lives**) · `:41` (exact filename set under `backend/app/routes/`) · `app/tests/test_no_write_route.py:107` (exactly one non-GET route) · `:239` (no direct writes under `backend/app/`; a signup INSERT breaks the composition root's stated *"every write goes through the frozen `DecisionCommitService`"* guarantee, `dependencies.py:15-20`). **Same MATCHED-PAIR shape as #13, but four assertions across two units instead of one.** |
+| **Owner** | A future **authorized authentication pass** + an **`auth-rbac` (U11) scope reconciliation** (BR-AUTH-10 to be **superseded, never rewritten in place**), **as one authorization** |
+| **Blocking?** | **Non-blocking today · ⛔ BLOCKING for any exposed or multi-user deployment.** See severity above. |
+
+⚑ **A new outcome shape for this register.** Every prior item recorded a **deferral that was disclosed when it was
+taken** (#2–#24) or a **rationale that was never written down** (#20). **#25 is the first item where the build's
+own requirements record and its shipped behaviour disagree, and the disagreement was never disclosed at all.**
+That distinction is recorded deliberately: the register's existing items are evidence the disclosure discipline
+worked; #25 is evidence of the one place it did not, and it was found by a ground-truth pass rather than by the
+gates.
+
+**Register now stands at 25 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed
+(#3, #8, #18, #19).** ⚑ Count reconciliation: **#25 is new and open**, so open goes **17 → 18**, discharged and
+narrowed are unchanged, and tracked goes **24 → 25** (18 + 3 + 4 = 25).
+
+**HOLDS upheld:** no frozen-23-or-24 unit internal or test edited · **BR-AUTH-10 not edited** (cited only; its
+supersession is future authorized work) · WIRE-1 text unamended · `not_wired.py` not renamed · U23's frozen test
+unedited · U15's migrations and U16's six-field `Settings` untouched · `audit_store` Docker-guard gap untouched
+(**5 errors stay exactly 5**) · tier-B not authorized, not touched · `backend/` and `frontend/` **not written to
+at all** · **no code generated** · **#25 opened, NOT resolved**.
+
+---
+
+# ⚑ REGISTER CORRECTION — 2026-07-25T10:42:13Z · #25's structural-blocker figure SUPERSEDED (4-across-2 → **8-across-3**)
+
+**This section supersedes the *"Structural blocker on any fix"* row of #25's table above. That row is preserved
+verbatim as the historical record of what was believed when #25 was opened; it is NOT rewritten in place.**
+**#25's status is UNCHANGED — it remains OPEN and unresolved.** Only the blocker's *measurement* is corrected.
+
+## What was wrong
+
+#25 recorded the blocker as **"four frozen assertions across two units"**. That was **twice** understated. The
+figure was corrected once to *"seven across three"* (still wrong in **membership**) and then, by an exhaustive
+sweep, to the ratified figure below. Both errors were caught by the **mandatory ambiguity-check**, not by the
+ground-truth passes that produced them.
+
+## ⚑ The ratified figure (`login-signup-plan.md` Q12(a), Q13(a) — use this wording verbatim)
+
+> **The relaxation scope is 8 assertions across 3 units — U23 (2: `deploy_config/tests/test_routes.py:36`,
+> `:41`), the composition root (3: `backend/app/tests/test_no_write_route.py:107`, `:116`, `:122`), and U15
+> `database` (3: `database/tests/test_migration_runner.py:75`, `test_migration_checksum.py:114`,
+> `test_migration_apply.py:56` — the last **CI-only**, being Docker-gated), plus a `checksums.json` manifest
+> entry. TWO further items are PRESERVED BY DESIGN CONSTRAINT rather than weakened:
+> `test_no_write_route.py:239` (A-4), via authoring the credential/session stores OUTSIDE `backend/app/` on the
+> U24 `PostgresCaseStore` pattern; and `frontend/src/app/__tests__/app.test.jsx:261`, via the `sessionClient.js`
+> non-seam precedent.**
+
+**Net corrections from the originally-recorded row**: **+`test_no_write_route.py:116`** (fails **twice**, for
+`/login` and `/logout`) · **+`test_no_write_route.py:122`** (exact seven-path set) · **+U15's three** (triggered
+by Q9(a)'s `0003_auth.sql`) · **−A-4** (needs **no** relaxation — it passes under the store-placement constraint).
+
+## Why the first figure was wrong, stated plainly
+
+**U15 was not in scope when #25 was opened** — the migration only enters once Q2(a)/Q9(a) put credentials in a
+new `database`-owned migration, which was decided after. **That half is a legitimate consequence of a later
+decision, not an error.** The composition-root half **was** an error: `:116` and `:122` sit in a file the
+ground-truth pass had already read, and were missed because that pass enumerated the assertions it already knew
+about rather than sweeping by change-type.
+
+## ⚑ Disclosed process finding — recorded, not smoothed over
+
+On the **#20 directed-check** and **#19-vacuous-fixture** precedent: **the plan's own §2 under-counted twice**,
+and **the ambiguity-check caught both**. What finally worked was **changing the method** — enumerating every
+exact-set/exact-count assertion in the repository perturbable by the three implied changes (**+2 routes, +1
+migration file, +2 tables**) and classifying each as *breaks* or *survives* **with a reason** — rather than
+re-checking the same list harder. Ten near-miss assertions were swept and confirmed **surviving**, each with its
+reason recorded (`login-signup-plan.md` §11.3), so no future pass re-derives them.
+
+**Caution for future passes, recorded as the lesson**: *a ground-truth pass that enumerates what it already knows
+about is not a sweep.*
+
+**Register still 25 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed (#3, #8, #18,
+#19).** ⚑ **No count changes**: this corrects a measurement inside an existing open item, opens nothing, and
+closes nothing.
+
+**HOLDS upheld:** no frozen-23-or-24 unit internal or **test** edited — **all eight assertions are untouched on
+disk** · WIRE-1 unamended · `backend/app/routes/` untouched, no route added · U15's migrations and
+`checksums.json` untouched, **no migration written** · U16's six-field `Settings` untouched · `not_wired.py` not
+renamed (#13 stays open) · `audit_store` Docker-guard gap untouched (**5 stays 5**) · tier-B not authorized ·
+`backend/` and `frontend/` **not written to at all** · **no code generated** · **#25 remains OPEN**.
+
+---
+
 # ⚑ REGISTER NOTE — 2026-07-25T10:42:13Z · #18 — one recorded non-discharge reason is NO LONGER FACTUALLY ACCURATE (status UNCHANGED)
 
 **This is a FACTUAL ANNOTATION, not a status change.** **#18 `NO-PRODUCTION-LLMCLIENT` remains NARROWED, NOT

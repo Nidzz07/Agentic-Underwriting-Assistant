@@ -4849,3 +4849,593 @@ A previously-unlogged **manual, out-of-band R1â€“R7 walkthrough against a r
 **Register UNCHANGED at 24 tracked** - 17 open / 3 discharged / 4 narrowed. **#19 UNCHANGED** - a clickable double-commit is now reachable under Q5(c), accepted knowingly; this pass does not alter its status.
 
 **Changed files (uncommitted)**: frontend/package.json, frontend/vite.config.js, frontend/src/app/App.jsx, frontend/src/app/__tests__/app.test.jsx, frontend/.env.local (gitignored) - plus this guide-state.md and one audit.md entry.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: SCOPING PASS **BEGUN** · ⚑ REGISTER #25 OPENED (2026-07-25T10:42:13Z)
+
+**Status**: SCOPING ONLY — **no code generated, no frozen file touched, WIRE-1 not amended, no frozen test relaxed**.
+Plan written, **STOPPED at the plan-file gate**.
+**Plan of record**: `guide-docs/build/plans/login-signup-plan.md` — **8 `[Answer]` tags, all BLANK**.
+
+### Ground truth reconstructed fresh from disk
+
+**What identity/auth IS today** (four links, all real, all read-only): `frontend/.env.local` → `VITE_USER_ID`
+(`main.jsx:23`, a **build-time** env var) → `X-User-Id` header (`httpTransport.js:42`) → `current_identity()`
+(`dependencies.py:160-175`) → `SELECT role FROM app_user` on the owner engine → `to_role()` fail-close → **401**
+or `Identity`. R1 `GET /session` echoes `{user_id, role}`; the client fail-closes to `null`; the role is
+**cosmetic only** (`RoleGate.jsx`).
+
+**What it is NOT — repo-wide scan, verified not assumed**: **no password authentication of any kind** (`app_user`
+has exactly three columns — `user_id`, `subject`, `role`; the only `PASSWORD` literals in `backend/` are Postgres
+**role** passwords and test fixtures) · **no JWT** · **no session token, cookie, or `Authorization` header**
+(`dependencies.py:31-34`: *"deliberately NOT `Authorization: Bearer`, which would imply a token semantic … that
+does not exist"*) · **no session state** — R1 issues and stores nothing · **no middleware** (`add_middleware`
+zero hits) · **no signup/registration/logout route** · **no login UI**.
+
+⚑ **The identity is trusted from the client entirely.** The ROLE is never trusted (`dependencies.py:168`), but
+`X-User-Id: <any known user_id>` **is** authentication — there is no verification step to bypass.
+
+### ⚑ REGISTER #25 `PER-4-AUTHN-UNIMPLEMENTED` — OPENED, NOT RESOLVED
+
+**Login was scoped IN and silently dropped.** Requirements Q6 **rejected A (no real auth)** and **rejected C
+(full SSO)**, answering **B — basic login (JWT/session)** → **PER-4** (`requirements.md:78`), phase-tagged
+**Phase 1** via **US-PLAT-1**, and carried into `personas.md:21` and `user-journey.md:46` (*"1. Login with
+JWT/session; RBAC routes the user by role (PER-4)"*). Only the **federated** half was deferred — **OOS-3**
+(`requirements.md:62`).
+
+⚑ **`auth-rbac`'s BR-AUTH-10 defers the authentication flow on the justification *"authn is out of Phase-1
+scope"* — which the requirements record does not support.** Between Requirements Analysis and the auth-rbac FD,
+*"authn deferred"* widened from *"federated SSO deferred"* to *"all authentication deferred"*, and **no artifact
+surfaces, questions, or approves that widening**. Every downstream artifact inherits it in good faith
+(`unit-of-work.md:182` → `domain-entities.md:150-151` → WIRE-1 A6/§6:137 → the `X-User-Id` stub).
+**Consequence: US-PLAT-1's Gherkin `Given` is unsatisfied while its `Then` clauses are built and tested.**
+
+**Severity**: **non-blocking today** (the stub works, the demo runs, all suites green); **⛔ blocking for any
+multi-user or publicly-reachable deployment**. It **materially qualifies two headline claims** — **SEC-4's
+segregation of duties is not adversarially enforceable**, and **`AuditRecord.underwriter_id`, the CON-BR4 "WHO",
+is an unauthenticated self-asserted string** in a build whose stated invariant is full auditability.
+
+**`auth-rbac` (U11) is NOT defective** — its authz model is correct, single-sourced, enforced at both points and
+tested. #25 is the **authentication** half no unit ever owned. **No prior pass is at fault**: each disclosed the
+stub accurately as a stub.
+
+⚑ **A new outcome shape**: every prior item recorded a **disclosed deferral** (#2–#24) or an **unwritten
+rationale** (#20). **#25 is the first where the requirements record and the shipped behaviour disagree, and the
+disagreement was never disclosed at all.**
+
+### ⛔ Structural blocker recorded — four frozen assertions across TWO units
+
+`deploy_config/tests/test_routes.py:36` (**exact-set equality** over the seven WIRE-1 routes; *"LOAD-BEARING —
+full-highest"*; ⚑ **app-level introspection — binds wherever the router file lives**) · `:41` (exact filename set
+under `backend/app/routes/`) · `app/tests/test_no_write_route.py:107` (**exactly one non-GET route**) · `:239`
+(no direct writes under `backend/app/` — a signup INSERT would break the composition root's stated *"every write
+goes through the frozen `DecisionCommitService`"* guarantee, `dependencies.py:15-20`). **Same MATCHED-PAIR shape
+as #13, but four assertions across two units instead of one.**
+
+### Three bounding constraints named (not acted on)
+
+**C-A** `0001_initial_schema.sql` frozen — credential state, if any, is a **new forward-only migration**, never an
+edit · **C-B** `Settings` has **exactly six** required fields; a signing key would be a **seventh**, editing
+frozen U16 · **C-C** `Role`/`PERMISSION_MATRIX` are **closed** while `app_user.role` is an open `VARCHAR` — any
+signup must assign one of exactly three values or the user cannot authenticate.
+
+### Also surfaced — the Security Guardrails scope
+
+`Enabled (scoped)` (guide-state §Extension Configuration), and the recorded scope **excludes `SECURITY-12:
+Authentication and Credential Management`** — fixed at Requirements Analysis under the **same** unsupported
+assumption. Widening it would make **MFA for administrative accounts a blocking requirement** per CLAUDE.md.
+Surfaced as plan **Q4.2**, not decided.
+
+### Eight open questions (all BLANK)
+
+**Q1** PER-4 discharge vs new feature · **Q2** new domain state / whose / frozen-unit reopening · **Q3** signup =
+admin-provisioning vs self-registration (⚑ self-service role assignment over a closed role set is **not**
+defensible for BFSI — it would let anyone grant themselves `RBAC_COMMIT`) · **Q4** password storage/hashing **+
+the SECURITY-12 scope decision** · **Q5** session mechanism (stateless vs revocable) · **Q6** does WIRE-1 R1
+change shape, or does login sit in front of it · **Q7** new route (WIRE-1 §3 amendment) vs layered — **including
+the reverse-proxy/platform-gate alternative, presented fairly with its bypass weakness stated** · **Q8** should
+relaxing the four frozen assertions be its **OWN separately authorized reopening** (U24 three-reopenings
+precedent) rather than bundled.
+
+**HOLDS upheld**: no frozen-23-or-24 unit internal or test edited · **BR-AUTH-10 cited, not edited** · WIRE-1
+unamended · `backend/app/routes/` untouched, no route added · **no backend or frontend file written at all** ·
+U15's migrations and U16's `Settings` untouched · `not_wired.py` not renamed · U23's frozen test unedited ·
+`audit_store` Docker-guard gap untouched (5 stays 5) · tier-B not authorized, not touched ·
+`backend/app/llm_client.py` and `backend/scripts/` untouched (#18 unaffected) · **no code generated** · **#25
+opened, NOT resolved**.
+
+**Register now 25 tracked** — **18 open** (was 17) / 3 discharged (#2 partly, #20, #24) / 4 narrowed (#3, #8,
+#18, #19). Suites carried forward, not re-run: backend **1578 / 0 / 43 / 5 / 99.87%**; frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: Q1–Q8 ANSWERED · AMBIGUITY-CHECK ⚠️ **NOT CLEAN** · SURFACE-AND-STOP AT Q9–Q11 (2026-07-25T10:42:13Z)
+
+**Status**: **STILL PLAN-ONLY — no code, no schema, no route, no WIRE-1 amendment, no frozen test relaxed.**
+⚑ **The standalone frozen-assertion relaxation design was NOT written** — two of the three findings determine its
+scope and one changes a disclosure obligation. Writing it now would produce a plan wrong on arrival.
+
+**Answers embedded verbatim (8/8, 0 blank)** in `login-signup-plan.md` §4, with the pre-answer question text
+preserved **byte-for-byte**: **Q1(c)** login = #25 discharge / signup = thin layer on the built admin-CLI path ·
+**Q2(a)** new `user_credential` table via a new forward-only `database`-owned migration · **Q3(a)**
+admin-provisioning only, (d) self-selected roles recorded as considered-and-rejected · **Q4** 4.1(a) Argon2id +
+4.2(ii) keep the extension scope, omit MFA and breached-password checking, **narrowing disclosed by name** ·
+**Q5(b)** opaque server-side session in a `user_session` table, HttpOnly/Secure/SameSite=Lax cookie · **Q6(a)**
+R1's shape unchanged — the reserved seam used as designed · **Q7(a)** new `POST /login` + `POST /logout`, WIRE-1
+§3 amended additively · **Q8(c)** relaxation designed+approved standalone, applied as step 0 of the code-gen pass.
+
+### ⚠️ Ambiguity-check — 4 directed checks run against disk · **3 MATERIAL FINDINGS · 4 folds**
+
+* **⚠️ Check (i) — MATERIAL.** The real question is **whose migration sequence owns the tables**. **U15 carries
+  THREE exact-set assertions over its migration filenames + a two-entry checksum manifest** —
+  `test_migration_apply.py:56`, `test_migration_checksum.py:114`, `test_migration_runner.py:75`,
+  `migrations/checksums.json` — and `migration_runner.py:69` discovers **by glob**, so a new `0003_*.sql` is
+  auto-discovered and **all three fail**. The U24-precedent alternative (own dir + own manifest + collision
+  guard) fires **zero** — but `backend/scripts/run_migrations.py:57-58` **hardcodes exactly two sequences**
+  (*"Hardcoded, explicitly named … no dynamic discovery"*) and is **off-limits this pass**, so a third sequence
+  would **silently never run at deploy** — register **#8**'s exact, freshly-remediated failure mode. **Neither
+  option is free.**
+* **✅ Check (ii) — CLEAN (2 folds).** **C-B genuinely avoided** — an opaque token is validated by **lookup, not
+  signature**, so `Settings` stays at exactly six fields. **LOGIN-Fold-1**: `test_governance.py:92-94` asserts
+  `.env.example` keys **equal** `Settings.model_fields`; any new field is a two-file paired edit across a frozen
+  unit — none added, stays green. **LOGIN-Fold-2**: the `Secure`-cookie-over-local-HTTP problem resolves on the
+  `llm_client.py:106-120` precedent — SEC-3's `os.environ` rejection is *"scoped to credentials and secret
+  material specifically"*; a behavioural toggle is not a credential.
+* **⚠️ Check (iii) — MATERIAL (2 folds).** No-CORS property **holds, better than expected** — **LOGIN-Fold-3**:
+  `fetch` defaults to `credentials: 'same-origin'` and the topology already is, so cookies flow **automatically**
+  and frozen-classified `httpTransport.js` **is not touched at all**. **LOGIN-Fold-4**: editing `App.jsx` is
+  **not** blocked (`test_noedit.py` constrains only U23's **own** artifacts — proven by the wiring pass, 11
+  passed). **⛔ But `app.test.jsx:261` asserts exact-set equality over seam keys** — a sixth seam breaks it;
+  resolvable via `sessionClient.js`'s non-seam precedent, recorded as a **BINDING CONSTRAINT**.
+  ⚑ **CONSEQUENCE — §2's blocker figure is UNDERSTATED: "4 assertions across 2 units" is actually 7 across 3**
+  (A-1…A-4 + the three U15 assertions). **Q8 was answered explicitly against "the four frozen-assertion
+  blocker."** Silently widening 4→7 / 2→3 would be the exact unsurfaced scope-widening **register #25 exists to
+  record** — not defensible inside the pass that opened #25.
+* **⚠️ Check (iv) — MATERIAL.** Q4.2 names **one** disclosure location; the scope is recorded in **FIVE**:
+  `guide-state.md:28-30` · `requirements.md:212-214` (§10) · `requirements.md:261` (§13) ·
+  `execution-plan.md:295` (§8) · `requirement-verification-questions.md:152-153` (Q13). **The #20
+  directed-check-(ii) precedent exactly.** Four are **approved DISCOVER artifacts**, so disclosing across them
+  **exceeds what Q4.2 authorized**.
+
+### Surfaced — Q9 / Q10 / Q11, all BLANK
+
+**Q9** which sequence owns `user_credential`/`user_session` (rec **(a)** — (a) fails **loudly in CI**, (b) fails
+**silently in production**) · **Q10** does the relaxation pass widen to 7 across 3 (rec **(c)→(a)** — Q9 and Q10
+are one decision viewed twice; **§2 and #25 must be corrected by supersession either way**) · **Q11** where the
+SECURITY-12 narrowing is disclosed (rec **(c)** — close the contradiction at `requirements.md` §10 without editing
+four approved artifacts for a narrowing not yet implemented; the omitted clauses **MFA** and **breached-password
+checking** named explicitly, since an unnamed narrowing is the #25 failure mode).
+
+**HOLDS upheld**: no frozen-23-or-24 unit internal or test edited · `backend/app/routes/`, `backend/app/llm_client.py`,
+`backend/scripts/`, tier-B **read-only, untouched** · **no backend or frontend file written at all** · WIRE-1
+unamended · **no frozen test relaxed** · U15's migrations + checksum manifest and U16's six-field `Settings`
+untouched · `not_wired.py` not renamed · `audit_store` Docker-guard gap untouched (5 stays 5) · **no code
+generated** · **#25 still OPEN, unresolved** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried forward, not re-run:
+backend **1578 / 0 / 43 / 5 / 99.87%**; frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: Q9–Q11 ANSWERED · AMBIGUITY-CHECK RE-RUN ⚠️ **STILL NOT CLEAN** · SURFACE-AND-STOP AT Q12–Q13 (2026-07-25T10:42:13Z)
+
+**Status**: **STILL PLAN-ONLY.** ⚑ **The standalone frozen-assertion relaxation design was NOT written** — Q12
+fixes its membership and Q13 fixes whether it spans three units or four.
+
+**Answers embedded verbatim (11/11 filled, 2 blank added)**: **Q9(a)** U15 owns `0003_auth.sql` in its existing
+forward-only sequence with its own checksum-manifest entry — chosen because it **fails loudly in CI** rather than
+(b)'s **silent deploy-time** failure via `run_migrations.py`'s hardcoded two-sequence list (register #8's
+freshly-remediated failure mode) · **Q10(a)** widen the relaxation pass, **correct §2/§8 and #25 by
+supersession**, cite exact assertions · **Q11(c)** disclose the SECURITY-12 narrowing at `requirements.md` §10
+only, **naming MFA and breached-password-list checking** explicitly.
+
+### ⚑ THE FINDING — my own §8 enumeration was wrong; found by re-verifying it, not trusting it
+
+The Q10 answer ratified *"seven across three"* with a specific membership. **The count was close; the MEMBERSHIP
+was wrong.** Re-read of `backend/app/tests/test_no_write_route.py:105-131`: the composition root holds **THREE**
+route-surface assertions, not one — `:107` (exactly-one-non-GET) · **`:116`** (`test_every_other_route_is_read_only`,
+which fails **twice**, for `/login` and `/logout`) · **`:122`** (`test_the_seven_wire1_routes_are_the_whole_surface`,
+exact path set). And **A-4 `:239` PASSES** provided the stores live **outside** `backend/app/`.
+
+**CORRECTED LEDGER — 8 assertions across 3 units**: U23 **2** (`test_routes.py:36`, `:41`) · composition root
+**3** (`:107`, `:116`, `:122`) · U15 **3** (`test_migration_runner.py:75`, `test_migration_checksum.py:114`,
+`test_migration_apply.py:56`) **+** the `checksums.json` manifest entry. **Net: +`:116`, +`:122`, −A-4;
+7 → 8; units unchanged at 3.**
+
+⚑ **TWO items want a BINDING DESIGN CONSTRAINT, not a relaxation — strictly better, the invariant survives
+intact**: **A-4** keeps asserting *"every write goes through the frozen `DecisionCommitService`"* iff the
+credential/session stores are authored **outside** `backend/app/` (the U24 `PostgresCaseStore` pattern, already
+the build's shape) · **`app.test.jsx:261`** keeps its exact seam-key set iff the login client follows
+`sessionClient.js`'s **non-seam** precedent.
+
+### ✅ Confirmed CLEAN
+
+* **Q9(a) mechanics — and better than expected.** No collision with U24's guard (`migrate.py:60-68`, live
+  filename intersection = ∅). **Ordering is favourable**: `0003_auth.sql` applies **after** `0002_grants.sql`, so
+  the new tables are created after the audit roles exist and receive **no grant** — **owner-only by
+  construction**, exactly CORE-RATIONALE-20's posture for `app_user`. Glob auto-discovery
+  (`migration_runner.py:69`) confirmed ⇒ **no `backend/scripts/` edit**, Q9(a)'s whole point.
+* **Q11(c) is test-neutral.** Repo-wide scan: **no test under `backend/` reads `requirements.md` or
+  `execution-plan.md`.**
+
+### ⚑ Disclosed evidentiary limit (#8 precedent)
+
+`test_migration_apply.py:56` sits inside `test_migration_sequence_is_forward_only_and_idempotent`, which takes
+`migrated_engine`; `conftest.py:41-42` **skips when Docker is absent**. It **skips here and fails only in CI**.
+The other two U15 assertions are pure file reads and **do** run locally. The relaxation pass must state the third
+is **CI-only** and never claim local green as proof.
+
+### Surfaced — Q12 / Q13, both BLANK
+
+**Q12** ratify the corrected membership + A-4's disposition (rec **(a)**: **8-across-3 with A-4 PRESERVED** via
+the store-outside-`backend/app/` constraint — keeping it costs nothing and leaves the composition root's write
+guarantee fully intact) · **Q13** `app.test.jsx:261` (rec **(a)**: preserve via the `sessionClient.js` non-seam
+precedent, keeping the pass at **three units, not four**). ⚑ Governing principle for both: **relax only what
+growth genuinely requires; preserve by design whatever can be preserved.**
+
+⚑ **Q1–Q11 remain answered and stand unchanged** — nothing here revisits a settled decision; this is a correction
+to *my own* enumeration, surfaced rather than absorbed, exactly as Q10 required.
+
+**HOLDS upheld**: no frozen-23-or-24 unit internal or test edited · `backend/app/routes/`, `llm_client.py`,
+`backend/scripts/`, tier-B **read-only** · **no backend or frontend file written at all** · WIRE-1 unamended ·
+**no frozen test relaxed** · U15's migrations + `checksums.json` and U16's six-field `Settings` untouched ·
+`audit_store` gap untouched (5 stays 5) · **no code generated** · **#25 still OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried forward, not re-run:
+backend **1578 / 0 / 43 / 5 / 99.87%**; frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — LOGIN & SIGNUP: Q12–Q13 ANSWERED · FINAL AMBIGUITY-CHECK ✅ **CLEAN** · #25 BLOCKER SUPERSEDED 4→8 · **RELAXATION DESIGN WRITTEN** (2026-07-25T10:42:13Z)
+
+**Status**: **STILL PLAN-ONLY — no test edited, no assertion relaxed, no route, no migration, no code.**
+Stopped at the **new** plan's gate. **The login/signup code-gen plan was NOT begun.**
+**Plans of record**: `login-signup-plan.md` (**13/13 answered**) · **NEW**
+`guide-docs/build/plans/frozen-assertion-relaxation-plan.md` (**3 `[Answer]` tags, all BLANK**).
+
+### ⚑ Method changed deliberately — a sweep, not another recount
+
+The two prior rounds under-counted because each re-checked the assertions already in hand. This round enumerated
+**every exact-set / exact-count assertion in the repository perturbable by the three implied changes — +2 routes,
++1 migration file, +2 tables** — and classified each as *breaks* or *survives* **with a reason**.
+**The ratified 8-across-3 is CONFIRMED CORRECT.**
+
+**The 8 that break (3 units)**: R-1 `test_routes.py:36` · R-2 `:41` · R-3 `test_no_write_route.py:107` · R-4
+`:116` · R-5 `:122` · R-6 `test_migration_runner.py:75` · R-7 `test_migration_checksum.py:114` · R-8
+`test_migration_apply.py:56` (**Docker-gated → CI-ONLY here**) + the `checksums.json` entry.
+
+**The 2 PRESERVED by construction**: **A-4** (`:239`+`:258`) via stores authored **outside `backend/app/`** ·
+**`app.test.jsx:261`** via `sessionClient.js`'s non-seam precedent. ⚑ Q12(a)'s constraint **independently
+verified mechanically safe**: `test_frozen_untouched.py`'s `PRODUCTION_FILES` is `APP_ROOT.rglob` — **scoped to
+`backend/app` only** — so `owned == {"app"}` is unaffected, and a new package is not in the hardcoded
+`FROZEN_UNITS` set.
+
+**TEN near-misses swept and confirmed SURVIVING**, reasons recorded so no future pass re-derives them — incl.
+`test_apply_from_empty_created_the_three_tables:37` (**`<=` subset, not `==`**), `test_rulebook_registry_table_is_absent:89`
+(*"NOT a closed-world check"*), U23's other **11** test files (offender-list/subset form), the advisory-vocabulary
+lint (verdict tokens only), U24's collision guard (∅), the `.env.example`↔`Settings` drift guard, and the
+confirmation that **no test reads `requirements.md`/`execution-plan.md`** (Q11(c) test-neutral).
+
+### Supersessions recorded — never rewrites
+
+`login-signup-plan.md` **§12** supersedes its own **§2** and **§8 Q10** framing; `BUILD-COMPLETION-REPORT.md`
+gains a **register-correction** section superseding **#25's structural-blocker row**. Prior text preserved
+verbatim in every case. ⚑ **#25's STATUS IS UNCHANGED — still OPEN**; only the blocker's *measurement* is
+corrected. **Register count unchanged at 25 (18 open / 3 discharged / 4 narrowed)** — a measurement corrected
+inside an open item opens and closes nothing.
+
+### ⚑ Disclosed process finding (#20 / #19 precedent)
+
+**The plan's own §2 under-counted twice** — 4, then 7-with-wrong-membership — and **both were caught by the
+mandatory ambiguity-check, not by the ground-truth passes that produced them.** The U15 half was a legitimate
+consequence of a later decision (Q9(a)); **the composition-root half was a genuine error** (`:116`/`:122` sat in
+a file already read). Lesson recorded verbatim: ***"a ground-truth pass that enumerates what it already knows
+about is not a sweep."***
+
+### The relaxation design — `frozen-assertion-relaxation-plan.md`
+
+**Governing principle**: **the guards' strength is EXACT-SET EQUALITY, not the literal being inline.** Each
+literal moves into **one declared, per-entry-justified inventory**; **every comparison stays at exact equality**.
+Growth still fails until the inventory is updated, and updating it is a **greppable one-line diff** — so **growth
+becomes reviewable rather than either forbidden or silent**.
+
+⚑ **R-3 is the substantive one.** The naive widening to `[commit, login, logout]` would keep equality while
+**destroying the invariant's meaning**, silently converting a **domain-write** guarantee into a **verb-count**
+allowlist. It is therefore **SPLIT**: (a) a declared non-GET allowlist + (b) a **newly separable, structurally
+asserted** invariant — **exactly one non-GET route reaches domain state** (login/logout must reference no
+`DecisionCommitService` / `CasePipeline` / case store / audit repo / claim method). **That half is STRONGER than
+what it replaces.** **R-5** also gains strength by sharing one inventory with **R-1**, closing a **pre-existing**
+two-independent-literals drift risk. **R-8 is disclosed CI-only — local green is explicitly NOT proof (#8
+precedent).**
+
+**Three blank questions**: **Q1** inventory location (rec **(c)**; ⚑ **(b) ELIMINATED BY EVIDENCE** — it breaks
+`test_routes.py:55`, making it a ninth assertion) · **Q2** rename the three now-misdescribing test names (rec
+**(a)** — option (b) knowingly mints three new instances of **register #13's exact defect**) · **Q3** structural
+vs conventional enforcement of R-3's split (rec **(a)**; ⚑ **if (b), the "STRONGER" claim must be STRUCK**).
+
+**HOLDS upheld**: **all eight assertions untouched on disk** · no frozen-23-or-24 unit internal or test edited ·
+`backend/app/routes/`, `llm_client.py`, `backend/scripts/`, tier-B **read-only** · **no backend or frontend file
+written at all** · WIRE-1 unamended · U15's migrations + `checksums.json` and U16's six-field `Settings`
+untouched · `not_wired.py` not renamed (**#13 open**) · `audit_store` gap untouched (5 stays 5) · tier-B not
+authorized · **no code generated** · **#25 still OPEN** · **NO COMMIT**.
+
+Suites carried forward, not re-run: backend **1578 / 0 / 43 / 5 / 99.87%**; frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — FROZEN-ASSERTION RELAXATION: Q1–Q3 ANSWERED · AMBIGUITY-CHECK ✅ **CLEAN** · **CODE-GEN PLAN WRITTEN** (2026-07-25T10:42:13Z)
+
+**Status**: **PLAN ONLY — nothing executed. No test edited, no assertion relaxed, no route, no migration, no
+code.** Stopped at the **code-gen** plan-file gate. **The login/signup code-gen plan was NOT begun.**
+**Plans of record**: `login-signup-plan.md` (13/13 answered) · `frozen-assertion-relaxation-plan.md` (**3/3
+answered**) · **NEW** `frozen-assertion-relaxation-code-gen-plan.md`.
+
+**Answers embedded verbatim**: **Q1(c)** duplicate-with-cross-check, with the comparator specified precisely ·
+**Q2(a)** rename all three misdescribing tests, supersede-not-rewrite in their own docstrings · **Q3(a)**
+structural enforcement, with an explicit instruction to strike the "STRONGER" claim if only convention proved
+achievable.
+
+### ✅ Ambiguity-check — 3 directed checks, 3 folds, 1 precision correction
+
+* **✅ (i) import edge — CLEAN.** `test_routes.py:55` parses **`__file__`** (constrains only its own imports);
+  `test_scope.py:42` forbids only `{langgraph, mcp, langfuse}`. **RELAX-Fold-1: the cross-check reads both copies
+  as TEXT** (`structural.py`'s `sg.read()` + `ast` pattern, never `import`) ⇒ **zero new import edges**.
+  ⚑ **Comparator specified as Q1 demanded**: `test_the_two_route_inventories_are_identical` in
+  `backend/app/tests/`; compares the **set of `(path, method)` pairs + a duplicate check per copy** so a
+  duplicate cannot mask a missing entry; **fails loudly** naming both absolute paths and the symmetric difference
+  **both ways**; paired non-vacuity companion so it cannot rot into a tautology.
+* **✅ (ii) renames — CLEAN.** Repo-wide grep: code hits are only the definitions themselves; ⚑ **no
+  `.github/workflows/` exists at all**; `pyproject.toml` selects by `testpaths`/`--cov`, **never by name**; doc
+  hits are historical and **left unedited**. **RELAX-Fold-2: zero external references break.**
+* **✅ (iii) scanner collision — CLEAN. RELAX-Fold-3: R-3(b) MUST scan `strip_comments_and_docstrings`,
+  never raw source** — an auth handler documenting *"unlike R5, this reaches no domain state"* would otherwise
+  false-positive. Pinned **file-level** (following `:258`) so helper indirection cannot evade it.
+
+⚑ **PRECISION CORRECTION — explicitly NOT the reversal Q3 asked to be flagged.** Structural enforcement **is**
+achievable, so the **"STRONGER" claim STANDS and nothing is struck**. But R-3(b)'s **new** content is **narrower**
+than the design's §3 implied: `:258` and `:275` (**inside A-4, preserved unchanged**) already assert `.commit(`
+and claim-method callers `== {not_wired.py}`, so R-3(b) adds the **remaining** seams (`CasePipeline`, case store,
+audit repositories). Net: *"exactly one non-GET route reaches domain state"* becomes **asserted directly** rather
+than **implied by a verb count** — still stronger, because a future route reaching domain state fails **even if
+someone updated the allowlist**.
+
+### ⚑ The code-gen plan's lead finding — the relaxed assertions ARE the RED phase
+
+Ordering the work exposed a consequence Q8(c) did not spell out: **six of the eight assertions cannot be flipped
+and left green on their own** — expecting nine routes while seven exist **correctly fails**. **The relaxed
+assertion IS the failing test that drives the login routes into existence.** Hence two phases:
+
+* **Phase A — preparatory, GREEN throughout**: 3 renames + docstring supersessions + both inventory copies +
+  cross-check + 2 non-vacuity tests + R-3's split (every expected value still describing today's system).
+  ⚑ **Phase A alone fully satisfies Q8(c)'s intent — it is the entire structural change and weakens nothing.**
+* **Phase B — the flip, RED→GREEN inside the login pass.** **Only Phase B weakens anything, and it is
+  inseparable from the code that re-justifies it.**
+
+### Predicted deltas, stated in advance
+
+**Phase A**: **1578 → 1582 passed** (+4: R-3b, its non-vacuity, the cross-check, its non-vacuity; renames and
+literal relocations **+0**), **skipped stays 43 · errors stay exactly 5 · coverage stays exactly 99.87%** —
+⚑ verified from config, not assumed: `[tool.coverage.run] omit` includes `*/tests/*`, so the inventory copies and
+all four new tests are **coverage-invisible**. Frontend untouched, not re-run.
+**Phase B**: **exactly 6 RED locally** (R-1, R-2, R-3a, R-5, R-6, R-7); **R-4 green** (its loop finds no
+violating route); **R-8 SKIPPED** (Docker-gated); **R-3b green** (no auth module yet — which is why its
+non-vacuity companion exists). ⛔ **R-8 is CI-only — local green is NOT proof (#8 precedent).**
+
+Full BEFORE/AFTER for all 8 assertions + 3 renames · 10-step TDD order with RED-before-GREEN at steps 2 and 5 ·
+**7 stop-gates**, including *"either preserved item is touched — A-4 or `app.test.jsx:261` — which invalidates
+the approved design and requires re-authorization."*
+
+**HOLDS upheld**: nothing executed · **no test edited, no assertion relaxed** · **A-4 and `app.test.jsx:261`
+untouched** · no frozen-23-or-24 unit internal edited · `backend/app/routes/`, `llm_client.py`,
+`backend/scripts/`, tier-B **read-only** · WIRE-1 unamended · U15's `*.sql` + `checksums.json` untouched, **no
+migration written** · U16's six-field `Settings` untouched · `not_wired.py` not renamed (**#13 open**) ·
+`audit_store` gap untouched (5 stays 5) · **no code generated** · **#25 still OPEN** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Suites carried forward, not re-run:
+backend **1578 / 0 / 43 / 5 / 99.87%**; frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — FROZEN-ASSERTION RELAXATION: PHASE A ATTEMPTED → ⛔ **STOP-GATE 1 AT STEP 0** · NOTHING EXECUTED (2026-07-25T10:42:13Z)
+
+**Status**: ⛔ **HALTED AT STEP 0. Phase A was NOT executed — steps 1–7 not begun. No file created, edited,
+renamed or deleted. No test edited. No assertion relaxed.**
+
+### The trigger
+
+**Observed baseline: 1577 passed / 1 FAILED / 43 skipped / 5 errors / 99.87%** against the required
+**1578 / 0 / 43 / 5 / 99.87%**. **Stop-gate 1** (*"Step 0 baseline ≠ 1578/0/43/5/99.87%"*) fired; execution
+halted immediately rather than proceeding to see whether it resolved.
+
+**Failing test**: `backend/app/tests/test_llm_client.py::test_the_module_imports_without_the_sdk_installed`
+(`:257`) — `assert importlib.util.find_spec("google.genai") is None`.
+
+### Root cause — an ENVIRONMENT change, not a code regression
+
+The test's own comment states its premise: *"⚑ In this environment google-genai is **GENUINELY NOT installed**,
+so a successful import PROVES the SDK import is lazy (inside the factory), never module-level."*
+**`google-genai` IS now installed** at `venv/Lib/site-packages/google/genai/`. The test asserts an
+**environmental precondition** and derives its real claim from it; the precondition is now false.
+
+* ⚑ **NOT caused by this session — verified, not asserted.** `git diff --stat -- backend frontend` is **EMPTY**;
+  only `guide-docs/` files and the three new plan files exist as changes. **Test count unchanged at 1578 total**
+  (1577 + 1) — nothing added or removed; **one existing test flipped state under a changed environment.**
+* ⚑ **The substantive property is INTACT, checked in source.** `backend/app/llm_client.py` imports only
+  `logging` / `os` / `time` at module level (`:29-31`); `from google import genai` is at **`:142`, inside the
+  factory**, commented *"lazy — NEVER at module import."* **Only the PROOF TECHNIQUE is broken** — and it is now
+  **unprovable that way here**, since with the SDK present a successful import no longer discriminates lazy from
+  eager.
+* ⚑ **The install was legitimate.** `requirements.txt:8` declares **`google-genai>=1.0.0`** (added by register
+  #18's pass), so `pip install -r requirements.txt` produces exactly this state. **The manifest and the test now
+  contradict each other**: the manifest declares the SDK a dependency; the test treats its absence as an
+  invariant.
+
+### ⚑ Bears on register #18 — FLAGGED, NOT CHANGED
+
+**#18 `NO-PRODUCTION-LLMCLIENT` remains NARROWED; its status is NOT altered by this pass.** But one of the two
+recorded reasons for its non-discharge — *"no live `GEMINI_API_KEY`, no network, and **`google-genai` is not
+installed in this environment**"* — is **no longer factually true**. Recorded as an observation for the user's
+decision. **No discharge claimed, no status changed, and no view offered on whether the real-API verification
+should now be attempted.**
+
+### What was deliberately NOT done
+
+Did **not** fix, skip, `xfail` or edit the failing test — it is a composition-root test **outside Phase A's
+approved scope**, and re-expressing it (e.g. proving laziness **structurally by AST** rather than by SDK absence)
+is a **design decision that is the user's**. Did **not** uninstall `google-genai` to force a green baseline —
+that would fake a precondition and contradict the declared manifest. Did **not** proceed to steps 1–7.
+
+**Step delta by name**: **none** — no step beyond Step 0 ran; no test added, removed, renamed or modified.
+
+**HOLDS upheld**: no frozen-23-or-24 unit internal or test edited · **no test edited at all** · no assertion
+relaxed · **A-4 and `app.test.jsx:261` untouched** (the design-invalidating condition did **not** arise) ·
+`backend/app/routes/`, `llm_client.py`, `backend/scripts/`, tier-B untouched · WIRE-1 unamended · U15's `*.sql` +
+`checksums.json` and U16's six-field `Settings` untouched · `not_wired.py` not renamed (**#13 open**) ·
+`audit_store` Docker-guard gap untouched (**5 errors stay exactly 5, same names**) · **no code generated** ·
+**#25 still OPEN** · **#18 status UNCHANGED** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Frontend not run (nothing here
+touches JS) — carried at **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — SCOPED TEST CORRECTION + **FROZEN-ASSERTION RELAXATION PHASE A EXECUTED, GREEN 1582/0/43/5/99.87%** (2026-07-25T10:42:13Z)
+
+**Status**: **Phase A COMPLETE and GREEN — exact match to the advance prediction. No stop-gate triggered.**
+**Phase B NOT executed** (it belongs inside the login/signup code-gen pass). **NOT COMMITTED.**
+
+### 1. Scoped correction first — `test_the_module_imports_without_the_sdk_installed` (its own pass)
+
+The Step-0 baseline had failed because that test asserted `find_spec("google.genai") is None` — an
+**environmental precondition** — and derived its lazy-import claim from it. **`google-genai` is now legitimately
+installed** (`requirements.txt:8` declares `google-genai>=1.0.0`, added by #18's pass), so the manifest and the
+test had come to contradict each other. ⚑ **Worse than merely failing: with the SDK present the old technique
+could not prove the property at all** — a successful import no longer discriminates lazy from eager — so it
+would have been **vacuous** had the precondition merely been relaxed.
+
+**Re-expressed structurally by AST**: no `google`-rooted import outside a function body (**scope-aware**, so an
+import nested in a module-level `if` is still caught), plus a lazy import must **exist**. **Non-vacuity proven
+across five synthetic shapes** — real lazy shape PASS; eager plain, eager dotted, import-deleted, and eager
+**nested in a module-level `if`** all FAIL. Docstring written **supersede-not-rewrite** (old technique, why it
+broke, why AST is better regardless of environment, and why the test **name** is deliberately kept — it names
+the *property*, which is unchanged).
+
+⚑ **A design error in my first formulation, caught by running it**: it asserted the import lives in
+`build_gemini_client`; it actually lives in **`_capped_client_over_real_genai`** (`:132-145`) — the brief's own
+wording carried the same inaccuracy. Final assertion is *"inside **some** function"*, so an ordinary rename of a
+private helper cannot fail a test that has nothing to say about naming.
+
+**Register #18 annotated, status UNCHANGED — still NARROWED.** One recorded non-discharge reason
+(*"`google-genai` is not installed in this environment"*) is **no longer factually accurate**; the others stand
+(**no live key, no network**, model id unconfirmed, **no real memo produced**). No discharge claimed; spend
+guardrails untouched; no API call, no spend. Suite restored to **1578 / 0 / 43 / 5 / 99.87%**.
+
+### 2. Phase A — executed, steps 0–7
+
+* **Step 0** baseline **1578/0/43/5/99.87%** — exact; stop-gate 1 cleared.
+* **Step 1** both `_route_inventory.py` copies authored (**seven** entries — today's surface), each non-GET entry
+  carrying its reason.
+* **Step 2 — RED FIRST**: deliberately removed `("/decisions","get")` from the **mirror**; the cross-check failed
+  with exactly the specified directional diagnostic (`only_in_app: [('/decisions','get')]`); restored ⇒ GREEN.
+  ⚑ **Overshoot caught mid-step**: a parametrized non-vacuity + split duplicate-check gave **5** tests where the
+  plan predicted **2**. **Restructured to the plan's named 2 with no loss of assertion strength** (duplicate
+  check folded in — it is part of the comparator's *specified granularity*; three mutations plus an
+  identical-pair case asserted in one non-vacuity test).
+* **Steps 3–4** R-1/R-2/R-4/R-5 re-pointed at the inventory; **every comparison stays EXACT-SET EQUALITY**.
+  ⚑ **Plan inconsistency surfaced, not silently resolved**: §2.3's AFTER block implied a **fourth** rename (R-1),
+  but Q2(a) authorized **three** and §2.3 carries no RENAMED marker — **R-1's name kept**, as it remains accurate.
+* **Step 5 — RED FIRST, and a real design error caught by the test**: the first R-3(b) formulation scanned **all**
+  of `backend/app/` and went RED on **`dependencies.py`**, which *must* construct the seams — *"the ONLY place
+  frozen units are constructed"*. Scanning the whole package would have **forbidden the wiring the architecture
+  requires**. Narrowed to `backend/app/routes/` ⇒ GREEN.
+* **Steps 6–7** R-3(a) renamed + re-pointed; three rename supersessions written; **full suite 1582/0/43/5/99.87%**.
+  Errors are the **same five `audit_store` names**; coverage unchanged **exactly as predicted** (`omit` includes
+  `*/tests/*`, so inventories and new tests are coverage-invisible).
+
+⚑ **Honest limit on R-3(b)'s RED**: it arose from **my own scope error**, not an injected violation — a synthetic
+domain-seam reference could not be planted in a route module because **`backend/app/routes/` is off-limits**.
+Discrimination is proven instead by the paired detector: a **code** reference is caught, a **docstring-only**
+mention is **not** — the asymmetry that makes stripping load-bearing.
+
+### Full delta by name — 4 added · 3 renamed · 2 body-changed · 0 deleted
+
+**ADDED**: `test_route_inventory_sync.py::test_the_two_route_inventories_are_identical` ·
+`::test_detector_flags_a_synthetic_inventory_drift` ·
+`test_no_write_route.py::…::test_no_non_get_route_but_the_commit_reaches_domain_state` ·
+`::test_detector_flags_a_synthetic_domain_seam_reference`.
+**RENAMED**: `test_no_new_route_file_added_under_backend_app_by_u23` → `test_route_modules_are_exactly_the_declared_inventory` ·
+`test_the_route_table_has_exactly_one_non_get_route` → `test_the_declared_non_get_routes_are_exactly_the_allowlist` ·
+`test_the_seven_wire1_routes_are_the_whole_surface` → `test_the_declared_route_inventory_is_the_whole_surface`.
+**BODY-CHANGED, name kept**: `test_route_table_equals_the_frozen_composition_root` (R-1) ·
+`test_every_other_route_is_read_only` (R-4). **No other test changed state.**
+
+**HOLDS upheld, verified by `git status`/diff**: six files touched, **ALL in test trees** — no production file, **no
+file under `backend/app/routes/`**, no frontend file · **A-4 (`:239`/`:258`/`:275`) UNTOUCHED** (the only diff
+match on its patterns is new docstring prose naming it as preserved) · **`app.test.jsx:261` UNTOUCHED** · WIRE-1
+unamended · U15's `*.sql` + `checksums.json` and U16's six-field `Settings` untouched · `not_wired.py` not renamed
+(**#13 open**) · `llm_client.py`, `backend/scripts/`, tier-B untouched · **no route added, no migration written, no
+production code generated** · **#25 still OPEN** · **#18 status UNCHANGED** · **PHASE B NOT EXECUTED** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Frontend not run (nothing touches JS)
+— carried at **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — FROZEN-ASSERTION RELAXATION: **PHASE A GATE ACCEPTED · PASS CLOSED** (2026-07-25T10:42:13Z)
+
+**Phase A accepted** at 1582/0/43/5/99.87% (exact match, no stop-gate triggered, all holds verified).
+**PASS CLOSED — no further work started**: no Phase B, no login/signup code-gen plan, no new scoping, **no commit**.
+
+⚑ **Phase B remains unexecuted BY DESIGN.** Per the approved `frozen-assertion-relaxation-code-gen-plan.md` it
+runs **only inside the login/signup code-gen pass**, immediately before the code that satisfies it — so the eight
+assertions are never weakened while nothing depends on the weakening. That plan stands as written, awaiting that pass.
+
+**Uncommitted state (for the pending commit-or-bundle decision) — 6 source files, ALL test-tree**: modified
+`backend/app/tests/test_llm_client.py`, `backend/app/tests/test_no_write_route.py`,
+`backend/deploy_config/tests/test_routes.py`; new `backend/app/tests/_route_inventory.py`,
+`backend/deploy_config/tests/_route_inventory.py`, `backend/app/tests/test_route_inventory_sync.py`. Plus
+append-only `guide-docs/{audit,guide-state,BUILD-COMPLETION-REPORT}.md` and three new plan files.
+⚑ Stated as fact, not recommendation: the tree is **green and self-consistent** — Phase A weakens nothing and
+describes today's seven-route surface exactly — so it is **independently committable**; bundling is equally valid.
+
+**HOLDS at close**: A-4 (`:239`/`:258`/`:275`) and `app.test.jsx:261` **untouched** · no production file, no file
+under `backend/app/routes/`, no frontend file · WIRE-1 unamended · U15's `*.sql` + `checksums.json` and U16's
+six-field `Settings` untouched · `not_wired.py` not renamed (**#13 open**) · `llm_client.py`, `backend/scripts/`,
+tier-B untouched · **no route, no migration, no production code** · **#25 OPEN** · **#18 UNCHANGED** · **NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Backend **1582 / 0 / 43 / 5 / 99.87
+---
+
+## POST-BUILD — FROZEN-ASSERTION RELAXATION: **PHASE A GATE ACCEPTED · PASS CLOSED** (2026-07-25T10:42:13Z)
+
+**Phase A accepted** at **1582 / 0 / 43 / 5 / 99.87%** (exact match, no stop-gate triggered, all holds verified).
+**PASS CLOSED — no further work started**: no Phase B, no login/signup code-gen plan, no new scoping, **no commit**.
+
+⚑ **Phase B remains unexecuted BY DESIGN.** Per the approved `frozen-assertion-relaxation-code-gen-plan.md` it
+runs **only inside the login/signup code-gen pass**, immediately before the code that satisfies it — so the eight
+assertions are never weakened while nothing depends on the weakening. That plan stands as written and approved,
+awaiting that pass.
+
+**Uncommitted state (recorded for the pending commit-or-bundle decision) — 6 source files, ALL test-tree:**
+
+* **Modified**: `backend/app/tests/test_llm_client.py` (the separate scoped correction) ·
+  `backend/app/tests/test_no_write_route.py` (R-3/R-4/R-5) ·
+  `backend/deploy_config/tests/test_routes.py` (R-1/R-2)
+* **New**: `backend/app/tests/_route_inventory.py` · `backend/deploy_config/tests/_route_inventory.py` ·
+  `backend/app/tests/test_route_inventory_sync.py`
+* **Docs**: append-only `guide-docs/{audit.md, guide-state.md, BUILD-COMPLETION-REPORT.md}` + three new plan
+  files under `guide-docs/build/plans/`
+
+⚑ Stated as **fact, not recommendation**: the tree is **green and self-consistent** — Phase A weakens nothing and
+describes today's seven-route surface exactly — so it is **independently committable**; bundling it with the
+login/signup pass is equally valid. **No view is offered on which.**
+
+**HOLDS at close**: A-4 (`:239`/`:258`/`:275`) and `app.test.jsx:261` **untouched** · no production file, no file
+under `backend/app/routes/`, no frontend file · WIRE-1 unamended · U15's `*.sql` + `checksums.json` and U16's
+six-field `Settings` untouched · `not_wired.py` not renamed (**#13 open**) · `llm_client.py`, `backend/scripts/`,
+tier-B untouched · **no route, no migration, no production code** · **#25 OPEN** · **#18 status UNCHANGED** ·
+**NO COMMIT**.
+
+**Register unchanged at 25 tracked** — 18 open / 3 discharged / 4 narrowed. Backend **1582 / 0 / 43 / 5 /
+99.87%**; frontend not run (nothing touched JS) — carried at **687 / 137 / 0**.

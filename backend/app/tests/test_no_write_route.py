@@ -54,6 +54,29 @@ import ast
 from pathlib import Path
 
 from backend.app.main import create_app
+from backend.app.tests._route_inventory import NON_GET_ALLOWLIST, ROUTE_INVENTORY
+
+#: ⚑ RELAXED 2026-07-25 (frozen-assertion relaxation, R-3/R-4/R-5). The route literals below
+#: were INLINE in three assertions in this file. They moved to ``_route_inventory.py``;
+#: every comparison remains EXACT-SET EQUALITY, which is where the guard's strength lives.
+#: ``route_table()`` upper-cases methods, so the lowercase declared methods are lifted here.
+_DECLARED_PATHS = {path for path, _ in ROUTE_INVENTORY}
+_DECLARED_NON_GET = sorted((path, method.upper()) for path, method in NON_GET_ALLOWLIST)
+_NON_GET_PATHS = {path for path, _ in NON_GET_ALLOWLIST}
+
+#: The ONLY route module permitted to reach underwriting state (the R5 commit handler).
+_DOMAIN_WRITE_MODULES = frozenset({"not_wired.py"})
+
+#: The domain seams a non-domain-write route module must not reference. ⚑ The ``.commit(``
+#: and claim-method halves are covered by the two PRESERVED assertions further down; these
+#: are the remaining seams, so together the invariant is independent of HTTP verb counts.
+_DOMAIN_SEAMS = (
+    "CasePipeline",
+    "PostgresCaseStore",
+    "PendingCommitContextProvider",
+    "PostgresAuditRepository",
+    "DecisionCommitService",
+)
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_FILES = sorted(p for p in APP_ROOT.rglob("*.py") if "tests" not in p.parts)
@@ -104,32 +127,110 @@ def _handler(name: str) -> ast.FunctionDef:
 # --- (i)-(iii) UNCHANGED from Scope A — these three survive the wiring verbatim -----------
 
 class TestOnlyNonGetRouteIsTheR5Commit:
-    def test_the_route_table_has_exactly_one_non_get_route(self):
+    def test_the_declared_non_get_routes_are_exactly_the_allowlist(self):
+        """The non-GET routes are exactly those declared, each with a recorded reason.
+
+        ⚑ RENAMED 2026-07-25 from ``test_the_route_table_has_exactly_one_non_get_route``
+        (frozen-assertion relaxation, R-3 · Q2(a)). **Supersede-not-rewrite: the old name is
+        recorded here, not erased.**
+
+        ⚑ **The old name's REAL content is NOT lost — it was PROMOTED.** *"Exactly one"* was
+        never really a claim about HTTP verbs; it was the claim that **there is exactly one
+        way to change underwriting state over HTTP**. Widening this list to admit ``/login``
+        and ``/logout`` would have silently converted a **domain-write** invariant into a
+        **verb-count allowlist**, with every future POST joining unchallenged. So the
+        substantive half now lives in
+        ``test_no_non_get_route_but_the_commit_reaches_domain_state`` below, where it is
+        asserted **directly and structurally** instead of being implied by counting.
+
+        This half remains **exact-set equality** against the declared allowlist, so a new
+        non-GET route still fails until it is deliberately declared **with its reason**.
+        """
         non_get = sorted(
             (path, method)
             for path, methods in route_table().items()
             for method in methods
             if method not in {"GET", "HEAD"}
         )
-        assert non_get == [("/recommendations/{recommendation_id}/commit", "POST")]
+        assert non_get == _DECLARED_NON_GET
+
+    def test_no_non_get_route_but_the_commit_reaches_domain_state(self):
+        """⚑ THE LOAD-BEARING HALF of R-3's split (Q3(a) — structural, not conventional).
+
+        Being non-GET is **necessary but never sufficient**: a declared non-GET route must
+        also be proven not to touch underwriting state. Only ``not_wired.py`` (the R5 commit
+        handler) may reference the domain seams.
+
+        **Scanned on STRIPPED source** — a handler that legitimately *documents* what it does
+        not touch (*"unlike R5, this reaches no domain state"*) must not be failed for its
+        prose. This file's other structural assertions already use the same helper.
+
+        **File-level, not handler-level** — following the existing ``.commit(``-caller
+        assertion's whole-module form, so a helper-function indirection inside a route module
+        cannot evade it.
+
+        ⚑ **Scoped to ROUTE MODULES, deliberately.** ``dependencies.py`` legitimately
+        constructs every one of these seams — that is precisely the composition root's job
+        (*"the ONLY place frozen units are constructed"*), and injection is what keeps the
+        route modules free of them. Scanning the whole package would forbid the very wiring
+        this architecture requires. The invariant is about **which ROUTES reach domain
+        state**, so ``backend/app/routes/`` is the correct scan root.
+
+        ⚑ **Precise scope, stated so it is not over-read**: the ``.commit(`` and claim-method
+        halves are already enforced by ``test_no_route_writes_directly_only_commit_does`` and
+        ``test_pending_state_writes_go_through_u24s_own_claim_methods``, which this pass
+        deliberately leaves **untouched**. What this adds is the prohibition on the remaining
+        seams below — together they make the domain-write invariant independent of verb counts.
+        """
+        route_modules = sorted((APP_ROOT / "routes").glob("*.py"))
+        assert route_modules, "expected route modules to scan"   # never vacuously empty
+        for path in route_modules:
+            if path.name in _DOMAIN_WRITE_MODULES:
+                continue
+            code = strip_comments_and_docstrings(path.read_text(encoding="utf-8"))
+            for seam in _DOMAIN_SEAMS:
+                assert seam not in code, f"{path.name} references the domain seam {seam!r}"
+
+    def test_detector_flags_a_synthetic_domain_seam_reference(self):
+        # ⚑ NON-VACUITY: the scan above must actually discriminate. A synthetic module that
+        # references a domain seam in CODE must be caught, while one that mentions it only in
+        # a docstring must NOT be — that asymmetry is the whole point of stripping first.
+        offending = "def handler():\n    return CasePipeline()\n"
+        assert any(s in strip_comments_and_docstrings(offending) for s in _DOMAIN_SEAMS)
+
+        documented_only = '"""Unlike R5, this never touches CasePipeline."""\ndef handler():\n    return None\n'
+        assert not any(s in strip_comments_and_docstrings(documented_only) for s in _DOMAIN_SEAMS)
 
     def test_every_other_route_is_read_only(self):
+        # ⚑ RELAXED (R-4): the skip-list is now the DECLARED non-GET allowlist rather than one
+        # inline path. The assertion itself is unchanged — every route outside the allowlist
+        # must be read-only. Name unchanged: it still describes exactly what it asserts.
         for path, methods in route_table().items():
-            if path == "/recommendations/{recommendation_id}/commit":
+            if path in _NON_GET_PATHS:
                 continue
             assert methods <= {"GET", "HEAD"}, path
 
-    def test_the_seven_wire1_routes_are_the_whole_surface(self):
-        # No route beyond the contract exists — the composition root adds no endpoint of its own.
-        assert set(route_table()) == {
-            "/session",
-            "/applications",
-            "/applications/{application_id}",
-            "/applications/{application_id}/memo",
-            "/recommendations/{recommendation_id}/commit",
-            "/decisions",
-            "/decisions/{decision_id}",
-        }
+    def test_the_declared_route_inventory_is_the_whole_surface(self):
+        """No route beyond the declared inventory exists.
+
+        ⚑ RENAMED 2026-07-25 from ``test_the_seven_wire1_routes_are_the_whole_surface``
+        (frozen-assertion relaxation, R-5 · Q2(a)). **Supersede-not-rewrite: the old name is
+        recorded here, not erased.**
+
+        **Why renamed**: *"seven"* is a count that the relaxation makes false. A name carrying
+        a stale cardinality is **register #13**'s defect — a name asserting something the file
+        no longer means — and leaving it would have minted a new instance of exactly the
+        problem that register keeps open.
+
+        **What did NOT change**: still **exact-set equality**, so the composition root still
+        adds no endpoint of its own without a deliberate inventory update.
+
+        ⚑ This assertion and U23's ``test_routes.py`` previously hardcoded **the same seven
+        paths independently**, with nothing forcing them to agree. Both now read one declared
+        inventory, cross-checked by ``test_route_inventory_sync.py`` — a **pre-existing** drift
+        risk closed as a side effect.
+        """
+        assert set(route_table()) == _DECLARED_PATHS
 
 
 # --- (iv)-(v) REVISED: the marker assertions become DELEGATION assertions ------------------
