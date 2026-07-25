@@ -111,5 +111,5 @@ def test_manifest_entry_missing_on_disk_fails(tmp_path):
 
 def test_compute_checksums_over_committed_files():
     cs = compute_checksums()
-    assert set(cs) == {"0001_initial_schema.sql", "0002_grants.sql"}
+    assert set(cs) == {"0001_initial_schema.sql", "0002_grants.sql", "0003_auth.sql"}
     assert all(len(v) == 64 for v in cs.values())  # sha256 hex

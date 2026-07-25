@@ -53,7 +53,7 @@ def test_migration_sequence_is_forward_only_and_idempotent(migrated_engine):
     assert newly == []
     with migrated_engine.connect() as conn:
         applied = {r[0] for r in conn.execute(sa.text(f"SELECT filename FROM {TRACKING_TABLE}"))}
-    assert applied == {"0001_initial_schema.sql", "0002_grants.sql"}
+    assert applied == {"0001_initial_schema.sql", "0002_grants.sql", "0003_auth.sql"}
 
 
 # --------------------------------------------------------------------------

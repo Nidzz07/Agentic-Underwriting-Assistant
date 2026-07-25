@@ -72,7 +72,7 @@ def test_missing_env_var_is_not_silently_emptied():
 # --------------------------------------------------------------------------
 def test_migration_files_are_ordered():
     names = [p.name for p in migration_files()]
-    assert names == ["0001_initial_schema.sql", "0002_grants.sql"]
+    assert names == ["0001_initial_schema.sql", "0002_grants.sql", "0003_auth.sql"]
     assert names == sorted(names)  # forward-only, filename order
 
 
