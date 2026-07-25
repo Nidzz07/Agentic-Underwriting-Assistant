@@ -249,11 +249,80 @@ def test_the_wrapper_constructor_needs_no_flag(monkeypatch):
 
 
 def test_the_module_imports_without_the_sdk_installed():
-    # ⚑ In this environment google-genai is GENUINELY NOT installed, so a successful
-    # import PROVES the SDK import is lazy (inside the factory), never module-level.
-    import importlib
-    import importlib.util
+    """The SDK import is LAZY — inside the factory, never at module level.
 
-    assert importlib.util.find_spec("google.genai") is None
+    ⚑ TECHNIQUE SUPERSEDED 2026-07-25 — the assertion changed; the PROPERTY did not.
+
+    **The old technique** asserted ``importlib.util.find_spec("google.genai") is None``
+    and reasoned: *"in this environment google-genai is GENUINELY NOT installed, so a
+    successful import PROVES the SDK import is lazy."* That inference was sound **only
+    while the SDK was absent** — it proved laziness by observing that an eager import
+    would have failed.
+
+    **Why it broke**: ``google-genai`` is now legitimately installed. ``requirements.txt``
+    declares ``google-genai>=1.0.0`` (added by register #18's pass), so a plain
+    ``pip install -r requirements.txt`` produces exactly that state. The old assertion
+    therefore encoded an **environmental precondition as an invariant**, and the manifest
+    and the test came to contradict each other: the manifest declares the SDK a
+    dependency, the test asserted its absence.
+
+    ⚑ **Worse than merely failing — with the SDK present the old technique CANNOT prove
+    the property at all.** A successful import no longer discriminates lazy from eager,
+    so the test would have been vacuous even if its precondition were relaxed rather
+    than fixed.
+
+    **Why the new technique is better regardless of environment**: it inspects the
+    module's own AST for the fact the test always actually wanted — that **every**
+    ``google``-rooted import sits **inside a function body**, never at module level. That
+    is **environment-independent** (true with or without the SDK installed), **direct**
+    (it checks the structure, not a side effect of it), and **non-vacuous** (an eager
+    import fails it immediately, and deleting the import entirely also fails).
+
+    ⚑ The enclosing function is asserted to exist but is **not pinned by name**: the lazy
+    import currently lives in ``_capped_client_over_real_genai`` (the real-client
+    construction helper the guarded factory delegates to), **not** in
+    ``build_gemini_client`` itself. Pinning a private helper's name would make an
+    ordinary rename fail a test that has nothing to say about naming — the property is
+    *"inside some function"*, and that is what is asserted.
+
+    ⚑ **The test NAME is retained deliberately**: it names the *property* — the module is
+    importable without the SDK — which is unchanged and still exactly what is guaranteed.
+    Only the *evidence* changed, so the name does not misdescribe the test.
+    """
+    import ast
+    import importlib
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[1] / "llm_client.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    def _imports(node, inside_function):
+        """Yield (import_node, inside_function) for every import, scope-aware."""
+        for child in ast.iter_child_nodes(node):
+            nested = inside_function or isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            if isinstance(child, (ast.Import, ast.ImportFrom)):
+                yield child, inside_function
+            yield from _imports(child, nested)
+
+    def _roots(import_node):
+        if isinstance(import_node, ast.Import):
+            return {alias.name.split(".")[0] for alias in import_node.names}
+        return {(import_node.module or "").split(".")[0]}
+
+    google_imports = [
+        (node, in_func) for node, in_func in _imports(tree, False) if "google" in _roots(node)
+    ]
+
+    # (1) the load-bearing half — no eager SDK import anywhere at module level.
+    module_level = sorted(node.lineno for node, in_func in google_imports if not in_func)
+    assert not module_level, (
+        f"the SDK must NOT be imported at module level; found at line(s) {module_level}"
+    )
+
+    # (2) non-vacuity — the lazy import must actually EXIST inside a function, so that
+    #     deleting it (or moving it out of the module) fails rather than passing silently.
+    assert google_imports, "expected a lazy `google` import inside a function; found none"
+
+    # The behavioural half, unchanged and still environment-independent.
     mod = importlib.import_module("backend.app.llm_client")
     assert hasattr(mod, "CappedGeminiClient") and hasattr(mod, "build_gemini_client")

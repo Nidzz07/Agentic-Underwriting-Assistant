@@ -890,3 +890,56 @@ untouched · WIRE-1 unamended · `not_wired.py` not renamed · U23's frozen test
 Docker-guard gap untouched (**5 errors stay exactly 5**) · **tier-B Stages 2 and 3 not authorized** · #18's spend
 guardrails untouched · **no API call, no money spent** · no file moved, renamed or deleted beyond the
 pre-existing `unhappy paths.png` deletion, which is disclosed in the commit message.
+
+---
+
+# ⚑ REGISTER NOTE — 2026-07-25T10:42:13Z · #18 — one recorded non-discharge reason is NO LONGER FACTUALLY ACCURATE (status UNCHANGED)
+
+**This is a FACTUAL ANNOTATION, not a status change.** **#18 `NO-PRODUCTION-LLMCLIENT` remains NARROWED, NOT
+DISCHARGED.** No discharge is claimed, nothing is superseded, and **no view is offered** on whether the real-API
+verification should now be attempted — that is the user's decision.
+
+## What changed in the world, not in the code
+
+The 2026-07-21T17:04:30Z update recorded #18's first non-discharge reason as:
+
+> *"**The manual real-API verification has NOT been run end-to-end.** No live `GEMINI_API_KEY`, no network, and
+> **`google-genai` is not installed in this environment**."*
+
+⚑ **The final clause is no longer true.** `google-genai` **is now installed** in the project venv
+(`venv/Lib/site-packages/google/genai/`). This is a **legitimate, expected state**: `requirements.txt:8` declares
+**`google-genai>=1.0.0`** — added by #18's own pass — so a plain `pip install -r requirements.txt` produces
+exactly it.
+
+## What is UNCHANGED, and why #18 does not move
+
+* **The other recorded reasons stand**: **no live `GEMINI_API_KEY`** and **no network**, so the manual real-API
+  verification (`guide-docs/build/composition-root/real-llm-verification.md`) **has still not been run**.
+* **The second non-discharge reason is untouched**: the pinned model id `gemini-2.5-flash-001` is **still not
+  confirmed to resolve** against the live API.
+* **No real memo has been produced and confirmed.** The evidentiary bar recorded at #18's narrowing — *"decided
+  on evidence actually produced"* — is **not met**, and an installed SDK is not evidence of a completed
+  verification.
+* **#18's spend guardrails are untouched**: `--real-llm` **and** `ALLOW_REAL_LLM_CALLS=true` are both still
+  required, and `max_calls=20` is unchanged. **No API call was made and no money was spent by the pass that
+  recorded this note.**
+
+## How it surfaced — and the test-quality defect it exposed
+
+The SDK's presence broke `backend/app/tests/test_llm_client.py::test_the_module_imports_without_the_sdk_installed`,
+which asserted `find_spec("google.genai") is None` and reasoned that a successful import therefore **proved** the
+SDK import was lazy. That inference held **only while the SDK was absent** — the test had encoded an
+**environmental precondition as an invariant**, putting the manifest and the test in direct contradiction (the
+manifest declares the SDK a dependency; the test asserted its absence).
+
+⚑ **Worse than merely failing**: with the SDK present the old technique **could not prove the property at all** —
+a successful import no longer discriminates lazy from eager — so it would have been **vacuous** had the
+precondition merely been relaxed rather than the technique replaced.
+
+**Corrected in its own scoped pass** (logged separately in `audit.md`): the test now asserts the property
+**structurally by AST** — no `google`-rooted import outside a function body, and a lazy import must exist —
+which is **environment-independent** and is what the test always actually wanted to prove. **`llm_client.py`
+itself was never implicated and was not touched.**
+
+**Register unchanged at 25 tracked — 18 open · 3 discharged (#2 partly, #20 fully, #24 fully) · 4 narrowed (#3,
+#8, #18, #19).** No item opened, closed, narrowed or discharged by this note.
