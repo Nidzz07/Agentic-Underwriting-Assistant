@@ -4741,3 +4741,111 @@ per-unit history**, untouched. **#12 stays OPEN.**
 · WIRE-1 unamended · `not_wired.py` not renamed · U23's frozen test unedited · `audit_store` Docker-guard gap
 untouched (**5 stays 5**) · **tier-B Stages 2 and 3 not authorized** · #18's guardrails untouched · **no API call,
 no spend**.
+
+---
+
+## POST-BUILD â€” FRONTENDâ†”BACKEND WIRING: SCOPING PASS **BEGUN** (2026-07-23T12:29:12Z)
+
+**Status**: SCOPING ONLY â€” **no code generated**, plan file written, **STOPPED at the plan-file gate**.
+**Plan of record**: `guide-docs/build/plans/frontend-backend-wiring-plan.md` â€” **6 `[Answer]` tags, all BLANK**.
+
+### Ground truth reconstructed fresh from disk â€” three brief premises CORRECTED
+
+1. âš‘ **The four fetch seams are NOT author-only stubs â€” they are COMPLETE.** `memoView/memoFetchSeam.js`,
+   `approvalGate/commitFetchSeam.js`, `overrideForm/overrideFetchSeam.js` and `outlierView/fetchSeam.js` are
+   fully-implemented `create<X>Fetch(transport)` factories over an **injected** transport, each already
+   normalizing failures to the WIRE-1 Â§4 envelope. **The real transport exists too** â€”
+   `frontend/src/app/httpTransport.js` (a genuine `fetch()` with `X-User-Id`), composed by
+   `frontend/src/main.jsx` at `baseUrl: '/api'`. **The seams need ZERO change**; `App.jsx`'s own header
+   comment claiming "no `main.jsx`/`index.html`" is **stale** â€” both exist (U23 authored them).
+2. âš‘ **Frontend identity is NOT unbuilt** â€” `VITE_USER_ID` â†’ `X-User-Id` â†’ `current_identity` â†’ `app_user`,
+   fail-closing to 401; `sessionClient.js` reads R1 and fail-closes to a `null` role. A **login UI** is absent;
+   an identity **concept** is not.
+3. âš‘ **The claimed live-Postgres end-to-end verification is ABSENT from the record**, and the record says the
+   opposite ("TIER-U ONLYâ€¦ a real Postgres run has NOT confirmed this end-to-end"). The #19 duplicate-guard
+   observation was a **traced simulation over `InMemoryCaseStore`**, and **#19 remains an OPEN defect**, not a
+   working guard. Not treated as established.
+
+### Confirmed as briefed
+`package.json` scripts = `build`/`test`/`test:cov`/`lint` â€” **no `dev`** Â· `vite.config.js` has **no `server` key** Â·
+**no CORS middleware anywhere in `backend/`** (`add_middleware`: zero hits) Â· **git clean** at `cb06057` on `main` Â·
+**frontend suite re-run LIVE: 682 passed / 137 files / 0 failed**.
+
+### Four findings the brief did not anticipate
+* **(a)** The `dev` script is **safe**: U23's frozen `test_frontend_package_json_change_is_additive_only` is a
+  **presence** check, not exact-set equality over `scripts`.
+* **(b)** âš‘ **The blocker is the composition root, not the seams.** `App.jsx` mounts only `HistoryView`, and
+  `app.test.jsx` **asserts** the four other views are unmounted and that `seams` has **exactly five keys**.
+  Mounting a view, or adding the outlier seam, **fails existing green tests** â€” a direct collision with the
+  "preserve the frontend suite" hold. Surfaced as **Q5**, not resolved unilaterally.
+* **(c)** The **outlier seam is absent from `seams.js` entirely** â€” a strictly larger delta than the other three.
+* **(d)** U23's own `is_under_frozen` classifier returns **True** for `backend/app/main.py` and
+  `frontend/src/app/App.jsx`, **False** for `vite.config.js` / `main.jsx`; and
+  `deploy-config/infrastructure-design/deployment-architecture.md` Â§3 already records that adding backend CORS
+  "would edit the CLOSED composition root (BR-DEP-1 violation)". The **dev tier was designed, never realized**.
+
+**HOLDS upheld**: no frozen-23 unit internal edited Â· no seam edited Â· WIRE-1 unamended Â· `backend/app/routes/`
+untouched, no route added Â· `audit_store` Docker-guard gap untouched Â· **tier-B not authorized, not touched** Â·
+`backend/app/llm_client.py` and `backend/scripts/` untouched (#18's spend guardrails unaffected) Â· frontend suite
+left green.
+
+**Register unchanged at 24 tracked** â€” 17 open / 3 discharged (#2 partly, #20, #24) / 4 narrowed (#3, #8, #18, #19).
+
+---
+
+## POST-BUILD â€” FRONTENDâ†”BACKEND WIRING: Q1â€“Q6 ANSWERED Â· AMBIGUITY-CHECK CLEAN Â· CODE-GEN PLAN WRITTEN (2026-07-23T12:45:51Z)
+
+**Status**: **STILL PLAN-ONLY â€” no code generated.** Stopped at the code-gen plan-file gate.
+
+**Answers (embedded verbatim, 6/6, 0 blank)**: **Q1(a)** add `"dev": "vite"` now Â· **Q2(a)** Vite `server.proxy`, explicitly **not** CORSMiddleware Â· **Q3(a)** existing `VITE_USER_ID` via `.env.local`, build nothing Â· **Q4(a)** no seam-layer change, outlier stays unregistered Â· **Q5(c)** queue â†’ memo â†’ commit, **#19 exposure accepted knowingly** Â· **Q6(a)** supersede-not-rewrite the Scope-A assertion, add tests via injected `fetchImpl`.
+
+### âš‘ Retroactive audit entry appended (before the ambiguity-check, as instructed)
+
+A previously-unlogged **manual, out-of-band R1â€“R7 walkthrough against a real local Postgres**, performed by the user via `curl`, incl. a second commit attempt returning **409** rather than duplicating an `AuditRecord`. Logged as **reconstruction, not backdating** â€” written now, timestamped now, appended in position; event time given as an approximate range with the lower bound (`07:25:19Z`, the seed-script two-defect fix) **disclosed as an inference**. Epistemic status explicit: **the user's attestation, not independently verified by me, not re-creatable from the repo**. The earlier good-faith *"a real Postgres run has NOT confirmed this end-to-end"* record is **left standing unedited** and superseded going forward.
+**âš‘ #19 is UNCHANGED (NARROWED, open).** The entry does not alter its status, and no view is offered on whether it should.
+
+### Ambiguity-check â€” CLEAN, 10 folds, 7 directed checks run
+
+* **Answer-set consistency first**: Q4(a) and Q5(c) **do not conflict** â€” queue/memo/commit seams are *already* registered, so mounting needs no seams change. âœ…
+* **âš‘ Check 2 (the flagged highest risk) â€” CONFIRMED REAL.** Backend routes carry **no `/api` prefix**; without a rewrite **all seven 404**. Pinned: `rewrite: (p) => p.replace(/^\/api/, '')`, target **`127.0.0.1`** not `localhost` (Node IPv6-first vs uvicorn IPv4 on Windows), plus a mandatory post-wiring `curl` proof since the rewrite is invisible in the browser.
+* **Check 4 â€” `.env.local` ignored, verified BY EXECUTION**: `git check-ignore -v` â†’ `.gitignore:4:.env.*`, exit 0. No disclosure risk.
+* **Check 1 â€” baseline**: U23's `test_noedit.py` + `test_build.py` â†’ **11 passed**; the `scripts` assertion is presence-only.
+* **âš‘ Check 5 â€” delta predicted test-by-test; blast radius is ONE test, not four.** Only `mounts NO unbacked surface` fails. **`wires all five units seams` stays green untouched** *because* Q4(a) declined the seams change. Plus one **mechanical** await fix (fold 10). Final: **2 existing touched, 1 semantically, 0 deleted.**
+* **Checks 3 / 6 / 7**: N/A (no middleware) Â· backend suite **not** re-run, carried at 1578/0/43/5/99.87% Â· discharged by the retroactive entry.
+
+**Four genuine finds**: the `approval-gate` vs `approval-gate-view` **testid mismatch that would have let a test pass by accident** (refused, same as the interop replica and the heuristic fake) Â· the **duplicate R4 fetch** from mounting memo + gate together (disclosed on the **#15** precedent, not optimized) Â· a **coverage-branch risk** (both selection arms must be exercised) Â· the **`src/app` advisory-vocabulary lint**, designed around by having `App.jsx` introduce **no new display copy at all**.
+
+**Plan of record**: `guide-docs/build/plans/frontend-backend-wiring-code-gen-plan.md` â€” 5-item inventory (dev script Â· proxy Â· `.env.local` + `app_user` row Â· `App.jsx` mounting with selection state Â· test updates), 8-step leaf-first TDD order (RED before GREEN), **explicit BEFORE/AFTER for both touched tests**, and a closing section separating what this delivers (a real, clickable **queue â†’ memo â†’ commit** path against a live backend â€” the first time the human-in-the-loop gate is demonstrable by clicking rather than asserted by a unit test) from what it does not (override Â· outlier Â· any login UI Â· any production change Â· **no register item resolved, including #14/#16/#17/#19/#13/#2**).
+
+**HOLDS upheld**: no frozen-23 unit internal edited Â· no seam edited Â· WIRE-1 unamended Â· `backend/app/routes/` **read-only**, no route added, **no backend file written at all** Â· `audit_store` Docker-guard gap untouched (5 stays 5) Â· **tier-B not authorized, not touched** Â· `backend/app/llm_client.py` and `backend/scripts/` untouched (#18 unaffected) Â· **no code generated**.
+
+**Register unchanged at 24 tracked** â€” 17 open / 3 discharged / 4 narrowed. Frontend suite still **682 / 137 / 0**.
+
+
+---
+
+## POST-BUILD - FRONTEND<->BACKEND WIRING: CODE-GEN PLAN APPROVED, IMPLEMENTATION EXECUTED, SUITE GREEN 687/137/0 (2026-07-25T09:29:36Z)
+
+**Status**: IMPLEMENTED - code generated, suite green, NOT committed. Stopped at the 2-option completion gate.
+**Plan of record executed**: `guide-docs/build/plans/frontend-backend-wiring-code-gen-plan.md` (Q1a/Q2a/Q3a/Q4a/Q5c/Q6a), in its 8-step leaf-first TDD order (RED before GREEN).
+
+### What was built (Items 1-5), each gate met
+
+* **Item 1** - `frontend/package.json`: `"dev": "vite"`. U23 test_noedit/test_build -> 11 passed; `npm test` 682 unchanged.
+* **Item 2** - `frontend/vite.config.js`: dev-only `server.proxy` `/api` -> `127.0.0.1:8000` with `rewrite` stripping `/api`. Strip PROVEN live through the dev server via a path-echo stub (`/api/session` -> received `/session`, 200, query preserved; control unstripped) - directed check 2 / stop-gate #4 discharged. DB-backed 200 remains the manual Step-7 step (no live Postgres here). `npm test` 682 unchanged.
+* **Item 3** - `frontend/.env.local` (gitignored, verified; `VITE_USER_ID=demo-underwriter` placeholder + required app_user underwriter-row documented). No code; no test impact.
+* **Item 4** - `frontend/src/app/App.jsx`: `selectedId` state; QueueView always mounted; on selection MemoView + ApprovalGateView (explicit `approval-gate` testid); HistoryView unchanged; Fold-4 disclosed; no new copy. No seams.js/main.jsx change (Q4a).
+* **Item 5** - `frontend/src/app/__tests__/app.test.jsx`: separate `backedServer()` helper (fakeServer byte-unchanged); test 6 rewritten (semantic, asserts real `approval-gate` testid); test 4 await strengthened (mechanical); 5 new tests.
+
+### Verification
+
+* **RED** (before Item 4): 7 failed / 8 passed, every failure element-not-found (predicted reason only).
+* **Full suite**: 687 / 137 / 0 (682 + 5 new). Delta by name: 2 existing touched (1 semantic `mounts NO unbacked surface` -> `mounts exactly the backed surfaces...`; 1 mechanical await on `renders identically for every role`), 5 added, 0 deleted. Test 8 `wires all five units seams` stayed green untouched - as predicted.
+* **Coverage**: App.jsx 100/100/100/100; thresholds 90/90/90/90 unchanged; EXIT 0.
+* **Step 7** manual browser confirmation: NOT done (needs live Postgres) - the one manual, non-re-creatable step.
+
+**HOLDS upheld**: no frozen-23 unit internal edited; no seams.js/main.jsx/WIRE-1/backend/** touched (confirmed via `git diff --name-only`); backend/app/routes/, llm_client.py, scripts/ untouched; tier-B not authorized/touched; no API call, no spend; backend suite not re-run (carried 1578/0/43/5/99.87%). NO COMMIT.
+
+**Register UNCHANGED at 24 tracked** - 17 open / 3 discharged / 4 narrowed. **#19 UNCHANGED** - a clickable double-commit is now reachable under Q5(c), accepted knowingly; this pass does not alter its status.
+
+**Changed files (uncommitted)**: frontend/package.json, frontend/vite.config.js, frontend/src/app/App.jsx, frontend/src/app/__tests__/app.test.jsx, frontend/.env.local (gitignored) - plus this guide-state.md and one audit.md entry.

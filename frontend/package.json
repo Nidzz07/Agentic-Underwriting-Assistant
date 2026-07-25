@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Agentic Underwriting Assistant frontend. ui-shell (U10) shared design-system. JS-native, NO TypeScript. Bundler/dev-server + Vercel topology deferred to deploy-config (D6).",
   "scripts": {
+    "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",

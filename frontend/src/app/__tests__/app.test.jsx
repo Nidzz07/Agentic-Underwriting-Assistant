@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { App } from '../App.jsx';
 import { createSeams } from '../seams.js';
 import { createHttpTransport } from '../httpTransport.js';
@@ -48,6 +48,62 @@ function fakeServer({ role = 'underwriter', calls = [] } = {}) {
   return { transport, seams: createSeams(transport), calls };
 }
 
+// ---- Scope-B backed server -------------------------------------------------------------------
+// Answers R2/R4/R5 as well as R1/R6/R7, for the newly-mounted queue -> memo -> commit surfaces.
+// A SEPARATE helper from fakeServer above — fakeServer's not_implemented default is load-bearing for
+// `the unbacked seams are real and callable`, so it is left byte-unchanged and this is added beside it.
+const QUEUE_LIST = {
+  items: [{ application_id: 'app-1', recommendation: 'APPROVE', confidence: 'High' }],
+  page: { page: 1, size: 20, total: 1 },
+};
+
+// One R4 body satisfying BOTH readers of the same route: MemoView (memo.*) and ApprovalGateView
+// (report.* + recommendation_id). This IS the Fold-4 duplicate-R4 reality, expressed as one fixture.
+const R4_READY = {
+  application_id: 'app-1',
+  recommendation_id: 'rec-1',
+  status: 'ready',
+  profile: {
+    application_id: 'app-1', age_years_derived: 42, requested_cover_amount: '500000',
+    demographics: { full_name: 'Jordan Rivera', gender: 'unspecified', city: 'Metropolis' },
+  },
+  report: { recommendation: 'APPROVE', confidence: 'High' },
+  memo: {
+    narrative_prose: 'Meets the income threshold; no adverse flags.',
+    cited_rule_ids: [], missing_information: [],
+    recommendation: 'APPROVE', confidence: 'High', memo_hash: 'h-abc', model_version: 'm-1',
+  },
+  outlier: null,
+};
+
+const R4_PENDING = {
+  application_id: 'app-1', recommendation_id: null, status: 'pending',
+  profile: null, report: null, memo: null,
+};
+
+const COMMITTED = { recommendation_id: 'rec-1', underwriter_id: 'UW-1', action: 'approve', reason: null };
+const FORBIDDEN = { error: { code: 'forbidden', message: 'You do not have permission.', detail: {} } };
+
+const okJson = (value) => ({ ok: true, json: async () => value });
+const errJson = (value) => ({ ok: false, json: async () => value });
+
+/** A backed server speaking the real WIRE-1 shapes over the real transport, for the Scope-B surfaces. */
+function backedServer({ role = 'underwriter', memoBody = R4_READY, commitResponse = okJson(COMMITTED), calls = [] } = {}) {
+  const fetchImpl = vi.fn(async (url, options = {}) => {
+    const method = options.method ?? 'GET';
+    calls.push({ url, method, body: options.body });
+    if (url === '/session') return okJson({ user_id: 'UW-1', role });
+    if (url.startsWith('/applications?')) return okJson(QUEUE_LIST);
+    if (/^\/applications\/[^/]+\/memo$/.test(url)) return okJson(memoBody);
+    if (/^\/recommendations\/[^/]+\/commit$/.test(url) && method === 'POST') return commitResponse;
+    if (url.startsWith('/decisions/')) return okJson(RECORD);
+    if (url.startsWith('/decisions')) return okJson(LIST);
+    return errJson({ error: { code: 'not_implemented', message: 'Not wired.', detail: {} } });
+  });
+  const transport = createHttpTransport({ fetchImpl, userId: 'UW-1' });
+  return { transport, seams: createSeams(transport), calls };
+}
+
 describe('App — the Scope-A composition root', () => {
   it('mounts the shell and renders the history surface from the REAL transport', async () => {
     const { transport, seams } = fakeServer();
@@ -82,6 +138,12 @@ describe('App — the Scope-A composition root', () => {
       const { transport, seams } = fakeServer({ role });
       const { container, unmount } = render(<App seams={seams} transport={transport} />);
       await screen.findByTestId('history-list');
+      // MECHANICAL (fold 10): the newly-mounted queue is async too. Await it SETTLING (here, its
+      // unbacked error state under fakeServer) before snapshotting — else a role-to-role snapshot can
+      // catch queue mid-loading in one run and settled in another, an intermittent false failure that
+      // would be indistinguishable from a real role-variance bug. Assertion unchanged; only the
+      // synchronization is strengthened.
+      await screen.findByTestId('queue-state-error');
       const html = container.innerHTML;
       unmount();
       return html;
@@ -101,15 +163,25 @@ describe('App — the Scope-A composition root', () => {
     expect(await screen.findByTestId('history-list')).toBeInTheDocument();
   });
 
-  it('mounts NO unbacked surface — only the history view exists in Scope A', async () => {
+  // SUPERSEDED (2026-07-25): this replaces `mounts NO unbacked surface — only the history view exists
+  // in Scope A`, which was CORRECT under Scope A — R2-R5 answered 501, so a mounted view could only ever
+  // error, implying backing that did not exist. Scope B made all seven routes live, retiring that
+  // premise. Not weakened: it still pins EXACTLY which surfaces the composition root mounts, in both
+  // directions. Q5(c) deliberately excludes override and outlier — asserted absent in BOTH states.
+  it('mounts exactly the backed surfaces — queue + history always; override and outlier never', async () => {
     const { transport, seams } = fakeServer();
     render(<App seams={seams} transport={transport} />);
     await screen.findByTestId('history-list');
-    // the four unbacked units are wired in seams.js but deliberately not rendered
-    expect(screen.queryByTestId('queue-view')).toBeNull();
+    // queue is ALWAYS mounted — its Panel testid renders in every state, incl. the unbacked error state.
+    expect(await screen.findByTestId('queue-view')).toBeInTheDocument();
+    // no selection yet -> no detail surface. `approval-gate` is the REAL default testid the gate
+    // renders (NOT `approval-gate-view`, which the old test asserted and which would pass vacuously
+    // once the gate is mounted — the accidental-pass trap this build has twice refused).
     expect(screen.queryByTestId('memo-view')).toBeNull();
-    expect(screen.queryByTestId('approval-gate-view')).toBeNull();
+    expect(screen.queryByTestId('approval-gate')).toBeNull();
+    // out of scope this pass (Q5(c) / Q4(a)) — never mounted, in either selection state.
     expect(screen.queryByTestId('override-form-view')).toBeNull();
+    expect(screen.queryByTestId('outlier-view')).toBeNull();
   });
 
   it('surfaces a backend error through the frozen unit own error state', async () => {
@@ -126,6 +198,60 @@ describe('App — the Scope-A composition root', () => {
     expect(await screen.findByTestId('history-state-error-list')).toBeInTheDocument();
     expect(screen.getByTestId('history-error-message')).toHaveTextContent('You do not have permission.');
     expect(screen.getByTestId('history-error-code')).toHaveTextContent('forbidden');
+  });
+
+  // --- Scope-B: the newly-mounted queue -> memo -> commit surfaces (Q5(c)) ---
+
+  it('selection mounts the detail surfaces — a queue row click opens memo + gate with the id propagated', async () => {
+    const { transport, seams } = backedServer();
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    expect(await screen.findByTestId('memo-view')).toBeInTheDocument();      // R4 ready (memo)
+    expect(await screen.findByTestId('approval-gate')).toBeInTheDocument();  // same R4, gate ready
+  });
+
+  it('no selection -> no detail surfaces (the other branch of the selection condition — fold 5)', async () => {
+    const { transport, seams } = backedServer();
+    render(<App seams={seams} transport={transport} />);
+    expect(await screen.findByTestId('queue-view')).toBeInTheDocument();
+    await screen.findByTestId('queue-table'); // queue settled ready, still nothing selected
+    expect(screen.queryByTestId('memo-view')).toBeNull();
+    expect(screen.queryByTestId('approval-gate')).toBeNull();
+  });
+
+  it('the approve path end-to-end over the transport — Confirm POSTs exactly { action: "approve" }, no underwriter_id', async () => {
+    const calls = [];
+    const { transport, seams } = backedServer({ calls });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    fireEvent.click(await screen.findByTestId('approval-affordance-approve')); // opens the dialog, no commit
+    fireEvent.click(await screen.findByTestId('approval-confirm-submit'));     // the single commit call site
+    expect(await screen.findByTestId('approval-committed')).toBeInTheDocument();
+
+    const commit = calls.find((c) => c.method === 'POST' && c.url === '/recommendations/rec-1/commit');
+    expect(commit).toBeTruthy();
+    const body = JSON.parse(commit.body);
+    expect(body).toEqual({ action: 'approve' });       // WIRE-1 §5 / BODY-1
+    expect(body).not.toHaveProperty('underwriter_id'); // AUTHZ-1 — session-derived server-side, never in the body
+  });
+
+  it('a pending R4 renders the not-yet-drafted state, not an error', async () => {
+    const { transport, seams } = backedServer({ memoBody: R4_PENDING });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    expect(await screen.findByTestId('memo-state-pending')).toBeInTheDocument();
+    expect(screen.queryByTestId('memo-view')).toBeNull();
+  });
+
+  it('a commit error surfaces through the frozen gate own error state — no special-casing in App', async () => {
+    const { transport, seams } = backedServer({ commitResponse: errJson(FORBIDDEN) });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    fireEvent.click(await screen.findByTestId('approval-affordance-approve'));
+    fireEvent.click(await screen.findByTestId('approval-confirm-submit'));
+    expect(await screen.findByTestId('approval-state-error')).toBeInTheDocument();
+    expect(screen.getByTestId('approval-error-code')).toHaveTextContent('forbidden');
+    expect(screen.queryByTestId('approval-committed')).toBeNull();
   });
 });
 
