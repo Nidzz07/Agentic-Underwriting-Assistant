@@ -98,3 +98,26 @@ class PostgresSessionStore:
     def revoke(self, session_id: str, now: datetime) -> None:
         with self._engine.begin() as conn:
             conn.execute(_REVOKE_SESSION, {"session_id": session_id, "now": now})
+
+
+_USER_EXISTS = sa.text("SELECT 1 FROM app_user WHERE user_id = :user_id")
+
+
+class PostgresUserDirectory:
+    """The ``UserDirectory`` existence check, read-only against ``app_user``.
+
+    ⚑ Writes its OWN parameterized query rather than importing ``auth_rbac``, following the
+    pattern that unit already set for the same table (*"consumes database's app_user via
+    auth-rbac's own parameterized query… imports no database/audit_store module"*). Keeps
+    ``authn`` self-contained: it shares a TABLE with other units, never a module.
+
+    Existence, not role: a user whose ``role`` is blank still **exists**, and it is
+    ``to_role``'s job — not this one's — to fail-close on the role at authentication time.
+    """
+
+    def __init__(self, engine: sa.Engine) -> None:
+        self._engine = engine
+
+    def exists(self, user_id: str) -> bool:
+        with self._engine.connect() as conn:
+            return conn.execute(_USER_EXISTS, {"user_id": user_id}).scalar_one_or_none() is not None
