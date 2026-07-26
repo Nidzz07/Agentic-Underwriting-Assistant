@@ -3,20 +3,29 @@
 // only. Each `create<X>Fetch` below is the frozen unit's OWN factory, imported and called — no
 // seam is reimplemented, and no unit is modified.
 //
-// SCOPE A — what is actually backed (the rest is wired but unbacked, honestly):
-//     session  -> R1  ✅ real
-//     history  -> R6/R7 ✅ real           <- the only UI unit with a live backend
-//     queue    -> R2  ⛔ 501 not_implemented
-//     memo     -> R4  ⛔ 501
-//     commit   -> R5  ⛔ 501   (approve)
-//     override -> R5  ⛔ 501   (override)
+// BACKING — SUPERSEDED 2026-07-26 (override wiring pass, Q1). The original block described SCOPE A
+// and read: "queue -> R2 ⛔ 501 not_implemented · memo -> R4 ⛔ 501 · commit -> R5 ⛔ 501 (approve) ·
+// override -> R5 ⛔ 501 (override)", followed by "The four unbacked seams are still constructed here,
+// deliberately... which is why they are NOT mounted in App.jsx: a rendered surface that can only ever
+// error would imply backing that does not exist."
 //
-// The four unbacked seams are still constructed here, deliberately: they are real seams over the
-// real transport, so the day R2-R5 are wired they need no change. Until then a call resolves the
-// server's 501 envelope, the frozen seam's `normalizeError` passes it through, and the unit
-// renders its ordinary error state. That is a truthful report of the deployment's scope — which
-// is why they are NOT mounted in App.jsx: a rendered surface that can only ever error would
-// imply backing that does not exist.
+// EVERY LOAD-BEARING CLAIM IN THAT BLOCK IS NOW FALSE, and leaving it would misdescribe the one thing
+// this file exists to document. Scope B made all seven routes live; the wiring pass then mounted
+// queue/memo/commit against a real backend, and this pass mounts override. Current reality:
+//
+//     session  -> R1     ✅ real
+//     queue    -> R2     ✅ real   (mounted)
+//     memo     -> R4     ✅ real   (mounted)
+//     commit   -> R5     ✅ real   (mounted — the `approve` action)
+//     override -> R5     ✅ real   (mounted — the `override` action, mandatory non-blank reason)
+//     history  -> R6/R7  ✅ real   (mounted)
+//
+// ⚑ All five seams are now both backed AND mounted, so the "constructed but unmounted" rationale no
+// longer applies to any of them. The seam SET is unchanged — override was always registered here, so
+// mounting it required no edit to `createSeams` and the five-key assertion stays green untouched.
+//
+// ⚑ NOT registered: the outlier seam. That is still a real exclusion (#17 — a wired OutlierView would
+// render permanently empty), and it is the only remaining case the old rationale still describes.
 
 import { createQueueFetch } from '../queue/fetchSeam.js';
 import { createMemoFetch } from '../memoView/memoFetchSeam.js';

@@ -6320,3 +6320,166 @@ re-run, carried at 1615/0/43/5/99.63% · **NO COMMIT**.
 
 **Step 10 to be re-run by the user in a real browser** — the full login → logout → login-again cycle — before any
 commit decision. **Register unchanged at 26 tracked** — 18 open / 4 discharged / 4 narrowed.
+
+---
+
+## 🟢 POST-BUILD — OVERRIDE WIRING: STEPS 1–11 + 13 EXECUTED · SUITE GREEN **723 / 147 / 0 / 99.82%** · PREDICTION HELD EXACTLY (2026-07-26)
+
+**The mandatory-reason decline path is mounted and reachable.** Q1(a) · Q2(a) · Q3(a) · Q4(a) · Q5(b) · Q6(a),
+all embedded verbatim in `override-wiring-plan.md`. **Step 12 (manual live verification) NOT begun — the user's to
+run.** **NO COMMIT.**
+
+### ⚑ The prediction held: +4 exactly, 719 → 723
+
+Unlike the login pass (712 → 716, corrected mid-pass), **the predicted count was right**. The reason it was right
+is worth recording: **Fold B of the ambiguity-check caught an arithmetic error before the gate rather than at it.**
+Q5(a)'s "one mount-on-selection test" and Q4(a)'s "a new positive test asserting override IS mounted" name **ONE
+artifact, not two** — counting them separately would have predicted +5. The 712 → 716 lesson was applied
+prospectively.
+
+### Delta by name — 4 added · 0 deleted · 1 rationale amended in place
+
+**`app.test.jsx` (+4 net, 19 → 23)**:
+* `selection mounts the override form — the mandatory-reason path is reachable` (T1)
+* `the override path end-to-end over the transport — Confirm POSTs exactly { action: "override", reason }, no underwriter_id` (T2)
+* `a blank reason cannot be submitted — the affordance stays disabled and NO commit is issued` (T3)
+* `approve then override — the second commit loses the claim and renders commit_conflict` (T4)
+
+**Amended in place, assertions BYTE-UNCHANGED**: `mounts exactly the backed surfaces` — only its rationale
+comment was rewritten (see below).
+
+### ⛔ RED-before-GREEN: a deviation from the plan's ORDER, disclosed not papered over
+
+The plan put T1 at step 3 (RED) → mount at step 4 (GREEN) → T2/T3/T4 at steps 5/6/7 (RED each). **That ordering was
+impossible as written**, and the flaw was mine: **the mount is the ONLY implementing change for all four tests.**
+Once step 4 landed, nothing remained to make T2–T4 red — the frozen `overrideForm` unit was already built and
+tested from the original BUILD phase.
+
+**What was actually done, and it is stronger than the plan's version**: T1's RED was observed in natural order
+(`Unable to find an element by: [data-testid="override-form-view"]`, traced to the missing mount). T2–T4 were then
+written, and their RED was observed by **temporarily reverting the mount and re-running** — all four failed, each
+for the correct reason (`override-form-view` / `override-reason-input` absent) — after which the mount was restored
+and all four went green. **Non-vacuity is therefore demonstrated for every one of the four, by observation rather
+than by assertion.** No RED is claimed that was not seen on screen.
+
+### The four questions, as executed
+
+**Q1(a) — `seams.js` docstring corrected.** Every load-bearing claim in the old SCOPE-A block was false: it listed
+queue/memo/commit/override as `⛔ 501` and gave "which is why they are NOT mounted in App.jsx" as the rationale.
+Replaced with the real backing table (all five seams backed AND mounted), the superseded text quoted, and the one
+case the old rationale still describes preserved: **the outlier seam remains genuinely unregistered (#17)**.
+⚑ **`createSeams`'s body is byte-unchanged** — comments only, verified by diff.
+
+**Q2(a) — Fold 4 extended two → three.** The comment now records that MemoView, ApprovalGateView **and**
+OverrideFormView each issue their own R4, that a selection makes **three** identical requests, and that removing the
+duplication would mean lifting R4 into the root and prop-injecting three frozen units — a redesign, not a wiring
+change. Accepted knowingly, left visible.
+
+**Q3(a) — both write paths mounted side by side.** The mount comment records why: agreeing and disagreeing are peer
+choices, and showing only one would misrepresent the gate as a rubber stamp. ⚑ **No special-casing was needed in
+`App.jsx`** — `CommitStateView.jsx:9-11` already declares `commit_conflict` *"the SINGLE rendered conflict state for
+BOTH already-committed AND the blank-reason race/bypass tail"*. **The frozen unit was designed for this collision
+before this pass existed.**
+
+**Q4(a) — rationale amended, both assertions untouched.** `:329` and `:344` are byte-unchanged and stayed green
+throughout, confirming the §1.5 correction (mounting override breaks **zero** tests — the earlier claim that this
+test needed superseding was wrong and was withdrawn before execution). The comment now states the real reason each
+assertion holds: the first block never SELECTS (so override's absence is the no-selection fact, not an exclusion),
+the second is UNAUTHENTICATED (nothing mounts at all).
+
+### ⚑ Two things left imperfect, both recorded rather than absorbed
+
+**(1) The test NAME `mounts exactly the backed surfaces — queue + history always; override and outlier never` is now
+imprecise** — override *does* mount, on selection. Renaming was outside what Q4(a) authorized (comment only), so the
+name stands and the imprecision is recorded in the file itself. **A one-word decision left to the user, not taken
+unilaterally.**
+
+**(2) T4 pins the OBSERVABLE CONTRACT of register #19's claim, NOT the compare-and-swap.** A fake transport cannot
+exercise a Postgres row lock; **T4 would pass against a backend with no CAS at all**, and its comment says so.
+The CAS itself is reachable only from Step 12.7 against a real database.
+
+### What is still unverified — and it is the pass's whole point
+
+**No `AuditRecord` row carrying `action=override` or a non-null `reason` exists yet.** The project's only
+live-commit evidence (register #25's discharge) is `action=approve`, `reason=null`. BR-COMMIT-GATE's blank-reason
+rejection has still never run over HTTP against a real database. **Steps 1–11 delivered one JSX line and four
+tests; Step 12 delivers the evidence**, and it is the user's to run — the same standing as Step 7 and Step 10,
+the latter of which is what found the 204 defect.
+
+**HOLDS — verified by `git status`**: 3 source files touched — `App.jsx` (**one import + one JSX line**, the rest
+comments), `app.test.jsx` (4 tests + 1 harness extension + comments), `seams.js` (**comments only**). ⚑ **No
+`vitest.config.js` edit** — `src/overrideForm/**` was already in both include lists (Fold D held; the login pass's
+one unpredicted file touch did not recur). **`seams.js`'s five-key set unchanged — `wires all five units seams`
+green untouched** · **no frozen `ui-shell` component or view unit edited** · **`main.jsx` untouched** · **no backend
+file · WIRE-1 untouched** · backend carried at 1615/0/43/5/99.63%, not re-run · **NO COMMIT**.
+
+**Register unchanged at 26 tracked** — 18 open / 4 discharged / 4 narrowed. **#19 is exercised by this pass, not
+resolved by it.** **#17 untouched** and now the only case `seams.js`'s exclusion rationale describes.
+
+---
+
+## ✅ OVERRIDE WIRING — **COMPLETE**. STEP 12 VERIFIED ON REAL POSTGRES · TEST RENAMED · **NO REGISTER ITEM CHANGES STATUS** (2026-07-26T14:02:44Z)
+
+**The mandatory-reason decline path is delivered, mounted, and verified end-to-end against a real database.** Suite
+**723 / 147 / 0 / 99.82%**, EXIT 0 — unchanged by the rename, as a name-only change must be. **NO COMMIT.**
+
+⚑ **Timestamp note**: this session's three earlier `audit.md` entries are stamped with **local IST mislabeled as
+`Z`**; the true UTC times were ~12:51Z / ~13:42Z / ~14:01Z. They are **not back-edited** (append-only); the
+discrepancy is recorded in the `audit.md` entry of the same date. This also reconciles the user's "~13:5X".
+
+### Step 12 — three firsts in this project's history (user-run; reconstruction, not observation)
+
+Performed by the **user** via **browser, `curl`, and `psql` against a real local PostgreSQL**, at approximate times
+(~13:5X UTC). **Not observed by this agent** — recorded from their report with the identifiers they supplied.
+
+1. **`action=override` committed through the browser** (DEMO-0001), reason *"Manual review required due to income
+   discrepancy"* typed into the UI. `AuditRecord` **`a7b67ca8-00a6-4d1d-8e88-a3254c25b0c6`**:
+   `underwriter_id=demo-underwriter` — ⚑ **server-derived; WIRE-1 §5 forbids it in the request body** —
+   `action=override`, `reason` = the exact text, **non-null**.
+   ⚑ **The first override commit AND the first non-null `reason` ever persisted here.** The brief's Component 5
+   requirement — *"override with mandatory reason field"* — is now **demonstrated**, not asserted.
+2. **BR-COMMIT-GATE's blank-reason rejection, live over HTTP for the first time.** `curl` on
+   `REC-DEMO-0002-25a195b9` with `reason="   "` → **409 `commit_conflict`**, *"The commit was rejected by the
+   approval gate."* ⚑ Deliberately **bypassing the UI**, because that path is **unreachable from the UI by
+   construction** (the affordance is disabled) — which is why frontend test T3 asserts a disabled affordance and
+   **not** a 409. Two tiers, two claims, neither substituting for the other.
+3. **Claim-release confirmed.** An immediate re-commit of the same recommendation with a valid `approve` returned
+   **200** — the rejected override **released its claim** rather than stranding the case in `committing`.
+
+### The rename — name only, superseded in place
+
+`mounts exactly the backed surfaces — queue + history always; override and outlier never`
+→ `mounts exactly the backed surfaces — queue + history always; outlier never; detail surfaces only on selection`
+
+The old name is preserved verbatim in the file with the reason: *"override … never"* became false the moment
+override was mounted. ⚑ **Every assertion byte-unchanged**; the subject is unchanged. The file also records that the
+name was **deliberately left stale for one pass** because Q4(a) authorized the comment only — then renamed once
+authorized separately. **#13's shape, handled #13's way.**
+
+### ⛔ REGISTER: NO ITEM CLOSES OR NARROWS — per-item reasons, none by omission
+
+| Item | Status | Why |
+|---|---|---|
+| **#19** `COMMITTED-TRANSITION-NEVER-PERFORMED` | **NARROWED — unchanged** | ⚑ #19's own record already lists as true: *"an ordinary rejection (**blank-reason override**, unauthorized caller) leaves the case **re-committable**"*. Findings 2+3 exercise **exactly that bullet, with exactly that blank-reason override**, for the first time **live over HTTP against a real DB** rather than at tier-I. **The evidence tier is upgraded; the status is not.** #19's non-discharge reason is **cross-store atomicity**, recorded as something *"no wording will make it so"* — untouched here. |
+| **#21** `COMMITTING-CRASH-WINDOW` | **OPEN — untouched** | ⚑ **Structurally unreachable by this evidence.** #21's window is **between the audit write and `finalize_commit`**. The blank-reason rejection is refused by the gate at **step 1 of `commit()`, before the audit write at step 5** — so the release path **never enters the window**. This could not have tested #21 even in principle; **no partial credit claimed.** |
+| **#13** `NOTWIRED-FILENAME-STALE` | **OPEN — unchanged** | The rename is the **same class** (a name outliving what it described) and was handled in #13's shape, but a **different artifact**: #13 is `backend/app/routes/not_wired.py`, a backend file this pass may not touch. **Citing #13 as precedent is not progress against #13.** |
+| **#2** `R2–R5 unwired` | **PARTLY DISCHARGED — unchanged** | R5's `override` action was the **last route-action never exercised end-to-end**, and now has been. But #2's residual is *"the end-to-end claim remains scoped per Q11-A"* — **a qualifier not re-adjudicated here.** ⚑ **The strongest remaining candidate for a future deliberate pass** — not moved by side effect. |
+| **#14** `MEMOVIEW-FAILED-STATE-UNMODELLED` | **OPEN (widened) — unchanged** | The `COMMITTING → "pending"` wire projection is untouched. |
+| **#17** outlier | **OPEN — unchanged** | Now the **only** case `seams.js`'s exclusion rationale still describes. |
+
+**Register remains 26 tracked — 18 open · 4 discharged (#2 partly, #20, #24, #25) · 4 narrowed (#3, #8, #18, #19).**
+
+### Pass summary — what override wiring actually cost and delivered
+
+**Cost**: one import + one JSX line of production code. Everything else was tests (4), comment corrections (3
+files), and evidence.
+
+**Delivered**: a clickable override path; **the first `AuditRecord` carrying `action=override` and a non-null
+`reason`**; **the first live-database exercise of BR-COMMIT-GATE**; live confirmation of the claim-release path; and
+two commit affordances coexisting correctly under #19's guard, with the losing path rendering through the frozen
+unit's own `commit_conflict` state — which `CommitStateView.jsx:9-11` had been written to handle before this pass
+existed.
+
+**HOLDS** — this turn: **one source file, name only** (`app.test.jsx`) + three docs. No backend file · WIRE-1
+untouched · no frozen `ui-shell` component or view unit · `main.jsx` untouched · backend carried at
+1615/0/43/5/99.63%, not re-run · **NO COMMIT** — the full diff is the user's to review first.

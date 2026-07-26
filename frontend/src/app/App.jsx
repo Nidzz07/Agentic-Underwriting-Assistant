@@ -4,6 +4,7 @@ import { HistoryView } from '../history/HistoryView.jsx';
 import { QueueView } from '../queue/QueueView.jsx';
 import { MemoView } from '../memoView/MemoView.jsx';
 import { ApprovalGateView } from '../approvalGate/ApprovalGateView.jsx';
+import { OverrideFormView } from '../overrideForm/OverrideFormView.jsx';
 import { LoginView } from '../login/LoginView.jsx';
 import { LogoutControl } from '../login/LogoutControl.jsx';
 import { createLoginFetch } from '../login/loginFetchSeam.js';
@@ -89,13 +90,26 @@ export function App({ seams, transport, testid = 'app-root' }) {
         <QueueView fetchSeam={seams.queue} onSelect={setSelectedId} />
         {selectedId ? (
           <>
-            {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView and ApprovalGateView each
-                issue their OWN GET /applications/{id}/memo, so a selection makes two identical R4
-                requests. Each frozen unit owning its own fetch is the design. */}
+            {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView, ApprovalGateView AND
+                OverrideFormView each issue their OWN GET /applications/{id}/memo, so a selection now
+                makes THREE identical R4 requests (was two before override was mounted). Each frozen
+                unit owning its own fetch is the design; removing the duplication would mean lifting
+                R4 into this root and prop-injecting three frozen units — a redesign, not a wiring
+                change. Accepted knowingly and left visible rather than quietly absorbed. */}
             <MemoView memoFetchSeam={seams.memo} applicationId={selectedId} />
             {/* Fold 3 — testid passed EXPLICITLY (equals the default) so the assertion pins the REAL
                 rendered id and cannot pass by accident against a stale `approval-gate-view`. */}
             <ApprovalGateView commitFetchSeam={seams.commit} applicationId={selectedId} testid="approval-gate" />
+            {/* The SECOND write path — the human's "I disagree", carrying the mandatory reason.
+                ⚑ Mounted ALONGSIDE the approve gate, not instead of it: agreeing and disagreeing are
+                peer choices, and showing only one would misrepresent the gate as a rubber stamp.
+                ⚑ Both target the SAME recommendation, so whichever is confirmed first wins the
+                register-#19 claim and the other receives 409 `commit_conflict` — accepted knowingly.
+                It needs no special-casing here: OverrideFormView already renders that conflict
+                through its own error state (CommitStateView's `commit_conflict` branch).
+                ⚑ NOT RoleGate-wrapped here — the gate lives INSIDE OverrideAffordance, so a
+                non-underwriter sees the context without the affordance. */}
+            <OverrideFormView overrideFetchSeam={seams.override} applicationId={selectedId} />
           </>
         ) : null}
         <HistoryView fetchSeam={seams.history} />

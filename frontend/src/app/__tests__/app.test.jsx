@@ -84,6 +84,17 @@ const R4_PENDING = {
 const COMMITTED = { recommendation_id: 'rec-1', underwriter_id: 'UW-1', action: 'approve', reason: null };
 const FORBIDDEN = { error: { code: 'forbidden', message: 'You do not have permission.', detail: {} } };
 
+// The R5 echo for an OVERRIDE — `reason` non-null, which no approve commit ever carries. The
+// confirmation renders the reason from THIS echo, never from the client's own slice (ND-OVR-Fold-ii).
+const OVERRIDE_REASON = 'Compensating factors the rulebook does not capture.';
+const COMMITTED_OVERRIDE = {
+  recommendation_id: 'rec-1', underwriter_id: 'UW-1', action: 'override', reason: OVERRIDE_REASON,
+};
+// WIRE-1 §4's already-committed conflict — what register #19's claim returns to the loser.
+const CONFLICT = {
+  error: { code: 'commit_conflict', message: 'This recommendation has already been committed.', detail: {} },
+};
+
 const okJson = (value) => ({ ok: true, json: async () => value });
 const errJson = (value) => ({ ok: false, json: async () => value });
 
@@ -95,7 +106,13 @@ function backedServer({ role = 'underwriter', memoBody = R4_READY, commitRespons
     if (url === '/session') return okJson({ user_id: 'UW-1', role });
     if (url.startsWith('/applications?')) return okJson(QUEUE_LIST);
     if (/^\/applications\/[^/]+\/memo$/.test(url)) return okJson(memoBody);
-    if (/^\/recommendations\/[^/]+\/commit$/.test(url) && method === 'POST') return commitResponse;
+    // `commitResponse` may be a VALUE (every pre-existing caller) or a FUNCTION resolved per call.
+    // The function form exists for the double-commit collision test, where the same URL must answer
+    // 200 once and 409 thereafter — modelling register #19's claim. Strictly additive: an object
+    // behaves exactly as before, so no existing caller changes.
+    if (/^\/recommendations\/[^/]+\/commit$/.test(url) && method === 'POST') {
+      return typeof commitResponse === 'function' ? commitResponse() : commitResponse;
+    }
     if (url.startsWith('/decisions/')) return okJson(RECORD);
     if (url.startsWith('/decisions')) return okJson(LIST);
     return errJson({ error: { code: 'not_implemented', message: 'Not wired.', detail: {} } });
@@ -313,8 +330,30 @@ describe('App — the Scope-A composition root', () => {
   // in Scope A`, which was CORRECT under Scope A — R2-R5 answered 501, so a mounted view could only ever
   // error, implying backing that did not exist. Scope B made all seven routes live, retiring that
   // premise. Not weakened: it still pins EXACTLY which surfaces the composition root mounts, in both
-  // directions. Q5(c) deliberately excludes override and outlier — asserted absent in BOTH states.
-  it('mounts exactly the backed surfaces — queue + history always; override and outlier never', async () => {
+  // directions.
+  //
+  // ⚑ RATIONALE AMENDED (2026-07-26), assertions BYTE-UNCHANGED. The sentence that stood here read
+  // "Q5(c) deliberately excludes override and outlier — asserted absent in BOTH states". That is NO
+  // LONGER TRUE of override, which is now mounted on selection. Both assertions below are still
+  // correct — but for reasons that must be stated, or they would be misread as continuing to pin an
+  // exclusion that no longer exists:
+  //   * the first block never SELECTS a case, and override mounts only inside the selection branch
+  //     (as memo and the gate do) — so its absence here is the NO-SELECTION fact, not an exclusion;
+  //   * the second block is UNAUTHENTICATED, where no application surface mounts at all.
+  // Override's mounted state is pinned POSITIVELY by `selection mounts the override form` above.
+  // OUTLIER remains genuinely excluded (#17) and its absence here still asserts exactly that.
+  //
+  // ⚑ RENAMED (2026-07-26, authorized separately after the override pass). The previous name was:
+  //     'mounts exactly the backed surfaces — queue + history always; override and outlier never'
+  // ⛔ The trailing "override ... never" became FALSE the moment override was mounted: it mounts on
+  // selection, exactly as memo and the gate do. The name was left stale for one pass because the
+  // authorizing answer (Q4(a)) covered the comment only — the imprecision was recorded in this file
+  // rather than silently fixed, then renamed once explicitly authorized.
+  // ⚑ NAME ONLY. Every assertion below is byte-unchanged, and the test's subject is unchanged: it
+  // still pins EXACTLY which surfaces the composition root mounts, in both gate states. This is the
+  // #13 `NOTWIRED-FILENAME-STALE` shape — a name that outlived the thing it described — handled the
+  // way this project has handled every other one: superseded in place, with the old name preserved.
+  it('mounts exactly the backed surfaces — queue + history always; outlier never; detail surfaces only on selection', async () => {
     const { transport, seams } = fakeServer();
     const authenticated = render(<App seams={seams} transport={transport} />);
     await screen.findByTestId('history-list');
@@ -325,7 +364,8 @@ describe('App — the Scope-A composition root', () => {
     // once the gate is mounted — the accidental-pass trap this build has twice refused).
     expect(screen.queryByTestId('memo-view')).toBeNull();
     expect(screen.queryByTestId('approval-gate')).toBeNull();
-    // out of scope this pass (Q5(c) / Q4(a)) — never mounted, in either selection state.
+    // override: absent because nothing is SELECTED here — it mounts in the selection branch, pinned
+    // positively above. outlier: genuinely never mounted (#17), which is what this line still asserts.
     expect(screen.queryByTestId('override-form-view')).toBeNull();
     expect(screen.queryByTestId('outlier-view')).toBeNull();
 
@@ -373,6 +413,19 @@ describe('App — the Scope-A composition root', () => {
     expect(await screen.findByTestId('approval-gate')).toBeInTheDocument();  // same R4, gate ready
   });
 
+  it('selection mounts the override form — the mandatory-reason path is reachable', async () => {
+    // ⚑ Asserts `override-form-view`, NOT `override-form-panel`. OverrideFormView renders the Panel
+    // in EVERY phase but the inner view testid ONLY in ready/confirming/submitting
+    // (OverrideFormView.jsx:79-98) — so an assertion against the panel would pass even from
+    // `pending`, i.e. for the wrong reason. R4_READY drives it to `ready`, the state the override
+    // path is actually reachable from. This is the third instance of the accidental-pass trap this
+    // file already refused twice (see the approval-gate / approval-gate-view note above).
+    const { transport, seams } = backedServer();
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    expect(await screen.findByTestId('override-form-view')).toBeInTheDocument();
+  });
+
   it('no selection -> no detail surfaces (the other branch of the selection condition — fold 5)', async () => {
     const { transport, seams } = backedServer();
     render(<App seams={seams} transport={transport} />);
@@ -396,6 +449,78 @@ describe('App — the Scope-A composition root', () => {
     const body = JSON.parse(commit.body);
     expect(body).toEqual({ action: 'approve' });       // WIRE-1 §5 / BODY-1
     expect(body).not.toHaveProperty('underwriter_id'); // AUTHZ-1 — session-derived server-side, never in the body
+  });
+
+  it('the override path end-to-end over the transport — Confirm POSTs exactly { action: "override", reason }, no underwriter_id', async () => {
+    const calls = [];
+    const { transport, seams } = backedServer({ calls, commitResponse: okJson(COMMITTED_OVERRIDE) });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    fireEvent.change(await screen.findByTestId('override-reason-input'), { target: { value: OVERRIDE_REASON } });
+    fireEvent.click(await screen.findByTestId('override-affordance-button')); // opens the dialog, no commit
+    fireEvent.click(await screen.findByTestId('override-confirm-submit'));    // the single commit call site
+    expect(await screen.findByTestId('override-committed-view')).toBeInTheDocument();
+
+    const commit = calls.find((c) => c.method === 'POST' && c.url === '/recommendations/rec-1/commit');
+    expect(commit).toBeTruthy();
+    const body = JSON.parse(commit.body);
+    // WIRE-1 §5 / BODY-1 — EXACTLY these two keys. The reason is sent AS-ENTERED (no client trim).
+    expect(body).toEqual({ action: 'override', reason: OVERRIDE_REASON });
+    expect(body).not.toHaveProperty('underwriter_id'); // AUTHZ-1 — session-derived server-side
+    // the committed reason is rendered from the R5 ECHO, not the client's slice (ND-OVR-Fold-ii)
+    expect(screen.getByTestId('override-committed-reason')).toHaveTextContent(OVERRIDE_REASON);
+  });
+
+  it('a blank reason cannot be submitted — the affordance stays disabled and NO commit is issued', async () => {
+    // ⚑ The 409 blank-reason path is UNREACHABLE from this UI by construction: the affordance is
+    // disabled by the single isReasonPresent predicate, so no request can be issued. That is why
+    // BR-COMMIT-GATE's server-side rejection is verified by bypassing the UI against a live
+    // database, NOT here — two tiers, two claims, neither standing in for the other.
+    const calls = [];
+    const { transport, seams } = backedServer({ calls });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    await screen.findByTestId('override-form-view');
+    expect(screen.getByTestId('override-affordance-button')).toBeDisabled();
+    // whitespace-only is still blank under the trim()-based UX guard
+    fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: '   ' } });
+    expect(screen.getByTestId('override-affordance-button')).toBeDisabled();
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+    // a real reason enables it — proving the disabled state tracks the reason, not something else
+    fireEvent.change(screen.getByTestId('override-reason-input'), { target: { value: 'x' } });
+    expect(screen.getByTestId('override-affordance-button')).toBeEnabled();
+  });
+
+  it('approve then override — the second commit loses the claim and renders commit_conflict', async () => {
+    // ⚑ Q3(a)'s accepted consequence, pinned. Both affordances target the SAME recommendation, so the
+    // first confirmed commit wins register #19's claim and the second gets 409.
+    // ⚑ WHAT THIS DOES AND DOES NOT PROVE: it pins the OBSERVABLE CONTRACT of that guard — a second
+    // commit returns 409 and the losing unit renders its ordinary error state. It does NOT test the
+    // compare-and-swap itself, which is a Postgres row-lock property a fake cannot reach; this test
+    // would pass against a backend with no CAS at all. The CAS is verified against a real database.
+    // ⚑ NOT a race: the fake is a plain function and the await below sequences the two commits.
+    let commits = 0;
+    const commitResponse = () => {
+      commits += 1;
+      return commits === 1 ? okJson(COMMITTED) : errJson(CONFLICT);
+    };
+    const { transport, seams } = backedServer({ commitResponse });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    // the reason is typed FIRST — the override affordance is disabled until it exists
+    fireEvent.change(await screen.findByTestId('override-reason-input'), { target: { value: OVERRIDE_REASON } });
+
+    // approve wins
+    fireEvent.click(await screen.findByTestId('approval-affordance-approve'));
+    fireEvent.click(await screen.findByTestId('approval-confirm-submit'));
+    await screen.findByTestId('approval-committed'); // ⚑ the barrier that makes the ordering deterministic
+
+    // override loses — and renders it through its OWN error state, with no special-casing in App
+    fireEvent.click(screen.getByTestId('override-affordance-button'));
+    fireEvent.click(await screen.findByTestId('override-confirm-submit'));
+    expect(await screen.findByTestId('override-state-error')).toBeInTheDocument();
+    expect(screen.getByTestId('override-error-code')).toHaveTextContent('commit_conflict');
+    expect(commits).toBe(2);
   });
 
   it('a pending R4 renders the not-yet-drafted state, not an error', async () => {

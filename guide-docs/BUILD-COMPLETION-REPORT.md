@@ -1280,3 +1280,78 @@ distinct matter, and none was ever part of the bar:
 
 **HOLDS**: **no code touched** · no test edited or run · no migration touched · no commit · the login/signup
 implementation and the `__main__.py` fix remain **uncommitted** in the working tree, exactly as left.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-07-26T14:02:44Z · **NO ITEM CHANGES STATUS** · #19's evidence tier upgraded
+
+**This section adds evidence; it supersedes nothing.** It is recorded because the override wiring pass produced the
+first live-database exercise of a path #19 already claimed, and because *"no item changed"* is itself a finding that
+must be stated with reasons rather than left as silence.
+
+## The evidence — Step 12, user-run against a real local PostgreSQL
+
+Performed by the **user** via **browser, `curl`, and `psql`** at approximate times (~13:5X UTC, 2026-07-26).
+**Not observed by the agent**; recorded from the user's report with their identifiers. Three firsts:
+
+1. **`action=override` committed through the browser** (DEMO-0001) with reason *"Manual review required due to
+   income discrepancy"* typed in the UI. `AuditRecord` **`a7b67ca8-00a6-4d1d-8e88-a3254c25b0c6`** —
+   `underwriter_id=demo-underwriter` (**server-derived**), `action=override`, `reason` = the exact text, **non-null**.
+   ⚑ **The first override commit, and the first non-null `reason`, ever persisted in this project.**
+2. **Blank-reason rejection over live HTTP** — `curl` on `REC-DEMO-0002-25a195b9`, `reason="   "` → **409
+   `commit_conflict`**. ⚑ **The first live-database exercise of BR-COMMIT-GATE's blank-reason rejection.** The UI
+   cannot produce this request (the affordance is disabled by construction), so the bypass was deliberate.
+3. **Claim-release confirmed** — an immediate valid `approve` re-commit returned **200**, proving the rejected
+   override released its claim rather than stranding the case in `committing`.
+
+## Why NO item is discharged or narrowed — each candidate, explicitly
+
+### #19 `COMMITTED-TRANSITION-NEVER-PERFORMED` — **NARROWED, unchanged. Evidence tier upgraded.**
+
+⚑ The decisive detail is in **#19's own record above**, whose "what is now genuinely true" list already includes:
+
+> ✅ an ordinary rejection (**blank-reason override**, unauthorized caller) leaves the case **re-committable**.
+
+Findings **2 + 3** exercise **precisely that bullet, using precisely that blank-reason override** — for the first
+time **over live HTTP against a real database**, through the production route rather than a tier-I harness.
+
+**That is an evidence upgrade, not a status change.** #19's recorded non-discharge reason is **cross-store
+atomicity**, stated as something *"no wording will make it so"* — and nothing here touches it. **Evidence accrues;
+status moves only when the item's own recorded wording is satisfied.**
+
+### #21 `COMMITTING-CRASH-WINDOW` — **OPEN, untouched, and structurally unreachable by this evidence**
+
+#21's window sits **between the frozen service's audit write and U24's `finalize_commit`**. A blank-reason override
+is refused by the CON-BR4 gate at **step 1 of `commit()`** — **before** the audit write at step 5. The release path
+therefore **never enters #21's window**. This evidence **could not have tested #21 even in principle**, and no
+partial credit is claimed for it.
+
+### #13 `NOTWIRED-FILENAME-STALE` — **OPEN, unchanged**
+
+The override pass renamed a frontend test whose name had outlived what it described — the **same class** of defect,
+handled in **#13's shape** (superseded in place, old name preserved, reason recorded). But it is a **different
+artifact**: #13 is `backend/app/routes/not_wired.py`, a backend file the pass was forbidden to touch. **Citing #13
+as precedent is not progress against #13.**
+
+### #2 `R2–R5 unwired` — **PARTLY DISCHARGED, unchanged. The strongest remaining candidate.**
+
+R5's `override` action was **the last route-action never exercised end-to-end**, and it now has been, in a browser,
+against a real database, with the persisted row read back. But #2's residual is recorded as *"the end-to-end claim
+remains scoped per **Q11-A**"* — **a scoping qualifier this pass did not re-adjudicate.** Moving a register status on
+an unread qualifier is exactly what this project forbids. ⚑ **Flagged for a future deliberate pass**, not resolved
+by side effect.
+
+### #14 · #17 — unchanged
+
+**#14** `MEMOVIEW-FAILED-STATE-UNMODELLED`: the `COMMITTING → "pending"` wire projection is untouched.
+**#17**: outlier remains unregistered and unmounted — now the **only** case `seams.js`'s exclusion rationale still
+describes, the rest of that docstring having been corrected as false in this pass.
+
+## Count
+
+**Register remains 26 tracked items: 18 open · 4 discharged (#2 partly, #20, #24, #25) · 4 narrowed (#3, #8, #18,
+#19).** No change to any figure.
+
+⚑ **What DID change is outside the register**: the brief's **Component 5** requirement — *"override with mandatory
+reason field"* — and **§5.6 human-in-the-loop** are now **demonstrated end-to-end on a real database** rather than
+asserted from unit tests. Frontend suite **723 / 147 / 0 / 99.82%**. **No commit.**
