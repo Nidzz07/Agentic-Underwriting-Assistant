@@ -82,6 +82,24 @@ describe('createHttpTransport — the seam-facing contract', () => {
     }
   });
 
+  it('a 204 No Content resolves with an undefined body — it is NEVER parsed', async () => {
+    // ⚑ REGRESSION (2026-07-26). A 204 has no body BY DEFINITION, so calling .json() on it
+    // rejects with a SyntaxError. This transport parsed unconditionally, so R8 POST /login --
+    // which answers 204 -- came back to the seam as a THROW. The seam then synthesized a
+    // network_error envelope, the login view showed "Unable to reach the server.", and
+    // onAuthenticated was never reached: a login that SUCCEEDED on the server was discarded
+    // by the client. Found in manual browser verification, not by this suite.
+    const transport = createHttpTransport({
+      fetchImpl: async () => ({
+        ok: true,
+        status: 204,
+        json: async () => { throw new SyntaxError('Unexpected end of JSON input'); },
+      }),
+    });
+    await expect(transport({ method: 'POST', path: '/login', body: { user_id: 'u', password: 'p' } }))
+      .resolves.toEqual({ ok: true, body: undefined });
+  });
+
   it('THROWS on a non-JSON body so the seam can synthesize its network_error envelope', async () => {
     const transport = createHttpTransport({
       fetchImpl: async () => ({ ok: true, json: async () => { throw new SyntaxError('not json'); } }),

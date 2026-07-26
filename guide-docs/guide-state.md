@@ -6234,3 +6234,89 @@ client-side the user-enumeration oracle the backend deliberately closed**.
 **NO COMMIT**.
 
 **Register unchanged at 26 tracked** — 18 open / 4 discharged / 4 narrowed.
+
+---
+
+## 🔴→🟢 POST-BUILD — FRONTEND LOGIN: **204 REGRESSION FIXED** (`httpTransport.js`) · SUITE GREEN **719 / 147 / 0 / 99.82%** (2026-07-26)
+
+**Found by the user in a real browser during Step 10** — the manual confirmation of the finished login page, run
+after the 716-green pass was reported. **NOT found by the automated suite**, which was green at the time. One-line
+production fix, three new tests, no other source file touched. **NO COMMIT.**
+
+### Root cause — an unconditional parse of a body that does not exist
+
+`httpTransport.js` called `await response.json()` on **every** response. A **204 No Content has no body by
+definition**, so `.json()` rejects with `SyntaxError: Unexpected end of JSON input`. The transport rethrew it, and
+every seam's `normalizeError` — doing exactly its job — turned that throw into a synthesized
+`network_error` envelope. **A request that SUCCEEDED on the server was reported to the user as a failure.**
+
+⚑ **Both R8 `POST /login` and R9 `POST /logout` answer 204 by design**, so both were broken. The user saw
+*"Unable to reach the server."* on the login form while the backend log showed a clean `204`.
+
+### ⚑ Why LOGOUT appeared to work — the same defect, masked
+
+`LogoutControl.jsx` swallows the rejection in a `catch` and calls `onLoggedOut()` from `finally`, so logout still
+returned the user to the login view. **That is correct as documented** (a failed logout must never leave someone
+stranded in a session they cannot end) and was **deliberately LEFT UNCHANGED** — but it means logout carried the
+identical bug invisibly. Login has no such swallowing, so login is where the defect surfaced. **One root cause,
+two affected routes, one visible symptom.**
+
+### The fix — `frontend/src/app/httpTransport.js`
+
+```js
+if (response.status === 204) return { ok: response.ok, body: undefined };
+```
+
+Placed **before** the `.json()` call, with a comment recording the defect and how it was found. **Blast radius as
+predicted and verified**: the existing `THROWS on a non-JSON body` test sets **no** `status`, so the 204 branch
+never triggers and it **stayed green untouched**. R1–R7 all return bodies and are unaffected; only R8/R9 are 204.
+
+### ⛔ WHY THE 716-GREEN SUITE MISSED IT — the finding that matters most
+
+**Every fake response in the entire prior suite resolved `json()` successfully.** A real 204 never does. So the
+fakes were **uniformly more forgiving than a browser**, and no amount of passing tests could have caught this:
+`login.submit.test.jsx`'s pre-existing *'a 204 resolves with NO body'* test **fakes the seam itself**, never
+driving the real transport, and `app.test.jsx`'s *'a successful login re-checks the session and mounts the app'*
+used a `/login` fake whose `json()` **resolved**. Both were green throughout. ⚑ **The gap was not a missing
+assertion — it was a fake that could not fail.**
+
+### Three new tests, all RED first against the pre-fix code
+
+| Test | File | Failure observed before the fix |
+|---|---|---|
+| `a 204 No Content resolves with an undefined body — it is NEVER parsed` | `app/__tests__/httpTransport.test.js` | rejected `SyntaxError`, traced to `httpTransport.js:66` — the `.json()` line itself |
+| `a 204 on login AND on logout RESOLVES — neither is mistaken for a network failure` | `login/__tests__/loginFetchSeam.test.js` | rejected `{ error: { … } }` — the SyntaxError already normalized to `network_error` |
+| `login -> logout -> login AGAIN works, and the app actually mounts the second time` | `app/__tests__/app.test.jsx` | failed at **`:275` — the FIRST login**, not the second |
+
+All three drive the **REAL** `createHttpTransport` with a fake modelling a truthful 204: `ok: true`,
+`status: 204`, and **`json()` REJECTING**. The end-to-end test asserts the surfaces are actually **present** after
+the second login (`history-list` found, `login-view` null, `login-state-error` null) — asserting merely that no
+error was thrown would not have caught a login that silently failed to mount.
+
+### ⚑ A CORRECTION TO THE ORIGINAL DIAGNOSIS, recorded not absorbed
+
+The defect was hypothesised as *"the **second** login fails"*, because that is the sequence the user performed.
+**It was not.** With a truthful 204 fake the test fails at the **first** login — `app.test.jsx:275`. The bug was
+never sequence-dependent at all; **every** login was broken. It merely *presented* on the second attempt because
+the user's first login predated the client build under test. ⚑ **The reproduction was right, the causal story was
+wrong**, and the test as written pins the real property rather than the hypothesised one.
+
+### Verified green — and non-vacuously
+
+**719 passed / 147 files / 0 failed / coverage 99.82% · thresholds 90/90/90/90 UNCHANGED · EXIT 0.** Delta is
+**exactly +3 over the 716 baseline, with 716 still passing — zero regressions, zero state changes elsewhere**,
+confirmed by name in a verbose per-test run, not inferred from a total. `httpTransport.js` reports **100%
+branch coverage**, so the new 204 branch is exercised on **both** sides.
+
+⚑ *"The app actually mounts the second time"* rests on **evidence, not inference**: `App.jsx`'s gate uses
+**mutually exclusive early returns** (`:66` checking, `:73` unauthenticated, `:80` authenticated), so the
+intermediate `findByTestId('login-view')` after logout **proves** `history-list` was unmounted — the second
+`history-list` is therefore a genuinely fresh mount, not a stale node left over from the first.
+
+**HOLDS**: exactly **one** production line changed, in `httpTransport.js`. `LogoutControl.jsx` **UNCHANGED by
+deliberate decision** · `loginFetchSeam.js`, `LoginView.jsx`, `App.jsx`, `seams.js`, `main.jsx` **UNTOUCHED** ·
+**no frozen `ui-shell` component or view unit edited** · **no backend file · WIRE-1 untouched** · backend not
+re-run, carried at 1615/0/43/5/99.63% · **NO COMMIT**.
+
+**Step 10 to be re-run by the user in a real browser** — the full login → logout → login-again cycle — before any
+commit decision. **Register unchanged at 26 tracked** — 18 open / 4 discharged / 4 narrowed.

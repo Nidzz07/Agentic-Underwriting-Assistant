@@ -239,6 +239,52 @@ describe('App — the Scope-A composition root', () => {
     expect(screen.queryByTestId('login-view')).toBeNull();
   });
 
+  it('login -> logout -> login AGAIN works, and the app actually mounts the second time', async () => {
+    // ⚑ THE REGRESSION TEST for the defect manual verification found (2026-07-26). The suite had
+    // no logout-then-relogin sequence at all, and every /login fake resolved `json()` -- which a
+    // real 204 never does. So the second login reported "Unable to reach the server." while the
+    // backend had logged 204: a login that SUCCEEDED server-side, discarded by the client.
+    //
+    // ⚑ This fake models a REAL 204: ok, status 204, and json() REJECTING on the empty body.
+    // Asserting no-error-thrown would not be enough -- what broke was that the app never MOUNTED,
+    // so this asserts the surfaces are actually present after the second login.
+    let authenticated = false;
+    const noContent = { ok: true, status: 204, json: async () => { throw new SyntaxError('Unexpected end of JSON input'); } };
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (url === '/session') {
+        return authenticated
+          ? { ok: true, status: 200, json: async () => ({ user_id: 'UW-1', role: 'underwriter' }) }
+          : { ok: false, status: 401, json: async () => ({ error: { code: 'unauthenticated', message: 'x', detail: {} } }) };
+      }
+      if (url === '/login' && init.method === 'POST') { authenticated = true; return noContent; }
+      if (url === '/logout' && init.method === 'POST') { authenticated = false; return noContent; }
+      return { ok: true, status: 200, json: async () => LIST };
+    });
+    const transport = createHttpTransport({ fetchImpl });
+    render(<App seams={createSeams(transport)} transport={transport} />);
+
+    async function signIn() {
+      await screen.findByTestId('login-view');
+      fireEvent.change(screen.getByTestId('login-input-user-id'), { target: { value: 'UW-1' } });
+      fireEvent.change(screen.getByTestId('login-input-password'), { target: { value: 's3cret' } });
+      fireEvent.click(screen.getByTestId('login-action-submit'));
+    }
+
+    // 1st login -> the app mounts
+    await signIn();
+    expect(await screen.findByTestId('history-list')).toBeInTheDocument();
+
+    // logout -> back to the login view
+    fireEvent.click(screen.getByTestId('login-action-logout'));
+    await screen.findByTestId('login-view');
+
+    // 2nd login -> THE SEQUENCE THAT BROKE. The app must mount again, and no error may show.
+    await signIn();
+    expect(await screen.findByTestId('history-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-view')).toBeNull();
+    expect(screen.queryByTestId('login-state-error')).toBeNull();
+  });
+
   it('logout revokes and returns to the login view', async () => {
     let authenticated = true;
     const fetchImpl = vi.fn(async (url, init) => {

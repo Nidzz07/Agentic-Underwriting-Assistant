@@ -59,6 +59,14 @@ export function createHttpTransport({ baseUrl = DEFAULT_BASE_URL, userId, fetchI
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
 
+    // ⚑ A 204 has NO BODY BY DEFINITION, so `.json()` on it rejects with a SyntaxError. Parsing
+    // unconditionally turned R8 `POST /login` and R9 `POST /logout` — both 204 by design — into a
+    // THROW, which every seam's normalizeError then reported as `network_error`: a request that
+    // SUCCEEDED on the server, discarded by the client. Found in manual browser verification
+    // (2026-07-26), not by this suite. Returning early is not an optimization — it is the only
+    // correct reading of a bodiless response.
+    if (response.status === 204) return { ok: response.ok, body: undefined };
+
     // A non-JSON body is a transport failure, not a contract error: throwing lets the seam's
     // normalizeError synthesize the network_error envelope rather than inventing one here.
     let parsed;

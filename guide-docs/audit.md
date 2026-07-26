@@ -6383,3 +6383,49 @@ Update guide-docs/guide-state.md and append one audit.md entry once all 9 steps 
 **Context**: POST-BUILD → frontend login implementation, steps 1–9. Step 0's two cookie unknowns were confirmed by the user in a real browser before any code. Delivered the `frontend/src/login/` unit (seam, form, error state, logout control, copy, and the six convention tests) plus `App.jsx`'s three-state gate (`checking` first, per binding FE-Fold-4) and Q5(b)'s docstring supersessions. Final: **716 / 147 / 0 / 99.82%**. Three self-caught corrections reported rather than absorbed: the count prediction (712 → 716, corrected mid-pass with the RuleTester-per-fixture cause named), a **third unpredicted supersession** (`renders identically for every role`'s null case resting on the same premise as `:156`), and an unpredicted-but-necessary `vitest.config.js` fold-in (verified not U23-owned). Two convention corrections during execution (`user-event` → `fireEvent`; a self-contradicting assertion about the submit button). Step 4 disclosed as green-on-arrival rather than RED. All holds verified; no commit; step 10 left to the user.
 
 ---
+
+## 🔴→🟢 FRONTEND LOGIN — 204 REGRESSION FIXED (`httpTransport.js`) · RED-FIRST CONFIRMED · SUITE GREEN **719 / 147 / 0 / 99.82%**
+**Timestamp**: 2026-07-26T18:21:04Z
+
+**User Input** (verbatim, complete): "Confirmed. Apply the fix at httpTransport.js:64 exactly as diagnosed — the 204 early-return before response.json() is called.
+
+Re-run the full suite and confirm all three previously-RED tests now pass, with a final count of 719/719/0. Confirm no other test changes state — particularly httpTransport.test.js's existing "THROWS on a non-JSON body" test, which should stay green untouched.
+
+Report the exact before/after for app.test.jsx's failure — you noted it was failing at the first login, not the second as originally hypothesized. After the fix, confirm explicitly that the full login → logout → login-again sequence in that test now passes end-to-end, including the second login actually mounting the app.
+
+On LogoutControl.jsx's swallowed rejection: leave it as-is, per your own reasoning — it's correct as documented (a failed logout should still return to the login view). Don't change it as part of this fix.
+
+Update guide-docs/guide-state.md and append one audit.md entry documenting this fix: root cause (unconditional response.json() parsing a nonexistent body on 204 responses), how it was found (manual browser verification during Step 10, not caught by the automated suite), why the existing tests missed it (every fake response in the prior suite resolved json() successfully, which a real 204 never does), and the three new tests that close the gap.
+
+Do not touch the backend. Do not touch WIRE-1. Do not touch any frozen ui-shell component or view unit. Do not commit.
+
+Once confirmed green at 719/719/0, stop and report back so I can re-run Step 10 in a real browser — the full login → logout → login-again cycle — before we decide on committing."
+
+**AI Response**: "**Fix applied. Frontend suite: 719 passed / 147 files / 0 failed / coverage 99.82%, thresholds 90/90/90/90 unchanged, EXIT 0.** Exactly **one production line** changed. Backend untouched and not re-run. **NO COMMIT.**
+
+**THE FIX** — `frontend/src/app/httpTransport.js`, immediately before the `.json()` call: `if (response.status === 204) return { ok: response.ok, body: undefined };` with a comment recording the defect, its blast radius, and that it was found in manual browser verification.
+
+**ROOT CAUSE.** The transport parsed **every** response with `await response.json()`. A **204 has no body by definition**, so `.json()` rejects with `SyntaxError: Unexpected end of JSON input`; the transport rethrew, and each seam's `normalizeError` — doing exactly its job — synthesized a `network_error` envelope. **A request that SUCCEEDED server-side was reported to the user as a failure.** Both R8 `POST /login` and R9 `POST /logout` answer 204, so **both were broken**; login is merely where it was visible, because `LogoutControl` swallows the rejection and still calls `onLoggedOut()` from `finally`. **That swallowing is LEFT UNCHANGED** per your instruction and my own reasoning — it is correct as documented.
+
+**BEFORE → AFTER, all three tests, verified BY NAME in a verbose per-test run rather than inferred from a total:**
+* `a 204 No Content resolves with an undefined body — it is NEVER parsed` (`httpTransport.test.js`): **BEFORE** rejected `SyntaxError: Unexpected end of JSON input`, stack traced to `httpTransport.js:66:31` — the `.json()` line itself. **AFTER ✓.**
+* `a 204 on login AND on logout RESOLVES — neither is mistaken for a network failure` (`loginFetchSeam.test.js`): **BEFORE** rejected `{ error: { …(3) } }` — the SyntaxError **already normalized** into the `network_error` envelope, i.e. the masking path itself. **AFTER ✓.**
+* `login -> logout -> login AGAIN works, and the app actually mounts the second time` (`app.test.jsx`): **BEFORE** failed at **`:275` — the FIRST login**. **AFTER ✓, all 19 tests in the file green.**
+
+**⚑ A CORRECTION TO THE ORIGINAL DIAGNOSIS, reported not absorbed.** The defect was hypothesised as *'the **second** login fails'* — that is the sequence you performed. **It was not sequence-dependent at all.** Against a truthful 204 fake the test fails at the **first** login (`:275`), because **every** login was broken; it only *presented* on the second attempt because the first predated the client build under test. **The reproduction was right; the causal story was wrong.** The test pins the real property rather than the hypothesised one.
+
+**THE SEQUENCE NOW PASSES END-TO-END, on evidence rather than inference.** The test drives 1st login → app mounts (`history-list`) → logout → back to `login-view` → **2nd login → `history-list` present, `login-view` null, `login-state-error` null**. ⚑ And the second mount is provably **fresh, not a stale node**: `App.jsx`'s gate uses **mutually exclusive early returns** (`:66` checking / `:73` unauthenticated / `:80` authenticated), so finding `login-view` after logout **proves** `history-list` had unmounted. I checked the gate's structure rather than assuming exclusivity.
+
+**NO OTHER TEST CHANGED STATE.** `THROWS on a non-JSON body` **stayed green untouched** — as predicted, it sets **no** `status`, so the 204 branch never triggers; confirmed present-and-passing by name in the verbose run. Delta is **exactly +3 over the 716 baseline with all 716 still passing** — zero regressions. `httpTransport.js` reports **100% branch coverage**, so the new branch is exercised on **both** sides and the fix is not dead code.
+
+**⛔ WHY THE 716-GREEN SUITE MISSED THIS — the finding worth more than the fix.** **Every fake response in the prior suite resolved `json()` successfully, which a real 204 never does** — the fakes were uniformly **more forgiving than a browser**. `login.submit.test.jsx`'s pre-existing *'a 204 resolves with NO body'* test **fakes the seam itself** and never drives the real transport; `app.test.jsx`'s *'a successful login re-checks the session and mounts the app'* used a `/login` fake whose `json()` **resolved**. Both were green throughout and neither could ever have failed. **The gap was not a missing assertion — it was a fake that could not fail.** All three new tests therefore drive the **REAL** `createHttpTransport` with `ok: true, status: 204, json()` **REJECTING**.
+
+**RED-FIRST, GENUINELY OBSERVED.** The three tests were confirmed failing against the pre-fix code, for the exact diagnosed cause, in this session before the fix was applied — 716 passed / 3 failed / 147 files, i.e. the baseline intact plus precisely the three new failures.
+
+**HOLDS.** One production line, in `httpTransport.js`. `LogoutControl.jsx` **UNCHANGED by deliberate decision** · `loginFetchSeam.js`, `LoginView.jsx`, `App.jsx`, `vitest.config.js`, `seams.js`, `main.jsx` **UNTOUCHED** · **no frozen `ui-shell` component or view unit edited** · **no backend file · WIRE-1 untouched** · backend carried at 1615/0/43/5/99.63% · **NO COMMIT**.
+
+**Stopping here for you to re-run Step 10 in a real browser** — the full login → logout → login-again cycle — before any commit decision."
+
+**Context**: POST-BUILD → frontend login, 204 regression fix. Prior session was interrupted by a 529 mid-pass; this session verified state from scratch before acting and found it **exactly at the RED/GREEN boundary** — all three tests written and failing, `httpTransport.js` carrying a **comment-only** diff with no code change, and no audit/guide-state entry for the 204 work. Applied the approved one-line 204 early-return, re-ran to **719/147/0/99.82%**, and confirmed each of the three formerly-RED tests green **by name** plus `THROWS on a non-JSON body` still green. Two things reported rather than absorbed: the original *'second login'* diagnosis was **wrong** (the failure is at the **first** login — never sequence-dependent), and the reason the suite missed the defect is **fakes that resolved `json()`**, a class of blind spot rather than a single missing test. `LogoutControl.jsx`'s swallowing left intentionally unchanged. Step 10 browser re-verification left to the user; no commit.
+
+---
