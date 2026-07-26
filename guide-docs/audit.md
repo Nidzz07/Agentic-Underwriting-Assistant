@@ -6011,3 +6011,283 @@ Then stop. No further work. Report the final register count after this item is a
 **Context**: POST-BUILD → register maintenance. **#26 `CRLF-CHECKSUM-MANIFEST-FRAGILE` opened and logged, not fixed.** Surfaced by verifying each of the login/signup pass's commits at its own SHA in isolated worktrees rather than trusting a working-tree run — every fresh checkout showed two checksum failures the working tree does not. Root cause proven by byte comparison (`core.autocrlf=true`, no `.gitattributes`; 0 vs 57 CRLF pairs, two different sha256 digests for the same file at the same commit). Confirmed pre-existing at `ceb32f6` and affecting U24's own manifest, which this pass never touched; `0003_auth.sql`'s entry inherits the same property identically. CI misses it because Linux defaults to `autocrlf=false`. The `.gitattributes` remedy is named and **explicitly withheld** as a repo-wide change needing its own authorization (the #24 precedent), with the re-compute-vs-normalise choice flagged as part of that decision. Structural kinship to the SDK-absence test defect fixed earlier this session recorded so the pattern is recognised next time. Commit `d6a6876`'s "verified programmatically" claim corrected by appended note rather than history rewrite. Register 25 → 26 tracked (18 open / 3 discharged / 5 narrowed). No further work started.
 
 ---
+
+## ⛔ DEFECT FOUND IN MANUAL VERIFICATION — `backend/authn/__main__.py` WAS NEVER CREATED · FIXED · 1615 / 0 / 43 / 5
+**Timestamp**: 2026-07-25T10:42:13Z
+
+**User Input** (verbatim, complete): "A gap was found during manual login verification (Step 5 of the walkthrough): backend/authn/admin.py is a pure library module with no CLI entrypoint. Its own docstring states \"__main__.py composes it,\" but backend/authn/__main__.py does not exist. Running `python -m backend.authn.admin <anything>` silently imports nothing runnable and exits 0 with no output, no matter what arguments are passed — confirmed by the user: `set-password demo-underwriter TestPassword123` produced no output, exit code 0, and zero rows in user_credential.
+
+Confirm this on disk: check whether backend/authn/__main__.py exists, and if not, confirm the code-gen plan (login-signup-code-gen-plan.md) actually specified creating it — was this a real omission from execution, or did the plan itself never include it?
+
+If it's a real omission: write __main__.py, following the same injection-pure composition pattern as admin_cli's own __main__.py (construct the real engine from get_settings(), read the password via getpass (not sys.argv, per admin.py's own docstring), call set_password() with the real CredentialStore and a UserDirectory reading from app_user, print a clear success or failure message, and handle CredentialAdminError with a readable error rather than a stack trace). Add or update any test needed to cover this entrypoint at the tier-U level (mirroring how admin_cli's __main__.py is tested, if it is).
+
+This is a bugfix to something the approved plan called for but execution missed — not a new design decision. Do not reopen any of the Q1–Q5 design questions from login-signup-code-gen-plan.md. Do not touch A-4, app.test.jsx:261, WIRE-1, U15's migrations, U16's Settings, auth_rbac, or admin_cli.
+
+Run the full suite after the fix and confirm the count only grows by whatever new test(s) you add, with no regression. Log this fix to audit.md as its own entry (a defect found during manual verification, not caught by the automated suite because no test exercised the actual CLI invocation — only the underlying function). Do not commit.
+
+Report back the exact correct command the user should now run."
+
+**AI Response**: "**CONFIRMED ON DISK, AND IT WAS A REAL EXECUTION OMISSION — the plan specified the file in FOUR places.**
+
+`backend/authn/__main__.py` **did not exist**. `admin.py` had no `__main__` guard, no argparse, no getpass — a pure library. Reproduced the report exactly: `python -m backend.authn.admin set-password demo-underwriter TestPassword123` → **no output, exit 0, nothing written**.
+
+**THE PLAN DID SPECIFY IT** (`login-signup-code-gen-plan.md`): **:437-438** AUTHN-Fold-1 — *'a thin `__main__.py` doing the composition — exactly the `admin_cli/cli.py` + `admin_cli/__main__.py` split'* · **:495** AUTHN-Fold-4 — the omit entry · **:525 step 7** — *'`authn/repository.py` + `__main__.py`'* · **:542** the coverage prediction. ⚑ **And I wrote `\"*/authn/__main__.py\"` into `pyproject.toml:133` — a coverage-omit rule for a file I never created.** That entry is the smoking gun: it proves the intent existed and the execution did not follow.
+
+**⚑ WHY THE SUITE MISSED IT — the part worth recording.** `test_admin.py` exercised `set_password()` — the **function** — thoroughly (3 tests, all passing). **Nothing exercised the INVOCATION.** And because `__main__.py` was coverage-omitted (correctly, as a composition root), **its absence produced no signal at all**: a file that does not exist *and* is excluded from coverage is invisible twice over. The omit list, which exists to stop composition roots dragging down the gate, also silenced the only mechanism that would have noticed the file was missing.
+
+**THE FIX — mirroring `admin_cli`'s split exactly, as the plan required.** `admin.py` gains `build_parser()` + `run(argv, *, store, users, prompt, now, out)` — **injection-pure, counted, fully unit-testable with no database and no terminal**. `__main__.py` composes only: builds the engine from `get_settings().DATABASE_URL`, injects `PostgresCredentialStore` + the new `PostgresUserDirectory`, passes `getpass` as the prompt, and `dispose()`s in a `finally`. It is the **only** `authn` file importing `secrets_config` or building an engine — the same allowlist shape `admin_cli/__main__.py` holds.
+
+`PostgresUserDirectory` was added to `repository.py` with **its own parameterized query** rather than importing `auth_rbac` — following the pattern that unit itself set for the same table (*'consumes database's app_user via auth-rbac's own parameterized query… imports no database/audit_store module'*). `authn` shares a TABLE with other units, never a module.
+
+**Two safety properties beyond the brief, both tested**: the password is prompted **twice and must match** (an admin cannot see what they typed; an unconfirmed password would silently lock a user out of an account that looks correctly provisioned), and an **empty password is refused**. `CredentialAdminError` becomes a one-line `error: …` with a **non-zero exit**, never a traceback — and no output path ever echoes the password.
+
+**FIVE TESTS ADDED** (`backend/authn/tests/test_entrypoint.py`): writes a verifiable credential and exits 0 · mismatched confirmation changes nothing and exits 2 · unknown user is a readable error not a traceback · **the password is never accepted as a command-line argument** (argv-supplied passwords land in shell history, `ps`, and audit logs — `set-password` takes only a user_id and rejects a stray third argument) · and **the test that would have caught the defect**: `__main__.py` exists, defines `main()`, carries the `if __name__ == '__main__'` guard, delegates to `admin.run`, builds the engine, uses `getpass`, and disposes. ⚑ **Proven to catch it**: with `__main__.py` temporarily moved aside, that test **FAILS**; restored, it passes.
+
+**VERIFICATION.** Full suite **1615 passed / 0 failed / 43 skipped / 5 errors (same `audit_store` Docker-absence names) / 99.63%** — exactly **1610 + 5**, no regression, no other test changed state. Coverage moved 99.70% → 99.63% because `admin.py` gained counted CLI-dispatch lines; still far above the 90% gate. Behaviourally confirmed: the old invocation still exits 0 silently (correct — `admin.py` IS a library), while `python -m backend.authn set-password demo-underwriter` now **blocks at the password prompt**, which is the proof it is runnable.
+
+**HOLDS.** Only `backend/authn/` (`admin.py`, `repository.py`, new `__main__.py`, new `tests/test_entrypoint.py`) touched. **No Q1–Q5 design question reopened.** A-4, `app.test.jsx:261`, WIRE-1, U15's migrations, U16's `Settings`, `auth_rbac`, `admin_cli` **all untouched**. `pyproject.toml` **not** modified — the omit entry for `__main__.py` was already there, and now names a file that exists. **NOT COMMITTED.**"
+
+**Context**: POST-BUILD → defect found by the user during **manual login verification**, not by the automated suite. Confirmed on disk: `backend/authn/__main__.py` was missing and `admin.py` had no runnable entry, so `python -m backend.authn.admin …` exited 0 silently with nothing written. Confirmed the approved code-gen plan **did** specify the file (four references, incl. step 7), and that `pyproject.toml:133` already carried its coverage-omit rule — proving a real execution omission rather than a plan gap. Root cause of the miss recorded: tests covered the `set_password` **function** but never the **invocation**, and the file's coverage-omission meant its absence produced no signal at all. Fixed by mirroring `admin_cli`'s split — injection-pure `run()` in the counted `admin.py`, composition-only `__main__.py` with `getpass` and engine disposal, plus `PostgresUserDirectory` writing its own parameterized query rather than importing `auth_rbac`. Five tier-U tests added, including a structural presence/shape guard proven to fail when `__main__.py` is absent. Suite 1610 → **1615**, no regression. No design question reopened; no commit.
+
+---
+
+## ⚑ MANUAL END-TO-END LOGIN/SIGNUP VERIFICATION AGAINST A REAL LOCAL POSTGRES — performed by the USER via curl · RECONSTRUCTION, NOT BACKDATING
+**Timestamp**: 2026-07-26T07:12:33Z (entry written now; the events it records occurred earlier — see epistemic status)
+
+**User Input** (verbatim, complete): "Manual end-to-end login/signup verification is complete, against a real local Postgres. Every designed property was confirmed working via curl: login issues a cookie · the cookie authenticates subsequent requests · no cookie is rejected · 5 consecutive wrong passwords trigger lockout · a locked account rejects even the correct password with the same uniform message (no oracle) · the 8-hour absolute session TTL was confirmed via natural expiry overnight · logout revokes the session server-side (not just client-side) · the fixed backend/authn/__main__.py entrypoint successfully provisioned a real credential.
+
+This includes discovering and fixing the __main__.py omission in a prior turn — that fix is already applied and verified working as part of this walkthrough.
+
+Log this manual verification to audit.md as its own entry, following the same \"reconstruction, not backdating\" honesty discipline used for the earlier manual R1–R7 verification — state plainly this was performed by the user via curl against a real local Postgres, not generated or simulated by any Claude Code session, with approximate timestamps.
+
+Given this evidence, reassess register #25's status. State explicitly whether this now warrants moving #25 from NARROWED to DISCHARGED, or whether something specific still prevents that (e.g. CI-only assertions never run, or some designed property not covered by this manual pass — like whether the SESSION_COOKIE_SECURE=false local-dev opt-out was ever actually exercised, since this verification ran with Secure cookies over plain HTTP successfully, which is itself worth noting as either surprising or expected). Do not upgrade the status yourself without stating your reasoning plainly — same discipline as every other register decision in this project.
+
+Do not touch any code. This is a logging-only pass. Do not commit. Report the register's final state and stop."
+
+### ⚑ EPISTEMIC STATUS — stated first, as the earlier manual-verification entry did
+
+**This work was performed BY THE USER, manually, via `curl`, against a real local PostgreSQL instance. It was
+NOT performed, generated, simulated or observed by any Claude Code session.** No transcript, log or command
+output from it exists in this repository. It is recorded here as **the user's attestation**, on their report,
+and is **not independently verified by me**.
+
+**Written now, timestamped now, appended in position — a RECONSTRUCTION, not a backdating.** The events occurred
+earlier: the walkthrough necessarily spans **at least two calendar days**, because the 8-hour absolute session
+TTL was confirmed by **natural overnight expiry**. The lower bound is inferable — the `__main__.py` fix it
+exercises was written on **2026-07-25**, after `f0eb5f8` — and that inference is **disclosed as an inference,
+not asserted as a recorded fact**. No attempt is made to state a precise event time, because none is known.
+
+**It is not re-creatable from this repository**: there is no live Postgres and no Docker in this environment, and
+nothing here can reproduce it.
+
+### What the user reports as CONFIRMED WORKING
+
+| # | Property | Design source |
+|--:|---|---|
+| 1 | **Login issues a cookie** | R8, WIRE-1 §3 (WIRE1-Fold-5) |
+| 2 | **The cookie authenticates subsequent requests** | `current_identity` resolving from the session (Q6a) |
+| 3 | **No cookie is rejected** | fail-closed 401 |
+| 4 | **5 consecutive wrong passwords trigger lockout** | `MAX_FAILED_ATTEMPTS = 5` (Q5a) |
+| 5 | **A locked account rejects even the CORRECT password, with the SAME uniform message** | Q4's uniform-failure rule — *no enumeration oracle* |
+| 6 | **The 8-hour absolute TTL expires naturally** — confirmed overnight | `SESSION_TTL = 8h` (Q5a) |
+| 7 | **Logout revokes SERVER-SIDE**, not merely client-side | R9; the property that justifies an 8h TTL |
+| 8 | **`python -m backend.authn set-password` provisioned a real credential** | the `__main__.py` fix (Q3a / AUTHN-Fold-1) |
+
+⚑ **Item 5 is the most valuable single line here.** Uniform failure is the property a test suite is *worst* at
+proving — an offline suite can assert two responses are equal, but only a real run against a real store shows the
+locked path genuinely returns the same thing under real timing and real data. **Item 6 likewise**: an 8-hour
+natural expiry is not something any test tier could have demonstrated; it required waiting.
+
+⚑ **Item 8 closes the loop on the defect found one turn earlier.** `backend/authn/__main__.py` was specified by
+the approved plan in four places and **missed in execution**; the suite could not catch it because the tests
+exercised the `set_password` **function** while nothing exercised the **invocation**, and the file's
+coverage-omission meant its absence produced no signal. It was found **by this manual walkthrough** — which is
+precisely the class of defect manual verification exists to catch.
+
+### ⚑ The Secure-cookie-over-plain-HTTP observation — EXPECTED, and it carries a real implication
+
+The user flags that the walkthrough succeeded **with `Secure` cookies over plain HTTP**, and asks whether that is
+surprising. **It is expected — but only under one of two possible `curl` usages, and the distinction matters:**
+
+* If the cookie was passed **explicitly** (`-b "session=…"` or `-H "Cookie: session=…"`), `curl` sends the header
+  **verbatim**, bypassing its cookie engine entirely. The `Secure` attribute is never consulted. **Expected.**
+* If a **cookie jar** was used (`-c` / `-b jarfile`), `curl`'s engine **does** honour `Secure` and would decline
+  to send it over `http://` — in which case authentication would have failed. **That it succeeded therefore
+  implies the explicit form was used.**
+
+⚑ **The implication, which is the part worth recording**: a **browser would NOT have behaved this way.** Browsers
+refuse to store or send a `Secure` cookie from an `http://` origin. So this walkthrough proves the **backend
+mechanism**, and does **not** prove the **browser path**.
+
+Two specific consequences, neither of which any test currently covers:
+1. **The `SESSION_COOKIE_SECURE=false` opt-out branch was never exercised in a real run.** The fail-safe default
+   (`Secure`) was; its opt-out was not. That branch is exactly what the **local dev loop** needs — the Vite proxy
+   serves `http://127.0.0.1`, where a browser will drop a `Secure` cookie.
+2. **`httpTransport.js` is still unproven against a real browser.** Fold-3 predicted *"no change needed"* because
+   `fetch` defaults to `credentials: 'same-origin'`. That prediction remains **unverified by any run**.
+
+Neither bears on #25's recorded subject (the backend mechanism), but both are real and are recorded rather than
+left implicit. **No register item is opened for them in this logging-only pass** — that is the user's call.
+
+---
+
+## REGISTER #25 REASSESSMENT — my recommendation: **REMAIN NARROWED**, pending one specific step
+
+**I am not upgrading the status.** Reasoning, plainly, measured against the bar this project itself set:
+
+### What the evidence DOES settle
+
+#25's recorded subject is *"PER-4 — an in-scope Phase-1 requirement — was never built."* **It is now built, and
+verified working against a real database.** Its recorded blocking claim — *"⛔ BLOCKING for any exposed or
+multi-user deployment"* — is **substantially discharged**: authentication genuinely works, lockout works, uniform
+failure works, revocation works, expiry works. That is a real and substantial result, and eight of eight designed
+behaviours were confirmed.
+
+### ⛔ What specifically prevents DISCHARGED
+
+**One item, and it is the one #25's own severity rationale rests on.**
+
+#25's severity was argued on this, verbatim from the register:
+
+> *"`AuditRecord.underwriter_id` — the CON-BR4 'WHO' in every committed decision — is an unauthenticated,
+> self-asserted string … For a build whose stated invariant is full auditability, the audit trail's actor field
+> currently has no authentication behind it."*
+
+And the discharge bar I stated publicly — in `login-signup-code-gen-plan.md` §9 **and** in commit `5e454f2`'s
+message — was:
+
+> *"a real login against a real Postgres, **driving R2–R7 with that session**, and **a commit whose
+> `AuditRecord.underwriter_id` is the authenticated user**."*
+
+**The reported walkthrough does not include that step.** *"The cookie authenticates subsequent requests"* is
+reported generically; **no committed decision, and no inspection of the resulting `AuditRecord`'s
+`underwriter_id`, is reported.** Until a decision is committed under an authenticated session and that record is
+shown to carry the authenticated subject, the specific claim #25 was opened about — *the audit trail's actor
+field now has authentication behind it* — is **inferred, not observed**.
+
+⚑ **I am holding to the bar I set rather than quietly relaxing it now that it is inconvenient.** That is the #3
+precedent exactly: measured against *the register's actual wording*, a residual survives, so NARROWED is the
+honest outcome. The step is small — one `POST /recommendations/{id}/commit` with the session cookie, then read
+back the `AuditRecord` — and it is the one that closes the loop.
+
+### Secondary residuals — noted, but NOT what blocks the discharge
+
+* **`test_migration_apply.py:56` has still never executed anywhere observable** (Docker-gated; skips here). Its
+  `0003_auth.sql` expectation is unproven against a real database by any *automated* run — though the manual
+  walkthrough necessarily applied the migration for login to work at all, which is stronger evidence than the
+  test would have given.
+* **#26** means the checksum guards fail on any fresh CRLF checkout — unrelated to #25's subject, already tracked.
+* **The browser path and the `SESSION_COOKIE_SECURE=false` branch**, per the section above.
+
+### The recommendation, stated as a decision the user makes
+
+**Keep #25 NARROWED.** It moves to **DISCHARGED** the moment a commit is performed under an authenticated session
+and the resulting `AuditRecord.underwriter_id` is confirmed to be that authenticated user — **no code change
+required, only that one confirmation**. This is the **#8 precedent** exactly: *built, tier-U-proven, and now
+substantially field-proven, with a single named confirmation outstanding.*
+
+⚑ If the user judges that #25's subject (*PER-4 was never built*) is satisfied by the eight confirmed behaviours
+and that the `AuditRecord` check belongs to a different concern, **DISCHARGED is a defensible call** — but it is
+theirs to make, and the reasoning above is what it would be made against.
+
+**Register unchanged by this entry: 26 tracked — 18 open · 3 discharged (#2 partly, #20, #24) · 5 narrowed
+(#3, #8, #18, #19, #25).**
+
+**HOLDS**: **no code touched** · no test edited or run · no status changed · no register item opened or closed ·
+no commit. Logging only.
+
+---
+
+## ⚑ MANUAL VERIFICATION OF #25's REMAINING BAR — commit under an authenticated session, confirmed in `audit_record` · **#25 DISCHARGED**
+**Timestamp**: 2026-07-26T07:37:32Z (entry written now; events ~07:29–07:35 today, per the user's terminal timestamps)
+
+**User Input** (verbatim, complete): "Manual end-to-end verification of register #25's remaining bar is complete, against a real local Postgres. Full results:
+
+- Login (demo-underwriter) → 204 + Set-Cookie, session resolves correctly with role=underwriter.
+- Committed REC-DEMO-0002-25a195b9 via the session cookie: response body showed {\"recommendation_id\":\"REC-DEMO-0002-25a195b9\",\"underwriter_id\":\"demo-underwriter\",\"action\":\"approve\",\"reason\":null} — underwriter_id was never sent by the client, derived server-side from the session.
+- Confirmed via direct psql query against audit_record: the new row (decision_id 7d29fa12-eecf-4abc-9b1f-0ce59679eb1f) shows underwriter_id=demo-underwriter, action=approve.
+- Bonus evidentiary value: the same query surfaced an older row (decision_id f67dc658-6e7e-438a-80cf-96315d2cad76, DEMO-0001, timestamped 2026-07-23, predating this pass) with underwriter_id=demo-user-1 — from the original X-User-Id-header-based verification, before the cookie migration existed. This gives a clean before/after comparison in one query: the old forgeable-header mechanism vs. the new session-derived mechanism, on the same table.
+- Negative control (a): re-committing the same recommendation → 409 commit_conflict (register #19's guard).
+- Negative control (b): committing with no session cookie at all → 401 Unauthorized, not 403 — confirming the commit path is genuinely gated by authentication, not merely by authorization.
+
+Log this to audit.md as its own entry, same \"reconstruction, not backdating\" honesty discipline as the prior manual verifications — performed by the user via curl and psql against a real local Postgres, not generated or simulated by any Claude Code session, with approximate timestamps (today's session, ~07:29-07:35 per the pasted terminal timestamps).
+
+Make the explicit call on register #25's status now. Per the bar Claude Code itself set in commit 5e454f2 and plan §9 — \"a real login against a real Postgres, driving R2–R7 with that session, and a commit whose AuditRecord.underwriter_id is the authenticated user\" — that bar has now been met in full. State plainly whether this discharges #25, and if so, update the register (BUILD-COMPLETION-REPORT.md, guide-state.md) accordingly with the full evidentiary basis cited. If any residual still prevents full discharge, state exactly what it is — don't discharge on inertia, but don't withhold discharge past the point the evidence actually supports either.
+
+Do not touch any code. Do not commit. Report the register's final state and stop."
+
+### ⚑ EPISTEMIC STATUS — stated first, as both prior manual-verification entries did
+
+**Performed BY THE USER, manually, via `curl` and `psql`, against a real local PostgreSQL. NOT performed,
+generated, simulated or observed by any Claude Code session.** No transcript or command output from it exists in
+this repository. Recorded as **the user's attestation**, on their report, **not independently verified by me**.
+
+**Written now, timestamped now, appended in position — a RECONSTRUCTION, not a backdating.** Event time is given
+as the **approximate range ~07:29–07:35 on 2026-07-26**, taken from the user's own pasted terminal timestamps and
+**disclosed as their report rather than as an independently recorded fact**. Not re-creatable here: this
+environment has no Docker and no live database.
+
+### What was confirmed
+
+| # | Result |
+|--:|---|
+| 1 | Login as `demo-underwriter` → **204 + `Set-Cookie`**; `/session` resolves with **`role=underwriter`** |
+| 2 | Commit of **`REC-DEMO-0002-25a195b9`** via the session cookie → `{"recommendation_id":"REC-DEMO-0002-25a195b9","underwriter_id":"demo-underwriter","action":"approve","reason":null}`. ⚑ **`underwriter_id` was never sent by the client** — WIRE-1 §5 forbids it in the body — so it was **derived server-side from the session** |
+| 3 | **Direct `psql` on `audit_record`**: `decision_id 7d29fa12-eecf-4abc-9b1f-0ce59679eb1f`, `underwriter_id=demo-underwriter`, `action=approve` — **the persisted row**, not a projection |
+| 4 | Negative control (a): re-commit → **409 `commit_conflict`** (register **#19**'s claim guard, live against a real database) |
+| 5 | Negative control (b): commit with **no cookie** → **401**, not 403 — the path is gated by **authentication**, not merely authorization |
+
+### ⚑ The strongest artifact — the defect and its remedy in one query
+
+The same `psql` query surfaced a row from **before this pass existed**:
+
+* `f67dc658-…` · DEMO-0001 · **`underwriter_id=demo-user-1`** · **2026-07-23** — written under the **`X-User-Id`
+  header** stub, the forgeable mechanism #25 was opened about.
+* `7d29fa12-…` · DEMO-0002 · **`underwriter_id=demo-underwriter`** · **2026-07-26** — written under the
+  **session-derived** mechanism.
+
+**Both rows sit in the same table.** The pre-fix and post-fix actor mechanisms are visible **side by side in a
+single query**. No test tier could have produced that; it required a real database carrying real history. ⚑ It
+also means the audit trail **itself** now records the transition — which is a fitting outcome for an item whose
+entire subject was the trustworthiness of that trail's actor field.
+
+---
+
+## ⚑ THE CALL: **#25 IS DISCHARGED**
+
+**The bar was set publicly, in advance, in `login-signup-code-gen-plan.md` §9 and commit `5e454f2`:** *"a real
+login against a real Postgres, driving R2–R7 with that session, and a commit whose `AuditRecord.underwriter_id`
+is the authenticated user."* **Every clause is now satisfied by the evidence above.**
+
+⚑ **Discharged on the evidence, not on inertia.** One turn earlier I declined to discharge #25 on a walkthrough
+that omitted exactly this step, and held to the bar rather than relaxing it when it was inconvenient. **The same
+discipline requires discharging it now that the step has been performed.** A bar that only ratchets one way is
+not a bar — it is a preference dressed as rigour.
+
+Measured against **#25's own recorded wording**: its subject (*"PER-4 … was never built"*) is satisfied; its
+severity rationale (*"the audit trail's actor field currently has no authentication behind it"*) is **refuted on
+the persisted row**; its blocking claim is discharged; and **US-PLAT-1's Gherkin `Given`** — the clause #25
+recorded as unsatisfied — now holds.
+
+⚑ **A new outcome shape**: #25 is the register's **first NARROWED → fully DISCHARGED** item. #20 and #24 were
+discharged without ever being narrowed, #2 is only partly discharged, and #3/#8/#18/#19 remain narrowed. **A
+narrowing is therefore not terminal** — it is an honest interim label that sufficient later evidence can retire.
+
+### ⛔ What the discharge explicitly does NOT claim
+
+Named so it is precise rather than expansive. **None is a residual of #25**; none was ever part of the bar:
+**(1) there is no login UI** — a browser login journey does not exist (this pass delivered routes, not a form;
+Q13(a) kept the login client out of `seams.js`) — whether that warrants its own item is the **user's call, and no
+item is opened here**; **(2)** the **`SESSION_COOKIE_SECURE=false` opt-out** has never been exercised in a real
+run; **(3) `httpTransport.js`** remains unproven against a real browser; **(4) `test_migration_apply.py:56`**
+remains Docker-gated and unrun, though the walkthrough necessarily applied `0003_auth.sql` for login to work at
+all; **(5) #26** is untouched and open.
+
+**Register now 26 tracked — 18 open · 4 discharged (#2 partly, #20, #24, #25) · 4 narrowed (#3, #8, #18, #19).**
+Count: #25 moves narrowed → discharged (narrowed 5 → 4, discharged 3 → 4); open unchanged at 18; tracked
+unchanged at 26.
+
+**HOLDS**: no code touched · no test edited or run · no migration touched · **no commit** · the login/signup
+implementation and the `__main__.py` fix remain uncommitted in the working tree, exactly as left.
+
+---

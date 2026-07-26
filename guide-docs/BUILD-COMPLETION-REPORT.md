@@ -1184,3 +1184,99 @@ tracked **25 → 26** (18 + 3 + 5 = 26).
 **HOLDS**: **no `.gitattributes` added** · **no manifest recomputed** · **no `.sql` file touched** · no test
 edited · no git history rewritten · working tree clean at `d72ffe4` · suite **1610 / 0 / 43 / 5 / 99.70%**
 unchanged.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-07-26T07:37:32Z · item #25 **DISCHARGED** — the first NARROWED → fully DISCHARGED in the register's history
+
+**This section supersedes #25's NARROWED status recorded at the close of the login/signup implementation pass.
+That record is preserved verbatim as the historical statement of what was and was not proven at the time; it no
+longer describes the system.**
+
+## #25 `PER-4-AUTHN-UNIMPLEMENTED` — **DISCHARGED**
+
+**The bar was set publicly, in advance, and has now been met in full.** From
+`login-signup-code-gen-plan.md` §9 and commit **`5e454f2`**'s message, verbatim:
+
+> *"a real login against a real Postgres, **driving R2–R7 with that session**, and **a commit whose
+> `AuditRecord.underwriter_id` is the authenticated user**."*
+
+⚑ **Discharged because the evidence meets that bar — not because time passed or the item became tiresome.** The
+same discipline that kept #25 NARROWED one turn earlier, when the commit-path step was missing, requires
+discharging it now that the step has been performed. **A bar that only ever ratchets in one direction is not a
+bar.**
+
+### The evidentiary basis — cited, not summarised
+
+**Manual end-to-end verification by the user via `curl` and `psql` against a real local PostgreSQL**
+(audit.md entry of 2026-07-26T07:37:32Z; events ~07:29–07:35 the same day):
+
+| # | Evidence | What it settles |
+|--:|---|---|
+| 1 | Login as `demo-underwriter` → **204 + `Set-Cookie`**; session resolves with `role=underwriter` | R8 issues a real session; R1 reads it; the role comes from `app_user` |
+| 2 | Commit of `REC-DEMO-0002-25a195b9` **through the session cookie** → `{"recommendation_id":"REC-DEMO-0002-25a195b9","underwriter_id":"demo-underwriter","action":"approve","reason":null}` | ⚑ **The load-bearing result.** `underwriter_id` was **never sent by the client** — WIRE-1 §5 forbids it in the body — so it was **derived server-side from the authenticated session** |
+| 3 | **Direct `psql` against `audit_record`**: `decision_id 7d29fa12-eecf-4abc-9b1f-0ce59679eb1f`, `underwriter_id=demo-underwriter`, `action=approve` | The **persisted row**, not a projection of it. The CON-BR4 "WHO" is an authenticated subject **on disk** |
+| 4 | Negative control (a): re-committing the same recommendation → **409 `commit_conflict`** | Register **#19**'s two-step claim guard is live against a real database |
+| 5 | Negative control (b): committing with **no session cookie** → **401**, not 403 | The commit path is gated by **authentication**, not merely authorization — a caller without a session cannot reach it at all |
+
+### ⚑ The single most persuasive artifact — a before/after in one table
+
+The same `psql` query surfaced an **older row from the pre-fix era**:
+
+| decision_id | application_id | underwriter_id | timestamp |
+|---|---|---|---|
+| `f67dc658-6e7e-438a-80cf-96315d2cad76` | DEMO-0001 | **`demo-user-1`** | 2026-07-23 |
+| `7d29fa12-eecf-4abc-9b1f-0ce59679eb1f` | DEMO-0002 | **`demo-underwriter`** | 2026-07-26 |
+
+The **2026-07-23** row was written under the **`X-User-Id` header** mechanism — the forgeable stub #25 was opened
+about, where *any caller who knew a `user_id` was that user*. The **2026-07-26** row was written under the
+**session-derived** mechanism. **Both sit in the same `audit_record` table, and the defect and its remedy are
+visible side by side in a single query.** No test could have produced that; only a real database with real
+history could. It is the cleanest evidence in the register.
+
+### Why this is a FULL discharge and not another narrowing
+
+Measured against **#25's own recorded wording**, not a generous paraphrase:
+
+* Its subject — *"PER-4 — an in-scope Phase-1 requirement — was never built"* — **is satisfied**: it is built and
+  field-verified.
+* Its severity rationale — *"`AuditRecord.underwriter_id` … is an unauthenticated, self-asserted string … the
+  audit trail's actor field currently has no authentication behind it"* — **is refuted by evidence 2 and 3**, on
+  the persisted row itself.
+* Its blocking claim — *"⛔ BLOCKING for any exposed or multi-user deployment"* — **is discharged**: lockout,
+  uniform failure, server-side revocation, absolute expiry and session-gated commit are all confirmed working.
+* **US-PLAT-1's Gherkin `Given`** — *"Given JWT/session authentication with roles underwriter and auditor"* — the
+  clause #25 recorded as unsatisfied, **is now satisfied**; its `Then` clauses were already built and tested.
+
+⚑ **A new outcome shape for this register.** #25 is the **first item to go NARROWED → fully DISCHARGED**. #20 and
+#24 were discharged without ever being narrowed; #2 is only *partly* discharged; #3, #8, #18 and #19 remain
+narrowed. **A narrowing is therefore not a terminal state** — it is an honest interim label that a later,
+sufficient body of evidence can retire. That precedent is worth having.
+
+### ⛔ What this discharge explicitly does NOT claim
+
+Stated so the discharge is precise rather than expansive. **None of these is a residual of #25** — each is a
+distinct matter, and none was ever part of the bar:
+
+1. **There is no login UI.** A user cannot log in through a browser: this pass delivered routes, not a form
+   (Q13(a) deliberately kept the login client out of `seams.js`). PER-4's *"in the UI"* phrasing is satisfied in
+   the sense #25 recorded — the RBAC separation is enforced and the role reaches the client unchanged — but the
+   **browser login journey does not exist**. Whether that warrants its own register item is the **user's call**;
+   none is opened here.
+2. **The `SESSION_COOKIE_SECURE=false` opt-out branch has never been exercised in a real run.** The fail-safe
+   default was; its opt-out was not. That branch is what the local dev loop needs, since Vite serves over
+   `http://`.
+3. **`httpTransport.js` remains unproven against a real browser.** Fold-3's *"no change needed"* prediction
+   (resting on `fetch`'s `credentials: 'same-origin'` default) is still unverified by any run.
+4. **`test_migration_apply.py:56` has still never executed anywhere observable** (Docker-gated). The manual
+   walkthrough necessarily applied `0003_auth.sql` for login to work at all — stronger evidence than the test
+   would have given — but the assertion itself remains unrun.
+5. **#26 `CRLF-CHECKSUM-MANIFEST-FRAGILE`** is untouched and remains open.
+
+**Register now stands at 26 tracked — 18 open · 4 discharged (#2 partly, #20 fully, #24 fully, #25 fully) ·
+4 narrowed (#3, #8, #18, #19).** ⚑ Count reconciliation: #25 moves **narrowed → discharged**, so narrowed drops
+**5 → 4** and discharged rises **3 → 4**; open is **unchanged at 18** and the tracked total is **unchanged at 26**
+(18 + 4 + 4 = 26).
+
+**HOLDS**: **no code touched** · no test edited or run · no migration touched · no commit · the login/signup
+implementation and the `__main__.py` fix remain **uncommitted** in the working tree, exactly as left.

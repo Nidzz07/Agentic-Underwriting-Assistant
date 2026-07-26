@@ -5980,3 +5980,62 @@ register entry; the commit message stands as written.
 
 **HOLDS**: no `.gitattributes` · no manifest recomputed · no `.sql` touched · no test edited · no git history
 rewritten. Suite unchanged: **1610 / 0 / 43 / 5 / 99.70%**.
+
+---
+
+## ✅ REGISTER #25 `PER-4-AUTHN-UNIMPLEMENTED` — **DISCHARGED** (2026-07-26T07:37:32Z)
+
+**The register's first NARROWED → fully DISCHARGED item.** Manual end-to-end verification by the user via `curl`
+and `psql` against a **real local PostgreSQL** (~07:29–07:35 today) met, in full, the bar set publicly in advance
+in `login-signup-code-gen-plan.md` §9 and commit **`5e454f2`**:
+
+> *"a real login against a real Postgres, **driving R2–R7 with that session**, and **a commit whose
+> `AuditRecord.underwriter_id` is the authenticated user**."*
+
+### The evidence
+
+1. Login as `demo-underwriter` → **204 + `Set-Cookie`**; `/session` resolves with **`role=underwriter`**.
+2. Commit of **`REC-DEMO-0002-25a195b9`** through the session cookie →
+   `{"recommendation_id":"REC-DEMO-0002-25a195b9","underwriter_id":"demo-underwriter","action":"approve","reason":null}`.
+   ⚑ **`underwriter_id` was never sent by the client** (WIRE-1 §5 forbids it in the body) — it was **derived
+   server-side from the session**.
+3. **Direct `psql` on `audit_record`** — `decision_id 7d29fa12-…`, `underwriter_id=demo-underwriter`,
+   `action=approve`: **the persisted row**, not a projection of it.
+4. Negative control (a): re-commit → **409 `commit_conflict`** — register **#19**'s claim guard, live against a
+   real database.
+5. Negative control (b): commit with **no cookie** → **401, not 403** — the commit path is gated by
+   **authentication**, not merely authorization.
+
+⚑ **The strongest artifact**: the same query surfaced a **2026-07-23** row (`f67dc658-…`, DEMO-0001) with
+**`underwriter_id=demo-user-1`**, written under the old **`X-User-Id` header** stub. **The forgeable mechanism
+and its replacement now sit side by side in one table** — the audit trail records its own repair. No test tier
+could have produced that.
+
+### Why a full discharge, not another narrowing
+
+Measured against #25's **own recorded wording**: its subject (*"PER-4 … was never built"*) is satisfied; its
+severity rationale (*"the audit trail's actor field currently has no authentication behind it"*) is **refuted on
+the persisted row**; its blocking claim is discharged; **US-PLAT-1's Gherkin `Given`** now holds.
+
+⚑ **Discharged on evidence, not inertia.** One turn earlier this item was **kept** NARROWED on a walkthrough that
+omitted exactly this step. **A bar that only ratchets one way is not a bar** — holding it then requires releasing
+it now.
+
+⚑ **New outcome shape**: #20/#24 were discharged without ever being narrowed, #2 is only *partly* discharged, and
+#3/#8/#18/#19 remain narrowed. **#25 proves a narrowing is not terminal** — it is an honest interim label that
+sufficient later evidence can retire.
+
+### ⛔ What the discharge does NOT claim — named, none a residual of #25
+
+**(1) There is no login UI** — no browser login journey exists (this pass delivered routes, not a form; Q13(a)
+kept the login client out of `seams.js`). **Whether that warrants its own register item is the user's call; none
+is opened here.** **(2)** The **`SESSION_COOKIE_SECURE=false`** opt-out has never been exercised in a real run.
+**(3) `httpTransport.js`** is unproven against a real browser. **(4) `test_migration_apply.py:56`** remains
+Docker-gated and unrun — though the walkthrough necessarily applied `0003_auth.sql` for login to work at all.
+**(5) #26** untouched and open.
+
+**Register now 26 tracked — 18 open · 4 discharged (#2 partly, #20, #24, #25) · 4 narrowed (#3, #8, #18, #19).**
+
+**HOLDS**: no code touched · no test edited or run · no migration touched · **no commit** — the login/signup
+implementation and the `__main__.py` fix remain uncommitted in the working tree, exactly as left. Suite unchanged
+at **1615 / 0 / 43 / 5 / 99.63%**.
