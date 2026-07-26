@@ -1,64 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppFrame } from '../shell/components/AppFrame.jsx';
 import { HistoryView } from '../history/HistoryView.jsx';
 import { QueueView } from '../queue/QueueView.jsx';
 import { MemoView } from '../memoView/MemoView.jsx';
 import { ApprovalGateView } from '../approvalGate/ApprovalGateView.jsx';
+import { LoginView } from '../login/LoginView.jsx';
+import { LogoutControl } from '../login/LogoutControl.jsx';
+import { createLoginFetch } from '../login/loginFetchSeam.js';
 import { loadCurrentRole } from './sessionClient.js';
 
-// The frontend composition root — the client half of the out-of-band integration pass. Now
-// browser-runnable: deploy-config (U23) supplied the bundler/dev-server topology this module's
-// original header said it lacked — `main.jsx` + `index.html` exist and compose this via the real
-// httpTransport; the frontend-backend wiring pass added the `dev` script and the Vite dev-server
-// `/api` proxy so it can be served and reach the backend locally.
+// The frontend composition root — the client half of the out-of-band integration pass.
 //
 // ROLE DELIVERY — via the shell's OWN seam, not around it:
 // `AppFrame` already hosts the RoleProvider internally (`value={user ? user.role : null}`), and
 // its docstring says it is "populated later by WIRE-1". This module IS that population: R1's role
-// is handed to AppFrame's `user` prop, and the frozen AppFrame provides the context. Wrapping
-// AppFrame in a SECOND RoleProvider would be shadowed by its inner one (nearest provider wins) —
-// the shell's seam is used as designed rather than worked around.
+// is handed to AppFrame's `user` prop, and the frozen AppFrame provides the context.
 //
-// WHAT IT MOUNTS, AND WHY (Scope B, wiring pass Q5(c)):
-// Scope B made all seven WIRE-1 routes live, retiring the Scope-A premise that a mounted view could
-// only ever error. So the primary underwriter journey is now mounted: `ui-queue` always, and — on
-// selection — `ui-memo-view` (R4) and `ui-approval-gate` (R5), the smallest slice that proves an
-// end-to-end human-in-the-loop approval gate. `ui-history` (R6/R7) stays mounted as before.
-// DELIBERATELY STILL UNMOUNTED: `ui-override-form` (Q5(c) excludes the second write path) and
-// `ui-outlier-view` (Q4(a): its seam is unregistered, and #17 renders it permanently empty anyway).
+// ⚑ THE AUTHENTICATION GATE (register #25's frontend half, Q1a).
+// Before this existed, an unauthenticated visitor got the full app chrome with two error panels
+// reading "Authentication is required." and Retry buttons that failed forever — a polite,
+// permanent dead end with no way to authenticate. The gate replaces that with a login page.
 //
-// SELECTION STATE (no router — Decision 6 upheld): `ui-queue` emits `onSelect(application_id)`
-// upward only and owns no router; nobody else owns "which application is open". This root holds
-// exactly that one piece of state and passes it down as `applicationId`. No cross-unit navigation
-// affordance and NO new display copy are introduced (keeping queue mounted means there is no "back"
-// control), so the src/app advisory-vocabulary lint has nothing new to scan.
+// THREE states, and the third one is load-bearing:
+//   'checking'        -> render NEITHER branch. FE-Fold-4: a two-state gate would flash the login
+//                        page on EVERY page load, including for already-authenticated users,
+//                        because /session is in flight on mount.
+//   'unauthenticated' -> the login view INSTEAD of the app.
+//   'authenticated'   -> exactly what this root mounted before, unchanged.
 //
-// Role is chrome only (the server is the real gate). `null` = unauthenticated, which every frozen
-// UI unit already renders identically for.
+// ⚑ ONE definition of "who is the current user" (Q3a): `refreshSession` is used at boot, after a
+// successful login, and after logout. R8 answers 204 with NO body, so login proves only "that
+// worked" — the identity always comes from re-reading R1, never from the login response.
+//
+// ⚑ DISCLOSED LIMITATION (a consequence of Q3a, recorded not hidden): `loadCurrentRole`
+// fail-closes to null on ANY failure, so a backend that is DOWN is indistinguishable from a 401.
+// An outage therefore presents as the login page. Distinguishing them would mean calling
+// `createSessionClient` directly, which is a different answer to Q3 and is deliberately not taken.
+//
+// SELECTION STATE (no router — Decision 6 upheld): this root holds "which application is open".
+// Role is chrome only; the server is the real gate.
 export function App({ seams, transport, testid = 'app-root' }) {
+  const [status, setStatus] = useState('checking');
   const [role, setRole] = useState(null);
-  const [selectedId, setSelectedId] = useState(null); // "which application is open" — owned here (SELECT-1)
+  const [selectedId, setSelectedId] = useState(null);
+
+  const loginSeam = createLoginFetch(transport);
+
+  const refreshSession = useCallback(async () => {
+    const resolved = await loadCurrentRole(transport);
+    setRole(resolved);
+    setStatus(resolved ? 'authenticated' : 'unauthenticated');
+    return resolved;
+  }, [transport]);
 
   useEffect(() => {
     let cancelled = false;
-    // loadCurrentRole fail-closes to null — an unauthenticated shell is a state, not an error.
     loadCurrentRole(transport).then((resolved) => {
-      if (!cancelled) setRole(resolved);
+      if (cancelled) return;
+      setRole(resolved);
+      setStatus(resolved ? 'authenticated' : 'unauthenticated');
     });
     return () => { cancelled = true; };
   }, [transport]);
 
+  if (status === 'checking') {
+    // Neither branch. Committing to one before /session answers is exactly the flash FE-Fold-4
+    // forbids. Follows the units' own loading convention (aria-busy container, no content).
+    return <div data-testid="app-checking" aria-busy="true" />;
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <AppFrame user={null}>
+        <LoginView loginSeam={loginSeam} onAuthenticated={refreshSession} />
+      </AppFrame>
+    );
+  }
+
   return (
     <AppFrame user={role ? { role } : null}>
       <div data-testid={testid}>
+        {/* ⚑ NOT RoleGate-wrapped: RoleGate gives admin { act: false, read: false }, so gating
+            logout would strand an admin in a session they cannot end. */}
+        <LogoutControl
+          loginSeam={loginSeam}
+          onLoggedOut={() => { setSelectedId(null); refreshSession(); }}
+        />
         <QueueView fetchSeam={seams.queue} onSelect={setSelectedId} />
         {selectedId ? (
           <>
             {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView and ApprovalGateView each
                 issue their OWN GET /applications/{id}/memo, so a selection makes two identical R4
-                requests. Each frozen unit owning its own fetch is the design (it is why
-                commitFetchSeam carries fetchContext); de-duplicating would mean lifting fetched state
-                into this root and changing how the frozen units are driven — out of scope. */}
+                requests. Each frozen unit owning its own fetch is the design. */}
             <MemoView memoFetchSeam={seams.memo} applicationId={selectedId} />
             {/* Fold 3 — testid passed EXPLICITLY (equals the default) so the assertion pins the REAL
                 rendered id and cannot pass by accident against a stale `approval-gate-view`. */}

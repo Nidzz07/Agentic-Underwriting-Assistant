@@ -6039,3 +6039,198 @@ Docker-gated and unrun — though the walkthrough necessarily applied `0003_auth
 **HOLDS**: no code touched · no test edited or run · no migration touched · **no commit** — the login/signup
 implementation and the `__main__.py` fix remain uncommitted in the working tree, exactly as left. Suite unchanged
 at **1615 / 0 / 43 / 5 / 99.63%**.
+
+---
+
+## POST-BUILD - FRONTEND LOGIN: SCOPING PASS BEGUN; PLAN WRITTEN, 5 QUESTIONS OPEN (2026-07-26)
+
+**Status**: SCOPING ONLY - no code, no component, no test, no backend file, WIRE-1 untouched. Stopped at the
+plan-file gate. **Plan of record**: `guide-docs/build/plans/frontend-login-signup-plan.md` (5 blank [Answer] tags).
+
+### Ground truth traced from disk
+
+**The unauthenticated browser experience today**: `/session` 401s, `loadCurrentRole` fail-closes to null, and the
+app renders ANYWAY - full chrome, RoleGate hiding every gated affordance silently, and TWO error panels (queue +
+history) both reading "Authentication is required." with Retry buttons that fail forever. It does not crash, hang
+or blank; there is simply NO affordance to authenticate. A permanent, well-behaved dead end.
+
+**VITE_USER_ID / X-User-Id is fully inert** - the backend no longer reads the header at all. Three distinct
+problems: a FALSE docstring (httpTransport.js:16 still calls it the client mirror of the deferred handshake seam -
+register #13 shape), a hygiene nit (a user id sent in every request for no purpose), and TWO tests pinning the
+behaviour, making removal a matched pair. Surfaced as Q5 with three options.
+
+**The one material collision**: `app.test.jsx:156` asserts an unauthenticated session STILL RENDERS the app. A
+login gate reverses exactly that premise. Treated as a named gated decision (Q2) under supersede-not-rewrite, not
+as an incidental breakage.
+
+**Confirmed clear**: no backend test touches the frontend; U23 enumerates no frontend/src subdirectory; no test
+anywhere asserts auth UI must not exist; seams.js five-key set is safe because Q13(a) already settled the login
+client is NOT a seam.
+
+### Settled, recorded so it is not re-litigated
+
+**NO self-service signup.** Accounts stay admin-provisioned via backend.authn. This reverses nothing - it is
+Q3(a), whose reasoning stands: PERMISSION_MATRIX is closed and underwriter carries RBAC_COMMIT, so open
+self-registration would let anyone grant themselves the authority to commit binding decisions - a direct defeat of
+SEC-4. Public sign-up is OUT OF SCOPE for this pass.
+
+### No backend or WIRE-1 change needed - confirmed
+
+R8/R9 are already contracted (WIRE1-Fold-5) and field-verified; R1 is byte-unchanged. This pass CONSUMES the
+contract. Any surfaced need for a backend or WIRE-1 change is a STOP-GATE.
+
+### Execution Step 0 - both cookie unknowns verified TOGETHER, first
+
+SESSION_COOKIE_SECURE=false working over http for local dev, AND Fold-3 httpTransport credentials prediction
+holding in a REAL BROWSER. Neither has ever been exercised; the manual pass used curl with an explicit -b, which
+bypasses cookie handling entirely. They compound, so both are settled before anything is built on either. This
+step needs a real browser and is the users to run.
+
+### Five open questions
+
+Q1 gate mechanism (rec (a) top-level in App.jsx - no router, no frozen view touched) - Q2 app.test.jsx:156
+supersession (rec (a) invert it, preserving the old assertion with a note recording it was CORRECT for a build
+with no way to log in) - Q3 post-login behaviour (rec (a) re-run the existing loadCurrentRole - one definition of
+who-am-I, not two) - Q4 logout placement (rec (c) in the login unit mounted by App.jsx - AppFrame is FROZEN and a
+cosmetic preference is not a reason to reopen it) - Q5 the dead X-User-Id path (rec (b) keep inert, fix the false
+docstrings now; (a) full removal as its own later change).
+
+**HOLDS**: no code - no backend file - WIRE-1 untouched - no frozen ui-shell component or view unit edited -
+seams.js five-key set preserved - app.test.jsx:156 NOT yet touched (its supersession is Q2, gated) - NO COMMIT.
+Suites carried: backend 1615/0/43/5/99.63
+---
+
+## POST-BUILD — FRONTEND LOGIN: SCOPING PASS **BEGUN**; PLAN WRITTEN, 5 QUESTIONS OPEN (2026-07-26)
+
+**Status**: **SCOPING ONLY** — no code, no component, no test, **no backend file, WIRE-1 untouched**. Stopped at
+the plan-file gate. **Plan of record**: `guide-docs/build/plans/frontend-login-signup-plan.md` (**5 blank
+`[Answer]` tags**).
+
+### Ground truth traced from disk
+
+**The unauthenticated browser experience today**: `/session` 401s, `loadCurrentRole` fail-closes to `null`, and
+the app **renders anyway** — full chrome, `RoleGate` hiding every gated affordance silently, and **two error
+panels** (queue + history) both reading *"Authentication is required."* with Retry buttons that fail forever.
+⚑ It does **not** crash, hang or blank; there is simply **no affordance to authenticate**. A permanent,
+well-behaved **dead end**.
+
+**`VITE_USER_ID` / `X-User-Id` is fully inert** — the backend no longer reads the header at all. Three distinct
+problems: a **false docstring** (`httpTransport.js:16` still calls it *"the client mirror of the server's deferred
+handshake seam"* — **register #13's shape**), a hygiene nit (a user id sent in every request for no purpose), and
+**two tests pinning the behaviour**, making removal a **matched pair**. Surfaced as **Q5**, three options.
+
+⛔ **The one material collision**: **`app.test.jsx:156`** asserts *an unauthenticated session **still renders** the
+app*. A login gate **reverses exactly that premise**. Treated as a **named, gated decision (Q2)** under
+supersede-not-rewrite — not as an incidental breakage.
+
+**Confirmed clear**: no backend test touches the frontend · U23 enumerates **no** `frontend/src` subdirectory ·
+**no test anywhere asserts auth UI must not exist** · `seams.js`'s five-key set is safe because **Q13(a)** already
+settled the login client is **not** a seam.
+
+### Settled, recorded so it is not re-litigated
+
+**NO self-service signup.** Accounts stay **admin-provisioned** via `backend.authn`. This reverses nothing — it is
+**Q3(a)**, whose reasoning stands: `PERMISSION_MATRIX` is **closed** and `underwriter` carries **`RBAC_COMMIT`**,
+so open self-registration would let anyone grant themselves the authority to commit binding decisions — a **direct
+defeat of SEC-4**. Public sign-up is **OUT OF SCOPE** for this pass.
+
+### No backend or WIRE-1 change needed — confirmed
+
+R8/R9 are **already contracted** (WIRE1-Fold-5) and field-verified; R1 is byte-unchanged. This pass **consumes**
+the contract. ⚑ Any surfaced need for a backend or WIRE-1 change is a **STOP-GATE**.
+
+### Execution Step 0 — both cookie unknowns verified TOGETHER, first
+
+**`SESSION_COOKIE_SECURE=false` working over `http://` for local dev**, **and** **Fold-3's `httpTransport.js`
+credentials prediction holding in a REAL BROWSER.** Neither has ever been exercised — the manual pass used `curl`
+with an explicit `-b`, which **bypasses cookie handling entirely**. They **compound** (a `Secure` cookie is
+dropped by browsers over http), so both are settled **before anything is built on either**. ⚑ This step needs a
+real browser and is **the user's to run**.
+
+### Five open questions
+
+**Q1** gate mechanism (rec **(a)** top-level in `App.jsx` — no router, no frozen view touched) · **Q2**
+`app.test.jsx:156` supersession (rec **(a)** invert it, **preserving the old assertion with a note recording it
+was CORRECT for a build with no way to log in**) · **Q3** post-login behaviour (rec **(a)** re-run the existing
+`loadCurrentRole` — **one** definition of who-am-I, not two) · **Q4** logout placement (rec **(c)** in the login
+unit mounted by `App.jsx` — **`AppFrame` is FROZEN** and a cosmetic preference is not a reason to reopen it) ·
+**Q5** the dead `X-User-Id` path (rec **(b)** keep inert, fix the false docstrings now; **(a)** full removal as its
+own later change).
+
+**HOLDS**: no code · no backend file · **WIRE-1 untouched** · no frozen `ui-shell` component or view unit edited ·
+`seams.js` five-key set preserved · **`app.test.jsx:156` NOT yet touched** (its supersession is Q2, gated) ·
+**NO COMMIT**. Suites carried, not re-run: backend **1615 / 0 / 43 / 5 / 99.63%** · frontend **687 / 137 / 0**.
+
+---
+
+## POST-BUILD — FRONTEND LOGIN: STEPS 1–9 EXECUTED · SUITE GREEN **716 / 147 / 0 / 99.82%** (2026-07-26)
+
+**Status**: **IMPLEMENTED — frontend green; backend untouched and not re-run (1615/0/43/5/99.63%). NOT
+COMMITTED.** Stopped at the 2-option gate. **Step 10 (manual browser confirmation) NOT begun and not
+requested — the user's call.**
+
+**Step 0 cleared by the user in a real browser before any code**: `POST /api/login` → 204, and `GET /api/session`
+immediately after → `{user_id, role}` **with the cookie sent automatically**. `SESSION_COOKIE_SECURE=false` works
+over http, and **Fold-3 is confirmed — `httpTransport.js` needed no change**, a prediction that had been carried
+on assumption twice.
+
+### ⚑ The count is 716, not 712 — corrected MID-PASS, stated in advance
+
+Two prediction errors, both in the estimate rather than the work: **step 3** delivered **+8 vs +7** (the ADVISORY-1
+copy test landed with the form, not the conventions), and **step 5** delivered **+9 vs +6** because
+**`RuleTester.run` generates ONE TEST PER FIXTURE** (4 fixtures + 1 explicit `it` = 5, where the plan assumed 1).
+⚑ The corrected total was surfaced **before steps 6–7 ran**, so 716 was **predicted, not discovered** — and lint
+fixtures were **not** cut to hit 712, because that would trade non-vacuity proof to flatter an arithmetic error.
+**Stop-gate 12's figure needs amending 712 → 716.**
+
+### Delta by name — 29 added · 0 deleted · 3 superseded/extended in place
+
+**New login unit (26)**: `loginFetchSeam` 4 · `login.state` 4 · `login.submit` 4 · `login.error` 3 ·
+`eslint.login.rules` 5 · `login.logout` 2 · `nots` 1 · `noBackendImport` 1 · `boundedFetch` 1 · `testid` 1.
+**`app.test.jsx` (+3 net, 15 → 18)**: added *the gate renders NEITHER surface while /session is still in flight* ·
+*a successful login re-checks the session and mounts the app* · *logout revokes and returns to the login view*;
+**superseded in place** *an unauthenticated session leaves a null role and still renders* → *…renders the login
+view and mounts no application surface*.
+
+### ⛔ A THIRD supersession the plan did not predict
+
+`renders identically for every role` compared underwriter, auditor **and `htmlFor(null)`** — and that third case
+rests on **exactly the premise `:156` rested on**. **Reported, not absorbed**: the null case was removed with a
+note recording that its subject was the **fail-closed render** (now superseded), **not role invariance**, and that
+both real roles are still compared — so VIEWONLY-1, the test's actual subject, is untouched. **The plan named two
+supersessions; there were three.**
+
+### ⚑ One unpredicted file touch: `frontend/vitest.config.js`
+
+A new unit is **not collected at all** until added to the `include` list — every prior unit was folded in the same
+way. **Verified NOT U23-owned** (U23 owns `vite.config.js`, not `vitest.config.js`) and not frozen. Include +
+coverage include/exclude extended; **thresholds UNCHANGED**. The plan's file table omitted it.
+
+### Two convention corrections during execution
+
+**(1)** My first tests imported `@testing-library/user-event`, **not a declared dependency**; the established
+convention is `fireEvent` (171 usages). Rewritten — **no dependency added**. **(2)** A test of mine asserted the
+submit button is **enabled** after a failed login; it is correctly **disabled** (the password is cleared and the
+empty-field guard forbids submitting). **My assertion contradicted my own test** — corrected to the real property:
+type a new password and submit again **without retyping the id**.
+
+### RED-before-GREEN, honestly reported
+
+Steps 2, 3, 6, 7 were genuinely RED first (step 7 failing on exactly the 5 gate-dependent tests). ⚑ **Step 4 was
+NOT red** — `LoginStateView` had to exist by step 3 because the submit test asserts the error state, so step 4's
+tests were green on arrival. **The component's RED was step 3's**, and no RED is claimed that was not observed.
+
+### The load-bearing test of this pass
+
+`⚑ CANNOT distinguish a wrong password from a lockout — five failures render IDENTICALLY` drives the exact
+sequence that trips the backend's 5-attempt lockout and asserts byte-identical output every time, with no attempt
+counter, countdown or lockout hint anywhere in the view. A frontend that counted attempts would **rebuild
+client-side the user-enumeration oracle the backend deliberately closed**.
+
+**HOLDS — verified by `git status`**: touched only `frontend/src/login/` (new), `App.jsx` (the gate),
+`app.test.jsx` (supersessions), `httpTransport.js` (**docstring only**), `vitest.config.js`, `.env.local`
+(gitignored). **`seams.js` UNTOUCHED — the five-key assertion green untouched (Q13a)** · **`main.jsx` UNTOUCHED
+(U23-owned)** · **no frozen `ui-shell` component or view unit edited** · **no backend file · WIRE-1 untouched** ·
+**NO COMMIT**.
+
+**Register unchanged at 26 tracked** — 18 open / 4 discharged / 4 narrowed.

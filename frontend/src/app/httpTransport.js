@@ -13,8 +13,23 @@
 // every seam's `normalizeError` is built to catch — so a frozen seam turns it into the WIRE-1 §4
 // envelope without this module knowing anything about that shape. No seam is modified.
 //
-// AUTH (Decision 2 / Q4-A): the stub `X-User-Id` header, the client mirror of the server's
-// deferred handshake seam (WIRE-1 §6/A6). Replacing it with real OIDC touches only this module.
+// AUTH — SUPERSEDED 2026-07-26 (register #25 / WIRE1-Fold-5). The original note read: "the stub
+// `X-User-Id` header, the client mirror of the server's deferred handshake seam (WIRE-1 §6/A6)."
+//
+// THAT IS NO LONGER TRUE, and leaving it would misdescribe how auth actually reaches the server.
+// The handshake is REALIZED: R8 `POST /login` issues an HttpOnly/Secure/SameSite=Lax session
+// cookie, `current_identity` resolves callers from that cookie alone, and the backend NO LONGER
+// READS `X-User-Id` at all (asserted server-side by
+// `test_the_x_user_id_header_is_no_longer_trusted`).
+//
+// The header below is therefore RETIRED AND INERT: still sent when a `userId` is configured, and
+// ignored by the server. It is kept only because removing it is a matched pair with the two
+// `httpTransport.test.js` tests that pin its behaviour plus a `main.jsx` (U23-owned) edit —
+// deliberately deferred out of this pass as scope-creep, and recorded by name so it is not lost.
+//
+// ⚑ The cookie needs NO code here: `fetch` defaults to `credentials: 'same-origin'` and the
+// topology already is same-origin (`baseUrl: '/api'` + the Vercel rewrite / Vite proxy), so the
+// browser attaches it automatically. Confirmed in a real browser, not assumed.
 //
 // SCOPE A: only R1/R6/R7 are backed. R2-R5 answer 501 `not_implemented` in the §4 envelope, so a
 // seam pointed at them rejects with a well-formed envelope and its unit renders its ordinary error

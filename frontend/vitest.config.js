@@ -31,11 +31,15 @@ export default defineConfig({
       // ui-outlier-view (U20, Phase 2) folded into the SAME frontend run. Include path ADDED only —
       // the coverage thresholds below are UNCHANGED; all seven existing gates stand, none weakened.
       'src/outlierView/__tests__/**/*.test.{js,jsx}',
+      // login (register #25's frontend half) folded into the SAME frontend run. Include path ADDED
+      // only -- the coverage thresholds below are UNCHANGED; all eight existing gates stand, none
+      // weakened. Every prior unit was folded in exactly this way.
+      'src/login/__tests__/**/*.test.{js,jsx}',
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/shell/**/*.{js,jsx}', 'src/queue/**/*.{js,jsx}', 'src/memoView/**/*.{js,jsx}', 'src/approvalGate/**/*.{js,jsx}', 'src/overrideForm/**/*.{js,jsx}', 'src/history/**/*.{js,jsx}', 'src/app/**/*.{js,jsx}', 'src/outlierView/**/*.{js,jsx}'],
-      exclude: ['src/shell/__tests__/**', 'src/queue/__tests__/**', 'src/memoView/__tests__/**', 'src/approvalGate/__tests__/**', 'src/overrideForm/__tests__/**', 'src/history/__tests__/**', 'src/app/__tests__/**', 'src/outlierView/__tests__/**'],
+      include: ['src/shell/**/*.{js,jsx}', 'src/queue/**/*.{js,jsx}', 'src/memoView/**/*.{js,jsx}', 'src/approvalGate/**/*.{js,jsx}', 'src/overrideForm/**/*.{js,jsx}', 'src/history/**/*.{js,jsx}', 'src/app/**/*.{js,jsx}', 'src/outlierView/**/*.{js,jsx}', 'src/login/**/*.{js,jsx}'],
+      exclude: ['src/shell/__tests__/**', 'src/queue/__tests__/**', 'src/memoView/__tests__/**', 'src/approvalGate/__tests__/**', 'src/overrideForm/__tests__/**', 'src/history/__tests__/**', 'src/app/__tests__/**', 'src/outlierView/__tests__/**', 'src/login/__tests__/**'],
       reporter: ['text', 'text-summary'],
       // QA-6: >=90% on the frontend's own JS (Q5). UNCHANGED — src/shell + src/queue stay 100%
       // and src/memoView is driven >=90% (per-file coverage reported separately, no masking).

@@ -150,17 +150,117 @@ describe('App — the Scope-A composition root', () => {
     }
     const underwriter = await htmlFor('underwriter');
     expect(await htmlFor('auditor')).toBe(underwriter);
-    expect(await htmlFor(null)).toBe(underwriter);
+
+    // SUPERSEDED (2026-07-26) -- a third `expect(await htmlFor(null)).toBe(underwriter)` case was
+    // removed here. It asserted that a NULL role rendered the application identically, which is
+    // the SAME premise `an unauthenticated session ... still renders` rested on: correct while
+    // there was no way to log in, false once the gate exists, because a null role now routes to
+    // the login view. The gate's own tests assert that directly and in both directions.
+    //
+    // NOT WEAKENED: this test's actual subject is ROLE INVARIANCE -- that ui-history renders the
+    // same for every role that can see it (VIEWONLY-1) -- and both real roles are still compared.
+    // The null case was never about role invariance; it was about the fail-closed render.
   });
 
-  it('an unauthenticated session leaves a null role and still renders (fail-closed, not an error)', async () => {
+  // SUPERSEDED (2026-07-26): replaces `an unauthenticated session leaves a null role and still
+  // renders (fail-closed, not an error)`, which asserted a 401 /session STILL rendered the
+  // application surfaces.
+  //
+  // THAT ASSERTION WAS CORRECT FOR A BUILD WITH NO WAY TO LOG IN. With no login page in
+  // existence, rendering the app in a fail-closed null-role state -- every gated affordance
+  // hidden, every fetch surfacing an honest error -- was the BEST AVAILABLE BEHAVIOUR. It stops
+  // being correct the moment a login page exists, because the honest response to "not
+  // authenticated" becomes "here is how to authenticate", not a permanent polite dead end.
+  //
+  // This is a PREMISE CHANGE, NOT A REGRESSION. The old test's real content -- unauthenticated is
+  // a STATE, not an error -- survives and strengthens: still not an error, and now ACTIONABLE.
+  it('an unauthenticated session renders the login view and mounts no application surface', async () => {
     const fetchImpl = vi.fn(async (url) => {
       if (url === '/session') return { ok: false, json: async () => ({ error: { code: 'unauthenticated', message: 'x', detail: {} } }) };
       return { ok: true, json: async () => LIST };
     });
     const transport = createHttpTransport({ fetchImpl });
     render(<App seams={createSeams(transport)} transport={transport} />);
+
+    expect(await screen.findByTestId('login-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('history-list')).toBeNull();
+    expect(screen.queryByTestId('queue-view')).toBeNull();
+  });
+
+  it('the gate renders NEITHER surface while /session is still in flight', async () => {
+    // FE-Fold-4, binding. A two-state gate would flash the login page on EVERY load, including
+    // for already-authenticated users. The gate starts in `checking` and commits to neither
+    // branch until /session resolves.
+    let release;
+    const fetchImpl = vi.fn((url) => {
+      if (url === '/session') {
+        return new Promise((resolve) => {
+          release = () => resolve({ ok: true, json: async () => ({ user_id: 'UW-1', role: 'underwriter' }) });
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => LIST });
+    });
+    const transport = createHttpTransport({ fetchImpl });
+    render(<App seams={createSeams(transport)} transport={transport} />);
+
+    expect(screen.getByTestId('app-checking')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-view')).toBeNull();
+    expect(screen.queryByTestId('history-list')).toBeNull();
+
+    release();
     expect(await screen.findByTestId('history-list')).toBeInTheDocument();
+  });
+
+  it('a successful login re-checks the session and mounts the app', async () => {
+    // Q3(a): the post-login path reuses the SAME loadCurrentRole the gate already depends on, so
+    // there is exactly ONE definition of "who is the current user" in the app.
+    let authenticated = false;
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (url === '/session') {
+        return authenticated
+          ? { ok: true, json: async () => ({ user_id: 'UW-1', role: 'underwriter' }) }
+          : { ok: false, json: async () => ({ error: { code: 'unauthenticated', message: 'x', detail: {} } }) };
+      }
+      if (url === '/login' && init.method === 'POST') {
+        authenticated = true;
+        return { ok: true, json: async () => ({}) };
+      }
+      return { ok: true, json: async () => LIST };
+    });
+    const transport = createHttpTransport({ fetchImpl });
+    render(<App seams={createSeams(transport)} transport={transport} />);
+
+    await screen.findByTestId('login-view');
+    fireEvent.change(screen.getByTestId('login-input-user-id'), { target: { value: 'UW-1' } });
+    fireEvent.change(screen.getByTestId('login-input-password'), { target: { value: 's3cret' } });
+    fireEvent.click(screen.getByTestId('login-action-submit'));
+
+    expect(await screen.findByTestId('history-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-view')).toBeNull();
+  });
+
+  it('logout revokes and returns to the login view', async () => {
+    let authenticated = true;
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (url === '/session') {
+        return authenticated
+          ? { ok: true, json: async () => ({ user_id: 'UW-1', role: 'underwriter' }) }
+          : { ok: false, json: async () => ({ error: { code: 'unauthenticated', message: 'x', detail: {} } }) };
+      }
+      if (url === '/logout' && init.method === 'POST') {
+        authenticated = false;
+        return { ok: true, json: async () => ({}) };
+      }
+      return { ok: true, json: async () => LIST };
+    });
+    const transport = createHttpTransport({ fetchImpl });
+    render(<App seams={createSeams(transport)} transport={transport} />);
+
+    await screen.findByTestId('history-list');
+    fireEvent.click(screen.getByTestId('login-action-logout'));
+
+    expect(await screen.findByTestId('login-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('history-list')).toBeNull();
   });
 
   // SUPERSEDED (2026-07-25): this replaces `mounts NO unbacked surface — only the history view exists
@@ -170,7 +270,7 @@ describe('App — the Scope-A composition root', () => {
   // directions. Q5(c) deliberately excludes override and outlier — asserted absent in BOTH states.
   it('mounts exactly the backed surfaces — queue + history always; override and outlier never', async () => {
     const { transport, seams } = fakeServer();
-    render(<App seams={seams} transport={transport} />);
+    const authenticated = render(<App seams={seams} transport={transport} />);
     await screen.findByTestId('history-list');
     // queue is ALWAYS mounted — its Panel testid renders in every state, incl. the unbacked error state.
     expect(await screen.findByTestId('queue-view')).toBeInTheDocument();
@@ -182,6 +282,23 @@ describe('App — the Scope-A composition root', () => {
     // out of scope this pass (Q5(c) / Q4(a)) — never mounted, in either selection state.
     expect(screen.queryByTestId('override-form-view')).toBeNull();
     expect(screen.queryByTestId('outlier-view')).toBeNull();
+
+    // EXTENDED (2026-07-26) -- the gate's OTHER state. Previously this rendered only the
+    // authenticated shape, because that was the only shape there was. It now pins BOTH: an
+    // unauthenticated session mounts the login view and NONE of the application surfaces.
+    // Not weakened -- it still pins exactly which surfaces mount, now across both gate states.
+    authenticated.unmount();
+    const unauth = vi.fn(async (url) => {
+      if (url === '/session') return { ok: false, json: async () => ({ error: { code: 'unauthenticated', message: 'x', detail: {} } }) };
+      return { ok: true, json: async () => LIST };
+    });
+    const unauthTransport = createHttpTransport({ fetchImpl: unauth });
+    const { unmount } = render(<App seams={createSeams(unauthTransport)} transport={unauthTransport} />);
+    expect(await screen.findByTestId('login-view')).toBeInTheDocument();
+    for (const id of ['queue-view', 'history-list', 'memo-view', 'approval-gate', 'override-form-view', 'outlier-view']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    unmount();
   });
 
   it('surfaces a backend error through the frozen unit own error state', async () => {
