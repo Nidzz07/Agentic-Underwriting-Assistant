@@ -6483,3 +6483,145 @@ existed.
 **HOLDS** — this turn: **one source file, name only** (`app.test.jsx`) + three docs. No backend file · WIRE-1
 untouched · no frozen `ui-shell` component or view unit · `main.jsx` untouched · backend carried at
 1615/0/43/5/99.63%, not re-run · **NO COMMIT** — the full diff is the user's to review first.
+
+---
+
+## ✅ OUTLIER WIRING (backend half) — **COMPLETE**. #17's TECHNICAL GAP CLOSED ON LIVE POSTGRES · **BARRIER #5 FOUND AND RESOLVED MID-PASS** · #27 OPENED · **NO COMMIT** (2026-08-01T14:54:07Z)
+
+**The first `OutlierResult` this system has ever computed, persisted and served is on the wire, verified against a
+real local PostgreSQL.** Backend **1636 / 0 / 43 / 5 / 99.63%**, EXIT 0. Frontend **723 / 147**, untouched.
+**NO COMMIT** — the full diff is the user's to review.
+
+### What this pass delivered
+
+R4 finally carries the `outlier` field WIRE1-Fold-4 added on 2026-07-17, populated with real data: a score, two
+SHAP-explained flags, and the full provenance triple. The brief's **Component 3** (*"outlier detection with
+SHAP-style feature importance"*) is now demonstrated end-to-end through the API rather than only in the unit's own
+51 tests.
+
+### ⛔ The pass's defining event — BARRIER #5, found by RUNNING, not reading
+
+The plan described **four** barriers. A **fifth** existed, upstream of all of them, and nothing in the planning pass
+could have found it because it only appears when a real score reaches the persistence boundary:
+
+> `CanonSerAdapter.canonical_bytes` **rejects IEEE float outright** (`CanonSerError: float is not permitted; use
+> Decimal (CON-DET-1)`), and **every numeric field of `OutlierResult` is a float** — they come out of
+> IsolationForest and SHAP. U24's `pipeline.py:134` serializes the seam's return with exactly that adapter, so
+> **`CasePipeline.draft()` RAISED before writing a row.** A real outlier score could not be persisted **at all**.
+
+⚑ **The plan's Fold C asserted the opposite** — *"serialization already works (the method is generic over
+`BaseModel`)"*. It is generic **structurally**; CANON-SER's **P2** invariant forbids the field **type**. Fold C
+treated deserialization as the only gap; **serialization was also a gap, and the harder one.**
+
+**Execution was HALTED and reported** with two-level reproduction evidence rather than worked around. On request the
+seed-script injection was **reverted** to restore the working demo path, and work resumed **only** after the user's
+explicit design decision — the conflict (an inherently-float ML artifact entering a deterministic-by-construction
+audit chain) was not a fold's to resolve.
+
+### The resolution — the Decimal-quantized projection
+
+`score_outlier` returns a **`QuantizedOutlierResult`**: every float quantized to a **single named constant**
+(`OUTLIER_QUANT_DECIMAL_PLACES = 12`, with `OUTLIER_QUANT_EXPONENT` **derived** from it so the two cannot drift).
+`projections.py` dequantizes on read.
+
+⚑ **It reopens NO frozen unit — the only option that did.** `CaseSeams.score_outlier` is typed `Optional[object]`
+and U24 serializes whatever it is handed, so the projection rides U24's existing path untouched. Every alternative
+cost a reopening: relaxing CANON-SER reopens frozen `common/` **and** deliberately breaks CON-DET-1; converting
+inside U24's pipeline, or switching that column to plain JSON, reopens `case_lifecycle` a **fourth** time.
+
+⛔ **WHAT IT DOES NOT CLAIM — stated in four places** (module docstring, seam docstring, plan §4.1, register 17-C):
+this is a **quantized projection of the model's float output**, **NOT** a claim that the ML computation is
+bit-for-bit reproducible across library versions. CANON-SER guarantees the persisted **representation**; nothing in
+this stack promises cross-version FP identity — which is precisely why `OUTLIER_MODEL_VERSION` bundles the sklearn
+version. Round-trip losslessness holds **AT the named precision**; a float with more than 12 significant decimals is
+deliberately narrowed, and that narrowing is the design.
+
+### Step 13 — live verification, user-run (reconstruction, not observation)
+
+Performed by the **user** via `psql`, `curl` and the seed CLI against a **real local PostgreSQL**, ~14:50Z onward.
+**Not observed by this agent**; values as reported.
+
+1. **Targeted reset** (`DELETE FROM pending_recommendation` only) — chosen over a full drop to avoid two hazards
+   **identified in advance**: `0002_grants.sql`'s un-guarded `CREATE ROLE` (roles are cluster-level, so they survive
+   a `DROP DATABASE` and the re-run would abort), and destroying the override pass's `AuditRecord a7b67ca8-…`.
+2. **`outlier_canonical` NON-NULL, 464 bytes** on DEMO-0001 and DEMO-0002. ⚑ **The first outlier data ever
+   persisted by this system.**
+3. **The wire**: `outlier_score=0.567032896281`, `is_outlier=true`, **two** `flagged_features`
+   (`requested_cover_amount`, `verifiable_income_annual`) each with `z_score`/`shap_value`/`direction`, provenance
+   `{corpus_version: 1.0.0, seed: 42, outlier_model_version}`. **EXPLAIN-1 holds on the wire** — every flag explained.
+4. **The null path survives**: DEMO-0003 (never drafted) → `outlier: null`, `status: pending`.
+5. **Determinism, live**: a second independent seed produced `0.567032896281` again — identical across the score,
+   **both** z_scores and **both** shap_values. ⚑ **Reproducibility (acceptance criterion §6) demonstrated
+   end-to-end on a real database for the first time**, not asserted from unit tests.
+6. **Loud failure**: corpus renamed away → `FileNotFoundError` naming the exact path with an actionable message; **no
+   silent `outlier: null` fallback.** Q6(a) as answered, Q6(b) as rejected. Corpus restored.
+
+⚑ **`0.567032896281` is NOT a drift and stop-gate 8 is NOT tripped.** The plan's `0.667071302659` is scoped to
+`corpus/profiles.json[0]`; **DEMO-0001 is `_demo_profile(1)`, a different applicant.** Determinism was verified the
+way Fold E defined it: same profile, two runs, identical. ⚠️ Plan §5.1 step 5's wording conflates the two —
+recorded as a doc imprecision rather than left to mislead.
+
+⚠️ **Check 5 re-created register #27's duplicate rows** (it re-seeded without resetting). Known, documented
+behaviour — not a new problem, and it does not weaken checks 3–5 (the specific new row was read in `psql`). **But a
+future `curl` on DEMO-0001 may again serve an arbitrary row until the pending tables are reset.**
+
+### RED-before-GREEN — six observations, every one seen on screen
+
+T1 (guard removed) · T2 `TypeError: unexpected kwarg 'outlier_model'` · T3 `AttributeError: no CORPUS_DIR` ·
+T4 `must INJECT a fitted model` · T7–T9 `ModuleNotFoundError` · **T10 with the `CanonSerError` itself — barrier #5
+reproducing inside a test** · T5 ×4 natural · **T6 (guard removed), which also reddened the PRE-EXISTING
+`test_outlier_is_null_even_on_a_ready_view` plus four more — proving the guard load-bearing.**
+
+⚑ Two tests were **vacuous on arrival by design** (T1 and T6 pin *current* behaviour). Both were shown red by
+temporarily removing the implementing guard and restoring it — the override pass's precedent, not a new liberty.
+
+### ⚠️ Prediction misses and authoring errors — disclosed, never absorbed
+
+* **Predicted +6 → +13 → +21.** Corrected the moment each miss appeared, **never by trimming tests** (stop-gate 3).
+  Cause both times: the plan's per-test estimates were too coarse — "T5" is four assertions, "T7/T8/T9" are eleven.
+  **Final 1636 = 1615 + 21, hit exactly.**
+* **T2 asserted `OutlierResult`** where the design returns the projection → renamed
+  `..._return_a_real_outlier_result` → `..._return_a_scored_projection`, **old name preserved** in the docstring
+  with the reason (#13's shape). **T10 asserted `seed == 42`** against a fixture whose seed is `4242`.
+* **The plan says "six existing `_SeedSeams()` tests"; it is FIVE** (`:43, :107, :120, :136, :154`). Fold B's
+  ~2.6s × 6 ≈ 16s becomes ×5 ≈ 13s. Gate substance unchanged; applied to all seven tests in the file.
+* ⚑ **Q8(a) as worded named the WRONG deserializer.** It said `OutlierResult.model_validate_json(...)`, but
+  `outlier_canonical` is written by `canon_ser` (canonical bytes **with type envelopes**), whose inverse is
+  `canon_deserialize` — what every existing `*_from_canonical` uses. `model_validate_json` works **today only by
+  coincidence** (no Decimal/date field) and would break silently on the next schema change. Q8(a)'s *decision*
+  (composition root, by-value import, no frozen unit) is untouched; only the mechanism was corrected.
+
+### Register
+
+| Item | Status |
+|---|---|
+| **#17** `OUTLIER-DATA-EXISTS-CONTRACT-FORBIDS` | ⚑ **SUPERSEDED in place, original row preserved VERBATIM** (Q3(a)). Paired row **17-C** records that **both** load-bearing claims were false — *"persists real outlier data"* (it never did; every row was NULL) and *"the frozen contract forbids sending it"* (it does not; WIRE-1 explicitly provides for a Phase-2 `ready` view) — that #17 described **2 of 5** barriers, and the corrected owner (~~a future WIRE-1 amendment~~ → implementing Phase-2-OUT). **Technical gap CLOSED on live evidence.** |
+| **#27** `DUPLICATE-PENDING-RECOMMENDATION-ROWS` | ⛔ **NEWLY OPENED — logging only, NOT fixed.** Two separable defects: **(i)** `_recommendation_row`'s **unordered, un-limited** `SELECT` over `application_id`, which carries **no uniqueness guarantee** (non-unique index only) — the row served is **undefined**, not "earliest by PK"; **(ii)** `put_recommendation`'s plain `INSERT` against `put_application`'s **state-resetting upsert**, which defeats the real re-draft guard (`(DRAFTED, DRAFTED)` is illegal, but `submit()` resets state to `EVALUATED` first). Blast radius: **R4, R2's queue, and `reconcile_committing_cases.py`**. **Predates and is unrelated to this pass** — it only became visible because outlier data gave the duplicate rows a field that differs. ⚑ Both in-memory test doubles **structurally mask it** (keyed by `recommendation_id`, insertion-ordered dict), which is why no test caught it. Fixing needs frozen **U24**. |
+| **#2 · #3 · #18** | **Untouched.** No drafting trigger in the API; the corpus is still offline-double-generated; no production `LLMClient`. |
+| **#8 · #26** | Untouched. |
+
+**Register now 27 tracked** (26 + #27), plus the **17-C** correction row, which is a supersession of #17 rather than
+a new gap.
+
+### ⛔ What is explicitly NOT claimed
+
+* **The mount pass is NOT done.** #17's frontend half stays deferred per **Q1(a)** — `seams.js` still has **five**
+  keys and `OutlierView` is still unmounted. **Q4(a) is answered in advance** and carried forward so the mount pass
+  inherits it: add `outlier` as the sixth key and supersede the exact-key assertion at `app.test.jsx:547-550`.
+* **Not "the system is in Phase 2."** Only the named **Phase-2-OUT** slice (Q2(a)). `ObservabilityService`,
+  Langfuse and Prometheus are untouched; `render.yaml`'s `LANGFUSE_*` remain "Phase-2 reserved, set-not-consumed".
+* **Whether `corpus/` ships to the DEPLOYED backend is UNRESOLVED** — `render.yaml` neither places nor verifies it
+  and seeding is not part of deployment. **Carried to the deployment pass.**
+* **No claim of cross-version FP reproducibility** (see the projection caveat above).
+
+### Files — 6 changed, 2 new
+
+`backend/app/outlier_canonical.py` (**NEW**, 100% covered) · `backend/app/tests/test_outlier_canonical.py` (**NEW**,
+11 tests) · `backend/app/projections.py` · `backend/scripts/seed_demo_cases.py` ·
+`backend/scripts/tests/test_seed_demo_cases.py` · `backend/app/tests/test_wire1_pending_shapes.py` · plus
+`guide-docs/` (plan, register, audit, this file).
+
+**HOLDS — verified by `git status`**: **no frozen unit** (`audit_store/`, `case_lifecycle/`, `outlier_model/`,
+`common/`, …) · **no WIRE-1** (`api-contract.md` untouched — §1.3's reading held: Phase-2 population is
+contract-COMPLIANT, no amendment was needed) · **no frontend file** · coverage threshold **unedited** at 99.63% ·
+skips/errors **unmoved** at 43/5 · **NO COMMIT**.

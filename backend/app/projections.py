@@ -19,8 +19,10 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from backend.app.outlier_canonical import dequantize_outlier
 from backend.audit_store.record_schema import AuditRecord
 from backend.case_lifecycle.schemas import PendingApplication, PendingRecommendation
+from backend.common.canon_ser import canon_deserialize
 
 #: R6's page size when the client sends none. A wire-level default only.
 DEFAULT_PAGE_SIZE = 20
@@ -132,15 +134,47 @@ def memo_view(
     that projection rather than re-deriving it, because the ``failed -> "pending"`` mapping is
     domain knowledge only U24 possesses (register #14: ``failed`` has no wire representation).
 
-    ⚑ ``outlier`` is ALWAYS ``null`` here. WIRE1-Fold-4 binds it ``null`` in Phase 1 **even for a
-    ``ready`` view**. U24 DOES persist real outlier data (``PendingRecommendation.outlier_canonical``),
-    so this is a case of *the data existing while the frozen contract forbids sending it* —
-    disclosed as register #17, NOT quietly resolved by emitting it (that would amend WIRE-1).
+    ⚑ ``outlier`` is emitted for a ``ready`` view when the case actually carries stored outlier
+    data — the **Phase-2-OUT** slice (plan Q2(a)).
+
+    ⛔ **SUPERSEDED, preserved because it was true for the whole of Phase 1**: *"``outlier`` is
+    ALWAYS ``null`` here. WIRE1-Fold-4 binds it ``null`` in Phase 1 even for a ``ready`` view. U24
+    DOES persist real outlier data (``PendingRecommendation.outlier_canonical``), so this is a case
+    of the data existing while the frozen contract forbids sending it — disclosed as register #17,
+    NOT quietly resolved by emitting it (that would amend WIRE-1)."*
+
+    **Two of that paragraph's claims were wrong, and register #17 inherited both.** (1) *"U24 DOES
+    persist real outlier data"* — it did not. Nothing computed a score in any API-reachable path,
+    so ``outlier_canonical`` was NULL for every row ever written. (2) *"emitting it would amend
+    WIRE-1"* — it does not. WIRE-1 binds ``outlier`` null *in Phase 1* and explicitly provides for
+    it being *"populated only for a Phase-2 ``ready`` view"*. **Populating it is contract-COMPLIANT**;
+    no contract was amended to do this, and none needed to be.
+
+    ⚑ **Deserialization lives HERE by decision (plan Q8(a))** — the composition root is the layer
+    whose job is this translation, it is not frozen, and doing it here reopens **no** frozen unit.
+    The schema is imported **by value** from U18, which is WIRE-1's own framing of how
+    ``OutlierResult`` travels. What is stored is the **Decimal-quantized projection** (barrier #5 —
+    CANON-SER refuses IEEE float); ``dequantize_outlier`` returns the float shape the contract and
+    ``outlierView`` expect. ⚑ **No frontend change is needed**: JSON does not distinguish Decimal
+    from float once serialized, so the wire shape is byte-identical to what the frozen unit was
+    built against.
+
+    ⚑ A ``pending`` view, and a ``ready`` view whose case was never scored, both still emit
+    ``null`` — the second is every case seeded before this pass, and it must keep working.
 
     ⚑ ``profile`` is emitted even when ``pending``: U24 reaches ``evaluated`` eagerly in ONE
     transaction, so it is always populated for any row that exists, and §5 explicitly permits it
     (*"profile may still be present once intake has parsed it"*).
     """
+    outlier = (
+        dequantize_outlier(canon_deserialize(recommendation.outlier_canonical))
+        if (
+            status == "ready"
+            and recommendation is not None
+            and recommendation.outlier_canonical is not None
+        )
+        else None
+    )
     return {
         "application_id": case.application_id,
         "recommendation_id": recommendation.recommendation_id if recommendation else None,
@@ -148,7 +182,7 @@ def memo_view(
         "profile": profile.model_dump(mode="json") if profile is not None else None,
         "report": report.model_dump(mode="json") if report is not None else None,
         "memo": memo.model_dump(mode="json") if memo is not None else None,
-        "outlier": None,
+        "outlier": outlier.model_dump(mode="json") if outlier is not None else None,
     }
 
 

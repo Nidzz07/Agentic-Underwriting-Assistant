@@ -43,6 +43,7 @@ Run (out of band)::
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import uuid
 from datetime import date
@@ -53,15 +54,20 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 import sqlalchemy as sa
 
 from backend.app.llm_client import build_gemini_client
+from backend.app.outlier_canonical import quantize_outlier
 from backend.audit_store.canon_adapter import CanonSerAdapter
 from backend.case_lifecycle.migrate import apply_case_migrations
 from backend.case_lifecycle.pipeline import CasePipeline
 from backend.case_lifecycle.repository import PostgresCaseStore
+from backend.corpus_generator.records import CorpusManifest
 from backend.database.migration_runner import MigrationRunner
 from backend.intake import schema as isch
 from backend.memo_agent_core.input_builder import MemoAgentInputBuilder
 from backend.memo_agent_core.orchestrator import LangGraphOrchestrator
 from backend.memo_agent_core.provider import GeminiAdapter
+from backend.outlier_model.corpus_source import CorpusSource
+from backend.outlier_model.model import FittedOutlierModel, OutlierModel
+from backend.outlier_model.shap_explainer import ShapExplainer
 from backend.rules_engine.engine import RulesEngine
 from backend.rules_engine.loader import RulebookLoader
 from backend.secrets_config import get_settings
@@ -93,6 +99,48 @@ def rulebook_dir() -> str:
     mirroring `run_quality_gates.py:RULEBOOK_DIR` and `corpus_generator/build.py`.
     """
     return str(Path(__file__).resolve().parents[1] / "rules_engine" / "rulebook")
+
+
+#: The committed corpus the outlier model is fitted from (Q5(a)/Q6(a)). Module-level and named
+#: once so a test can point it elsewhere — mirroring ``rulebook_dir()``'s single-source shape.
+CORPUS_DIR = Path(__file__).resolve().parents[2] / "corpus"
+
+
+def build_outlier_model(corpus_dir: Path | str | None = None) -> FittedOutlierModel:
+    """Fit the outlier model from the COMMITTED corpus. Fails LOUDLY if it is absent (Q6(a)).
+
+    ⚑ **Why a missing corpus is an ERROR and not a graceful degrade.** The rejected alternative
+    (Q6(b)) was to fall back to ``outlier=None`` — which silently reproduces the exact defect this
+    wiring exists to fix, in the one script whose entire job is producing COMPLETE demo data. A
+    silent null here is indistinguishable from the Phase-1 behaviour and would be very hard to
+    notice; a named failure cannot be missed.
+
+    ⚑ **This does NOT violate BR-OUT-8 / NFR-OUT-CORPUS-1.** That invariant binds ``outlier_model``
+    itself — the unit still builds, tests and imports with no ``corpus/`` present, and its own 51
+    tier-U tests never read one. It does not bind a CALLER that chooses to supply a corpus, which
+    is exactly what ``CorpusSource.from_file`` exists for.
+
+    ⚠️ OPEN, and deliberately not answered here: whether ``corpus/`` ships to the DEPLOYED backend.
+    ``render.yaml`` neither places nor verifies it, and seeding is not part of deployment at all —
+    so nothing today depends on the answer. Carried to the deployment pass (plan §7 item 2).
+    """
+    corpus_dir = Path(corpus_dir) if corpus_dir is not None else CORPUS_DIR
+    profiles_path = corpus_dir / "profiles.json"
+    manifest_path = corpus_dir / "manifest.json"
+
+    for path in (profiles_path, manifest_path):
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"outlier corpus not found at {path} - the demo seed cannot produce complete "
+                f"data without it. The corpus is committed to this repository; if it is missing, "
+                f"restore it rather than seeding cases with a null outlier."
+            )
+
+    records = CorpusSource.from_file(profiles_path)
+    manifest = CorpusManifest.model_validate(
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+    )
+    return OutlierModel.fit(CorpusSource.profiles(records), manifest, ShapExplainer())
 
 
 #: Matches a rule id as it appears in U4's prompt (e.g. ``DTI-CEIL-1``, ``IRDAI-EMP-SALARIED-1``).
@@ -185,6 +233,7 @@ class _SeedSeams:
         *,
         model: str = OFFLINE_MODEL_VERSION,
         model_version: str = OFFLINE_MODEL_VERSION,
+        outlier_model: FittedOutlierModel | None = None,
     ) -> None:
         # ⚑ DEFECT FIX 1 — `RulebookLoader.__init__` takes a REQUIRED `rulebook_dir` and has no
         # default. This previously read `RulebookLoader()`, so `_SeedSeams.__init__` raised
@@ -198,6 +247,13 @@ class _SeedSeams:
         # byte-for-byte the historical behaviour. Real path: the injected CappedGeminiClient with
         # an explicit non-floating model id and a real model_version stamp (Q4b split).
         client = llm_client if llm_client is not None else _OfflineLLMClient()
+        # ⚑ INJECTED, never fitted here (ambiguity-check Fold B). Fitting the corpus costs ~2.6s
+        # and would add a NEW hard failure mode to a constructor that already shipped a defect of
+        # exactly that shape — `RulebookLoader()` raised on `__init__`'s FIRST statement, which is
+        # why `test_seed_seams_constructs_without_raising` exists. `main()` builds and injects the
+        # real model; with `None` the seam keeps its byte-identical Phase-1 behaviour, so the five
+        # existing `_SeedSeams()` constructions in the tier-U suite need no corpus and pay no fit.
+        self._outlier_model = outlier_model
         self._orchestrator = LangGraphOrchestrator(
             GeminiAdapter(client, model=model),
             rulebook=self._rulebook,
@@ -212,10 +268,36 @@ class _SeedSeams:
         return self._engine.evaluate(profile, RULEBOOK_VERSION)
 
     def score_outlier(self, profile):
-        """⚑ Phase 1 emits no outlier (``services.md`` omits the OUT call), and WIRE1-Fold-4
-        binds R4's ``outlier`` to ``null`` regardless. Returning ``None`` is the honest Phase-1
-        behaviour, not a stub standing in for something that should be here."""
-        return None
+        """Score the applicant with the INJECTED fitted model, or ``None`` if none was injected.
+
+        ⚑ SUPERSEDED docstring, preserved verbatim because it was true for the whole of Phase 1:
+        *"Phase 1 emits no outlier (``services.md`` omits the OUT call), and WIRE1-Fold-4 binds
+        R4's ``outlier`` to ``null`` regardless. Returning ``None`` is the honest Phase-1
+        behaviour, not a stub standing in for something that should be here."*
+
+        What changed is the FIRST clause only: this is the **Phase-2-OUT** slice (Q2(a)) — an
+        API-reachable path that computes and persists a real ``OutlierResult``. The OUT call is
+        no longer omitted. ⛔ This does NOT mean "the system is in Phase 2": ``ObservabilityService``
+        (Langfuse / Prometheus) is untouched and out of scope by the same answer.
+
+        WIRE1-Fold-4 is NOT amended and did not need to be — it binds ``outlier`` null *in Phase 1*
+        and explicitly provides for it being *"populated only for a Phase-2 ``ready`` view"*.
+        Populating it is contract-COMPLIANT, which is why this pass touches no frozen contract.
+
+        ``None`` remains the default and the honest answer when nothing was injected — that path
+        is pinned by T1 and is what keeps the tier-U suite corpus-free.
+
+        ⛔ **Returns a QUANTIZED PROJECTION, not the raw ``OutlierResult``** (barrier #5). U24
+        serializes this return with ``CanonSerAdapter.canonical_bytes``, which rejects IEEE float
+        outright — and every numeric field of ``OutlierResult`` is a float. Handing back the
+        Decimal projection is what makes the score persistable **without reopening a single frozen
+        unit**: ``CaseSeams.score_outlier`` is typed ``Optional[object]``, so U24's path is
+        untouched. See ``backend/app/outlier_canonical.py`` for what the projection does and does
+        NOT claim — in particular, it is **not** a claim of cross-version FP reproducibility.
+        """
+        if self._outlier_model is None:
+            return None
+        return quantize_outlier(self._outlier_model.score(profile))
 
     def draft_memo(self, profile, report, thinking_mode):
         return self._orchestrator.run(
@@ -314,6 +396,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # ⚑ FIT FIRST, BEFORE ANY DATABASE WORK. Ordering is deliberate: a missing corpus must fail
+    # before migrations run or a single row is written, so a failed run leaves nothing half-seeded.
+    # ~2.6s for 300 profiles, paid ONCE per invocation (this is a one-shot CLI, so "fit once at
+    # startup" and "fit once per run" are the same thing). Determinism is not assumed: the fit is
+    # seeded from CorpusManifest.seed via an explicit local RandomState, never the global np.random.
+    #
+    # ⚑ HISTORY, so this is not re-litigated: this line was added, then REVERTED on 2026-08-01
+    # because injecting a real model made the script RAISE instead of seeding — `score_outlier`
+    # returned a float-bearing `OutlierResult` and CANON-SER refuses float (barrier #5). It is
+    # restored here only because `score_outlier` now returns the Decimal projection, which U24 can
+    # actually serialize. The ordering above and the loud failure below are unchanged.
+    outlier_model = build_outlier_model()
+
     # ⚑ TWO INDEPENDENT GATES (Q4): the --real-llm flag here, AND ALLOW_REAL_LLM_CALLS=true
     # checked inside build_gemini_client. The offline default touches neither.
     if args.real_llm:
@@ -321,14 +416,19 @@ def main(argv: list[str] | None = None) -> int:
             get_settings(), model_id=REAL_MODEL_ID, max_calls=args.max_llm_calls
         )
         model_version = f"{REAL_MODEL_ID}+google-genai-{_google_genai_version()}"
-        seams = _SeedSeams(real_client, model=REAL_MODEL_ID, model_version=model_version)
+        seams = _SeedSeams(
+            real_client,
+            model=REAL_MODEL_ID,
+            model_version=model_version,
+            outlier_model=outlier_model,
+        )
         print("=" * 78)
         print("DEMO SEED — ⚠️  REAL LLM CALLS — THIS WILL SPEND MONEY")
         print(f"            model={REAL_MODEL_ID!r}  call cap={args.max_llm_calls}  stamp={model_version!r}")
         print("=" * 78)
     else:
         real_client = None
-        seams = _SeedSeams()
+        seams = _SeedSeams(outlier_model=outlier_model)
         print("=" * 78)
         print("DEMO SEED — ⚠️  MEMOS ARE SYNTHETIC PLACEHOLDERS, NOT REAL LLM OUTPUT")
         print(f"            every memo is stamped model_version={OFFLINE_MODEL_VERSION!r}")

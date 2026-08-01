@@ -7,9 +7,25 @@ error mapping.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from backend.app.tests.conftest import ADMIN, AUDITOR, UNDERWRITER
+from backend.app.tests.factories import (
+    InMemoryCaseStore,
+    make_case,
+    make_pending_recommendation,
+)
+from backend.app.outlier_canonical import quantize_outlier
+from backend.audit_store.canon_adapter import CanonSerAdapter
+from backend.case_lifecycle.states import CaseState
+from backend.outlier_model.schemas import (
+    FlagDirection,
+    FlaggedFeature,
+    OutlierProvenance,
+    OutlierResult,
+)
 
 
 class TestR2ApplicationSummary:
@@ -161,6 +177,123 @@ class TestR4MemoView:
         second = wired_client.get("/applications/APP-2/memo", headers=UNDERWRITER).json()
         assert first == second
         assert second["status"] == "pending", "a read must never advance the case to drafted"
+
+
+# ---------------------------------------------------------------------------
+# Phase-2-OUT (register #17 / Q2(a) / Q8(a)) — R4 serves STORED outlier data
+#
+# ⚑ This class brings its OWN `case_store`, overriding the module-wide fixture for these tests
+# only. Deliberate: adding an outlier-bearing case to the shared fixture would change the row
+# count every R2 pagination assertion depends on. The scope of the change stays where the change
+# is.
+#
+# ⚑ NOT a WIRE-1 amendment. WIRE1-Fold-4 binds `outlier` null "in Phase 1" and provides for it
+# being "populated only for a Phase-2 `ready` view" — populating it is contract-COMPLIANT. The
+# test above (`test_outlier_is_null_even_on_a_ready_view`) still passes BYTE-UNCHANGED, because
+# its fixture stores no outlier: it pins "null when nothing was scored", which remains true.
+# ---------------------------------------------------------------------------
+def _stored_outlier() -> bytes:
+    """An `OutlierResult` in exactly the CANON-SER bytes U24's pipeline persists.
+
+    ⚑ Quantized first (barrier #5, plan §4.1): `canonical_bytes` refuses IEEE float, so what is
+    actually on disk for any scored case is the Decimal projection. This helper therefore builds
+    the bytes the SAME way `CasePipeline.draft()` does — if it shortcut the projection, these
+    tests would pass against data the system can never actually produce.
+    """
+    result = OutlierResult(
+        outlier_score=0.667071302659,
+        is_outlier=True,
+        flagged_features=[
+            FlaggedFeature(
+                feature="dti_ratio",
+                z_score=3.4,
+                shap_value=-0.021,
+                direction=FlagDirection.HIGH,
+            )
+        ],
+        provenance=OutlierProvenance(
+            corpus_version="1.0.0", seed=42, outlier_model_version="outlier-model/1.0.0+test"
+        ),
+    )
+    return CanonSerAdapter.canonical_bytes(quantize_outlier(result))
+
+
+class TestR4ServesStoredOutlierData:
+    @pytest.fixture
+    def case_store(self):
+        """APP-1: drafted WITH stored outlier. APP-3: drafted with NONE stored (the never-scored
+        path that every case in this system had until this pass)."""
+        scored = replace(
+            make_pending_recommendation("REC-1", "APP-1"),
+            outlier_canonical=_stored_outlier(),
+        )
+        return InMemoryCaseStore().seed(
+            make_case("APP-1", state=CaseState.DRAFTED),
+            scored,
+            make_case("APP-3", state=CaseState.DRAFTED),
+            make_pending_recommendation("REC-3", "APP-3"),
+        )
+
+    def test_a_ready_view_emits_the_stored_outlier_result(self, wired_client):
+        """T5 — the field WIRE1-Fold-4 added on 2026-07-17 finally carries data.
+
+        ⚑ Q8(a): the deserialization happens in the composition root, importing the schema BY
+        VALUE from U18 — which is WIRE-1's own framing of how `OutlierResult` travels. No frozen
+        unit is reopened to do it.
+        """
+        body = wired_client.get("/applications/APP-1/memo", headers=UNDERWRITER).json()
+
+        outlier = body["outlier"]
+        assert outlier is not None, "a ready view with stored outlier data must emit it"
+        assert outlier["outlier_score"] == 0.667071302659
+        assert outlier["is_outlier"] is True
+
+    def test_the_flags_arrive_explained_with_shap_and_direction(self, wired_client):
+        """EXPLAIN-1 over the wire: a flag cannot exist without its SHAP value, so if flags
+        cross the wire at all they cross explained."""
+        outlier = wired_client.get("/applications/APP-1/memo", headers=UNDERWRITER).json()["outlier"]
+
+        flag = outlier["flagged_features"][0]
+        assert flag["feature"] == "dti_ratio"
+        assert flag["shap_value"] == -0.021
+        assert flag["z_score"] == 3.4
+        assert flag["direction"] == "high"          # by value, never re-cased (WIRE-1 §1)
+
+    def test_the_provenance_triple_survives_the_round_trip(self, wired_client):
+        """PROV-1: without all three the score is un-replayable, and reproducibility is an
+        acceptance criterion — so the triple must reach the client, not stop at the database."""
+        outlier = wired_client.get("/applications/APP-1/memo", headers=UNDERWRITER).json()["outlier"]
+
+        assert outlier["provenance"] == {
+            "corpus_version": "1.0.0",
+            "seed": 42,
+            "outlier_model_version": "outlier-model/1.0.0+test",
+        }
+
+    def test_the_advisory_only_shape_carries_no_verdict(self, wired_client):
+        """BR-OUT-9 on the wire: an outlier payload must never look like a decision. If a verdict
+        field ever appeared here the UI could render a machine recommendation as an outcome."""
+        outlier = wired_client.get("/applications/APP-1/memo", headers=UNDERWRITER).json()["outlier"]
+
+        assert set(outlier) == {"outlier_score", "is_outlier", "flagged_features", "provenance"}
+        assert "recommendation" not in outlier
+        assert "decision" not in outlier
+
+    def test_a_ready_view_with_nothing_scored_still_emits_null(self, wired_client):
+        """T6 — the never-scored path must survive.
+
+        ⚑ Non-vacuity demonstrated by EXECUTION, not asserted: with the projection's
+        `outlier_canonical is not None` guard temporarily removed, this test FAILS. Before step 10
+        it passed trivially (the field was hardcoded null), which is exactly the vacuity the
+        plan's stop-gate 1 names — so it was shown red the same way T1 was.
+
+        This is the path EVERY case in this system was on until this pass, and the path every
+        case seeded before it is still on.
+        """
+        body = wired_client.get("/applications/APP-3/memo", headers=UNDERWRITER).json()
+
+        assert body["status"] == "ready"
+        assert body["outlier"] is None
 
 
 class TestR5Commit:
