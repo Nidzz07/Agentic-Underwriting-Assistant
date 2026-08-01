@@ -322,3 +322,56 @@ def test_a_scored_case_drafts_and_persists_its_outlier_end_to_end():
     assert isinstance(restored.outlier_score, float)
     # the tier-U fixture manifest's seed, single-sourced — NOT the committed corpus's 42
     assert restored.provenance.seed == 4242
+
+
+# ---------------------------------------------------------------------------
+# RE-SEEDING (register #27) — running the script twice must not duplicate data
+# ---------------------------------------------------------------------------
+def test_re_seeding_does_not_create_a_second_recommendation():
+    """S2 — the property the whole remediation exists for, at the seed script's own level.
+
+    Before the fix, each re-run reset the case to `evaluated` and inserted ANOTHER
+    `pending_recommendation` row, unbounded, with nothing to order them by.
+    """
+    store = InMemoryCaseStore()
+    profile = sd._demo_profile(1)
+
+    # ⚑ FRESH seams per iteration, because each real seed run is a FRESH PROCESS. Reusing one
+    # `_SeedSeams` across drafts trips the orchestrator's own CON-BR2-STATE channel guard, which
+    # would make this test fail for a reason that has nothing to do with duplicate rows.
+    for _ in range(3):
+        pipeline = CasePipeline(store, sd._SeedSeams(), sd._recommendation_id_factory)
+        pipeline.submit(profile.application_id, profile)
+        pipeline.draft(profile.application_id)
+
+    recommendations = [
+        rec for rec in store._recommendations.values()
+        if rec.application_id == profile.application_id
+    ]
+    assert len(recommendations) == 1, (
+        f"re-seeding created {len(recommendations)} recommendations, expected 1"
+    )
+    assert store.get_application(profile.application_id).state is CaseState.DRAFTED
+
+
+def test_seed_reports_a_skipped_case_distinctly_from_a_failure(capsys):
+    """S1 — the operator must be able to tell a benign skip from a real drafting failure.
+
+    ⛔ Without the discriminator this prints `FAILED (…)` for every already-drafted case on every
+    routine re-run — training the operator to ignore FAILED lines, which is precisely how
+    register #18's citation defect (every case silently FAILED) stayed invisible for so long.
+    """
+    engine = object()
+    seams = sd._SeedSeams()
+    store = InMemoryCaseStore()
+    pipeline = CasePipeline(store, seams, sd._recommendation_id_factory)
+    profile = sd._demo_profile(1)
+    pipeline.submit(profile.application_id, profile)
+    pipeline.draft(profile.application_id)
+
+    outcome = pipeline.draft(profile.application_id)
+    sd._report_case(profile.application_id, outcome)
+
+    printed = capsys.readouterr().out
+    assert "skipped" in printed.lower(), f"a benign skip must say so: {printed!r}"
+    assert "FAILED" not in printed, f"a skip must NOT be reported as a failure: {printed!r}"

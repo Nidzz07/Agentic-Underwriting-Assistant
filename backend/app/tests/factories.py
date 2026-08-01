@@ -211,10 +211,18 @@ class InMemoryCaseStore:
         return self._recommendations.get(recommendation_id)
 
     def recommendation_for_application(self, application_id: str) -> Optional[PendingRecommendation]:
-        for rec in self._recommendations.values():
-            if rec.application_id == application_id:
-                return rec
-        return None
+        """⚑ Mirrors the shim's ``ORDER BY recommendation_id LIMIT 1`` (register #27, change (e)).
+
+        Same correction as U24's own fake: returning the **first inserted** match made this double
+        deterministic where Postgres is not, so it masked the defect rather than exposing it.
+        """
+        matches = [
+            rec for rec in self._recommendations.values()
+            if rec.application_id == application_id
+        ]
+        if not matches:
+            return None
+        return min(matches, key=lambda rec: rec.recommendation_id)
 
     def list_application_ids(self) -> list[str]:
         return sorted(self._applications)

@@ -122,6 +122,40 @@ def test_the_scalar_stamps_round_trip(case_engine):
     assert store.recommendation_for_application("case-persist-2").recommendation_id == "rec-persist-2"
 
 
+def test_duplicate_recommendations_resolve_to_a_stable_row(case_engine):
+    """LOOKUP-1 tier-I (register #27) — the half a fake CANNOT prove.
+
+    ⛔ The in-memory doubles iterate an insertion-ordered dict, so they are **deterministic where
+    Postgres is not**: they always return the first inserted. Only a real database can show that
+    an unordered ``SELECT`` leaves row choice to the planner. That masking is why this defect
+    reached production unseen, and it is why this test is tier-I.
+
+    ⚠️ It proves **stability**, not correctness-of-choice: ``recommendation_id`` carries a random
+    uuid suffix, so ``ORDER BY`` buys a *repeatable* row, not the *newest* one.
+    """
+    store = PostgresCaseStore(case_engine)
+    with store.atomic():
+        store.put_application(fx.make_application("case-dupe-1", CaseState.DRAFTED))
+        for suffix in ("zzz", "aaa", "mmm"):
+            store.put_recommendation(
+                PendingRecommendation(
+                    recommendation_id=f"rec-dupe-{suffix}",
+                    application_id="case-dupe-1",
+                    memo_canonical=b"{}",
+                    memo_hash="mh",
+                    model_version="mv",
+                    engine_version="eng-1",
+                    rulebook_version="rb-1",
+                )
+            )
+
+    seen = {store.recommendation_for_application("case-dupe-1").recommendation_id for _ in range(5)}
+
+    assert len(seen) == 1, f"the lookup returned different rows across reads: {seen}"
+    # deterministic AND predictable from the ordering key, not merely repeatable by luck
+    assert seen == {"rec-dupe-aaa"}
+
+
 def test_a_failed_transaction_writes_nothing(case_engine):
     """The real driver's both-or-neither, matching the tier-U fake's behaviour."""
     store = PostgresCaseStore(case_engine)

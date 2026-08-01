@@ -1369,7 +1369,26 @@ accumulated across sessions.
 
 ⚑ **Opened only — NOT fixed.** The fix requires reopening frozen `case_lifecycle` (U24) and is withheld.
 
-## #27 `DUPLICATE-PENDING-RECOMMENDATION-ROWS` — **NEW, OPEN**
+## #27 `DUPLICATE-PENDING-RECOMMENDATION-ROWS` — ~~**NEW, OPEN**~~ → ✅ **CLOSED 2026-08-01 ON LIVE EVIDENCE**
+
+> ⚑ **Status superseded in place** (original: *"NEW, OPEN"*). Fixed by **U24's FOURTH authorized reopening**
+> (`register-27-reopening-authorization.md`, approved 2026-08-01) and **verified against a real local PostgreSQL**
+> by the user — see `audit.md` 2026-08-01T16:54:50Z. **Both** of the two defects below are addressed:
+>
+> * **(i) the unordered lookup** → `_recommendation_row` now issues `ORDER BY recommendation_id LIMIT 1`
+>   (change (d)). ⚠️ **This buys DETERMINISM, NOT CHRONOLOGY** — `recommendation_id` carries a random uuid
+>   suffix, so it returns a *stable* row, **not** the *newest*. Selecting a genuine "current" row would need a
+>   timestamp/sequence column, i.e. a migration, deliberately out of scope. **No claim is made that the "right"
+>   row is chosen — only that the same row is chosen every time.**
+> * **(ii) the unbounded accumulation** → `submit()` now returns a case unchanged once it has progressed beyond
+>   `evaluated` (change (a)), so `draft()`'s guard fires and no second row is inserted.
+>
+> **Live evidence (user-run, real Postgres)**: reset → **seeded three times in sequence** → runs 2–3 reported
+> **`skipped (already drafted)`**, no `FAILED` and no crash → **exactly 1 recommendation row per application** →
+> R4 served the single unambiguous recommendation (`REC-DEMO-0001-101871ca`) with full outlier data attached.
+>
+> ⛔ **NOT claimed**: existing duplicate rows in any deployed database are **not** cleaned up by this fix — that
+> remains an operator action. And the general weakness behind #28 (below) is **not** closed.
 
 | | |
 |---|---|
@@ -1397,5 +1416,85 @@ recommendation_id instead" is not available as a workaround.
 **Therefore**: reset the database, re-run migrations, and **seed exactly once** before any wire verification. Each
 application then holds exactly one recommendation and the unordered lookup is unambiguous. Keep `psql` as the
 authority on what was persisted; treat `curl` as the wire check **only** on a single-seed database.
+
+---
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-08-01 · item #28 OPENED (a PRE-EXISTING defect, split from #27 per the remediation plan's Q2(a))
+
+**Opened by**: the register #27 scoping investigation. While tracing #27's duplicate rows to their cause, the same
+unguarded upsert was found to permit a **strictly more serious** defect that #27's text does not describe. Q2(a)
+directed it be **split rather than folded**, because it is a different character of defect: an **illegal write to a
+terminal case's state**, not a read-resolution ambiguity.
+
+## #28 `TERMINAL-STATE-RESURRECTION` — **NEW, ✅ CLOSED 2026-08-01 ON LIVE EVIDENCE** (closure condition satisfied — see below)
+
+| | |
+|---|---|
+| **What it is** | ⛔ **A terminal `COMMITTED` case was silently reset to `EVALUATED` by an ordinary re-submission**, and thereby became re-draftable **after it had already been committed to the audit trail**. `CasePipeline.submit()` built a fresh `PendingApplication` at `EVALUATED` and handed it to `put_application`, whose upsert `set_` includes `state` — so re-submitting **overwrote whatever state the row had reached**, with no transition check of any kind. |
+| **Measured, not inferred** | Executed against the real pipeline 2026-08-01: `state before re-submit: COMMITTED` · `is terminal: True` · **`state AFTER re-submit: EVALUATED`**. |
+| **Why it is more severe than #27** | #27 is a **read**-side ambiguity — the wrong row is served, but nothing incorrect is written. #28 is a **write**-side state-machine breach: a case the machine calls **terminal** is moved out of that state, and a decision already recorded in `audit_record` can be superseded by a fresh draft. ⚑ Reachability differs too: #27 needs duplicate rows to manifest; **#28 needs only one re-submission of any committed case.** |
+| ⚑ **The general weakness behind it** | **`TERMINAL_STATES` (`states.py:94`) is referenced ONLY by tests about itself** — `test_states.py` and `test_failed.py`. **No production code path consults it.** `put_application` applies no transition guard, and `submit()`'s two `assert_legal` calls are **static** (constant-to-constant assertions about the transition table), never about the current row's state. |
+| **Same root cause as #27** | Both follow from the unguarded state-writing upsert. One fix (`submit()`'s guard) closes both — which is exactly why splitting them was necessary: a single closed item would have hidden the more serious half inside the less serious one's framing. |
+| **Fix** | **U24's FOURTH authorized reopening**, change **(a)**: `submit()` now reads the existing application first and, if it has **progressed beyond `evaluated`**, returns it **unchanged**. ⚑ The guard is in `submit()` and **not** in `put_application`, which must remain state-writing for `draft()`'s `evaluated -> drafted`, `_transition`'s `evaluated -> failed`, and register #19's CAS inside both test doubles. |
+| ⛔ **What the fix does NOT close** | **The general hole stays open.** Change (a) closes the **one reachable path** (`submit()`); it does **not** make `TERMINAL_STATES` enforced, and `put_application` remains capable of writing any state to any row. A future caller could reintroduce the same class of defect. **No claim is made otherwise.** |
+| **Owner** | `case_lifecycle` (U24) |
+| **Blocking?** | **Was non-blocking in practice** (no operator had knowingly re-seeded a committed case), but **audit-integrity in character** — which is why it was split out and classified above #27 rather than folded into it. |
+
+### Closure — ✅ **CONDITION SATISFIED 2026-08-01. CLOSED ON LIVE EVIDENCE.**
+
+**Closed in the same pass that opened it**, which is permissible **only** because both the fix and its live
+verification land here: tier-U proof is `case_lifecycle/tests/test_resubmit.py::test_submitting_a_committed_application_does_not_resurrect_it`
+(observed RED first — `EVALUATED is not COMMITTED` — then green), and the live proof is the manual verification
+step 5 against real Postgres.
+
+⛔ **The stated condition was: "If the live verification is not run, #28 REMAINS OPEN."** ✅ **It was run**
+(user-run, real local PostgreSQL, ~16:49–16:54; see `audit.md` 2026-08-01T16:54:50Z), and it passed:
+
+> DEMO-0001 was **committed via R5 (200 OK)**, then the seed script was re-run. It reported
+> **`skipped (already committed; not re-drafted)`** — ⚑ naming the **committed** terminal reason specifically,
+> distinct from DEMO-0002's ordinary drafted-skip — and **`psql` confirmed `state=committed`, unchanged.**
+> **Before this fix that exact sequence silently reset the application to `evaluated`, making an
+> already-committed case re-draftable.**
+
+Register **#19 re-confirmed in the same run**: a repeat commit on the same recommendation returned **409
+`commit_conflict`** — not a duplicate, not a crash — so the CAS claim is unaffected by this change.
+
+⛔ **STILL NOT CLOSED — the general hole. NOW TRACKED AS ITS OWN ITEM: #29 `TERMINAL-STATE-UNENFORCED`.**
+`TERMINAL_STATES` remains consulted by **no production code path**, and `put_application` remains capable of
+writing any state to any row. Change (a) closed the **one reachable path** (`submit()`), **not the underlying
+capability**. A future caller could reintroduce the same class of defect, and **nothing mechanical would catch
+it**. ⚑ Promoted out of this closure text into **#29** so it stays independently triageable rather than being
+read as resolved alongside #28 — **#28 is the demonstration; #29 is the capability.**
+
+---
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-08-01 · item #29 OPENED (a RECORDED RESIDUAL of the #27/#28 fix, not a new discovery)
+
+**Opened by**: the register #27/#28 remediation pass, at its close. ⚑ **This is not a newly-found defect.** It is
+the **general capability** that made **#28** possible, deliberately promoted out of #28's closure text into its own
+item so it stays independently triageable rather than being read as resolved alongside the specific path that was
+fixed.
+
+## #29 `TERMINAL-STATE-UNENFORCED` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | ⛔ **Nothing in production enforces the state machine's terminal states.** `TERMINAL_STATES` (`states.py:94`) is declared — `frozenset({COMMITTED, FAILED})`, documented as *"Terminal states — no transition leaves them"* — but it is referenced **only by tests about itself** (`test_states.py`, `test_failed.py`). **No production code path consults it anywhere in the build.** |
+| **The capability that follows** | `PostgresCaseStore.put_application` is an `INSERT … ON CONFLICT DO UPDATE` whose `set_` includes `state`, and it applies **no transition guard of any kind**. It can therefore **write any state to any row**, including moving a row *out of* a terminal state, with no error and no trace. |
+| ⚑ **Why the guards that exist do not cover it** | `CasePipeline.submit()`'s two `assert_legal` calls are **static** — constant-to-constant assertions about the transition *table*, never about the *current row's* state. `draft()` and `_transition()` do check the live state, but they are callers; **the store primitive they all write through checks nothing.** |
+| **Cross-reference — #28 is the demonstration** | **#28 `TERMINAL-STATE-RESURRECTION`** is the one *reachable* exploitation of this capability that was found and fixed: `submit()` reset a terminal `COMMITTED` case to `EVALUATED`, making a case already written to the audit trail re-draftable. ⚑ **#28's fix (change (a)) closed that one path by guarding `submit()`. It did NOT remove the underlying capability** — `put_application` is unchanged and can still do exactly the same thing for any future caller. |
+| ⚑ **Why `put_application` was deliberately NOT changed** | It is the **sole state-writing primitive** for `draft()`'s `evaluated -> drafted`, `_transition()`'s `evaluated -> failed`, **and register #19's compare-and-swap inside both in-memory test doubles**. Making it refuse or validate transitions would have broken all three, and the doubles' breakage would have been **invisible at tier-I** (the real `_swap_state` issues its own `UPDATE` and does not route through `put_application`). Guarding the one caller was the correct minimal fix; **closing the general hole is a larger, separate decision.** |
+| **What would be needed to close it** | Candidates, none chosen: **(1)** a transition guard inside `put_application` — must exempt or re-route register #19's CAS, and would move state-machine knowledge into the SQL shim, which its own docstring says *"only executes SQL"*; **(2)** split the primitive into a state-writing and a non-state-writing form, widening the change to `store.py`'s Protocol, `repository.py` and both doubles; **(3)** a database-level constraint or trigger — a migration, and therefore an entanglement with register **#26**. ⛔ **All three touch frozen `case_lifecycle` and require their own authorized reopening** (this pass's was U24's fourth). |
+| **Detectability** | ⚠️ **None.** `case_lifecycle` is absent from `test_frozen_untouched.py`'s `FROZEN_UNITS`, and no test asserts anything about terminal-state enforcement in production code. A future caller reintroducing #28's defect **would not be caught by any mechanical guard** — only by review. |
+| **Owner** | `case_lifecycle` (U24) — a fifth authorized reopening, if taken up |
+| **Blocking?** | **Non-blocking, but real.** ⚑ **No other reachable path is currently known to exploit it**: `submit()` was the only caller that wrote a state without checking the live row, and it is now guarded. This is a **latent capability**, not an active defect — recorded so that it is triaged deliberately if a new caller ever writes through `put_application`, rather than rediscovered the way #28 was. |
+
+⚑ **Recorded rather than fixed, deliberately.** The #27/#28 pass was authorized for exactly four frozen files and
+six named changes; closing this would have exceeded that scope. Promoting it to its own item is the alternative to
+either silently widening an approved reopening or letting the residual disappear inside a closed item's text.
 
 ---

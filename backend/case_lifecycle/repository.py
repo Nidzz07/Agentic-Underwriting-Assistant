@@ -143,9 +143,31 @@ class PostgresCaseStore:
         )
 
     def _recommendation_row(self, clause):
+        """One recommendation row, chosen DETERMINISTICALLY (register #27, change (d)).
+
+        ⛔ This previously issued ``SELECT … WHERE …`` with **no ``ORDER BY`` and no ``LIMIT``**
+        and took ``.first()`` in Python. For ``recommendation_for_application`` the ``WHERE`` is
+        over ``application_id``, which has **no uniqueness guarantee** (a non-unique index only;
+        the PK is ``recommendation_id``) — so with more than one row **the row served was
+        undefined by SQL semantics**. The oldest-row behaviour seen in production was an artifact
+        of a seq scan over an insert-only table, and a different plan would have changed it
+        silently.
+
+        ⚠️ ``ORDER BY recommendation_id`` buys **determinism, not chronology** — the id carries a
+        random uuid suffix, so this returns a *stable* row, not the *newest*. Selecting a genuine
+        "current" row would need a timestamp or sequence column, i.e. a migration, deliberately
+        out of scope. ``submit()``'s guard is what stops new duplicates arising at all; this makes
+        pre-existing duplicates behave predictably.
+
+        Harmless for ``get_recommendation``, whose clause is on the primary key and matches at
+        most one row either way.
+        """
         with self._engine.connect() as conn:
             return conn.execute(
-                sa.select(pending_recommendation).where(clause)
+                sa.select(pending_recommendation)
+                .where(clause)
+                .order_by(pending_recommendation.c.recommendation_id)
+                .limit(1)
             ).mappings().first()
 
     @staticmethod

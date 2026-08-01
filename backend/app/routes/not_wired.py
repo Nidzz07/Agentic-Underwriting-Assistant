@@ -173,9 +173,17 @@ def get_application_memo(
 
     report = _load_report(case) if status == "ready" else None
     memo = (
-        # U24's OWN thin adapter (its third authorized reopening, Q14-A) — the frozen
+        # U24's OWN thin adapter (its SECOND authorized reopening, Q14-A) — the frozen
         # CanonSerAdapter rehydrates only ApplicantProfile/RuleResultReport, and putting a
         # canon_deserialize call here would move U24's domain knowledge into the composition root.
+        #
+        # ⚑ SUPERSEDED, preserved: this read "its THIRD authorized reopening". Off by one.
+        # BUILD-COMPLETION-REPORT.md:198 and :303 are the authoritative record — the Scope B
+        # wiring pass required TWO reopenings (`list_application_ids()` and this adapter,
+        # `memo_from_canonical()`), making register #19's two-step commit claim the THIRD.
+        # (Register #27/#28's fix is the fourth.) Corrected as an ordinary non-frozen edit:
+        # this file is the composition root, NOT part of `case_lifecycle`, so it needed no
+        # reopening authority. Numbering only — no behaviour, and no other claim, changes.
         MemoCanonAdapter.memo_from_canonical(recommendation.memo_canonical)
         if (status == "ready" and recommendation is not None)
         else None

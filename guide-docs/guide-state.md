@@ -6625,3 +6625,147 @@ a new gap.
 `common/`, …) · **no WIRE-1** (`api-contract.md` untouched — §1.3's reading held: Phase-2 population is
 contract-COMPLIANT, no amendment was needed) · **no frontend file** · coverage threshold **unedited** at 99.63% ·
 skips/errors **unmoved** at 43/5 · **NO COMMIT**.
+
+---
+
+## ✅ REGISTER #27 + #28 — **COMPLETE**. U24's FOURTH AUTHORIZED REOPENING · BOTH ITEMS CLOSED ON REAL POSTGRES · **NO COMMIT** (2026-08-01T16:54:50Z)
+
+**Duplicate `pending_recommendation` rows can no longer accumulate, and a terminal `committed` case can no longer
+be silently resurrected.** Backend **1649 / 0 / 44 / 5 / 99.63%**, EXIT 0. Frontend **723 / 147**, untouched.
+**NO COMMIT** — the full diff is the user's to review.
+
+### How this pass came about
+
+⚑ **#27 was discovered by the outlier pass's Step 13 verification, not by a test.** `psql` showed outlier data
+correctly persisted, but `curl` returned `outlier: null` and a **different, older** `recommendation_id`. The
+investigation that followed found a defect that had been latent since U24 shipped — and a second, more serious one
+that #27's own text did not describe.
+
+### The three findings
+
+| | |
+|---|---|
+| **(i) Unordered lookup** | `_recommendation_row` issued `SELECT … WHERE application_id = ?` with **no `ORDER BY`, no `LIMIT`**, then `.first()` in Python. `application_id` has **no uniqueness guarantee** — a non-unique index only; the PK is `recommendation_id`. **The row served was undefined by SQL semantics** — not "earliest by PK", as first hypothesised. |
+| **(ii) Unbounded accumulation** | `put_recommendation` is a plain `INSERT` while its partner `put_application` is an upsert whose `set_` **includes `state`**. Re-submitting reset `DRAFTED → EVALUATED`, which re-legalized drafting, so `draft()`'s guard never fired and a new row landed on every re-seed. **One half of the same atomic block was re-run-safe and the other was not.** |
+| **(iii) ⛔ Terminal-state resurrection** | The same unguarded upsert reset a **terminal `COMMITTED`** case to `EVALUATED`, making a case already written to the audit trail **re-draftable**. Measured: `COMMITTED` → re-submit → `EVALUATED`. **Split out as register #28** and classified above #27 — a **write-side state-machine breach**, not a read-side ambiguity. |
+
+⚑ **Why no test ever caught any of it**: both in-memory doubles resolved `recommendation_for_application` by
+iterating an **insertion-ordered dict**, so they were **deterministic where Postgres is not** and always returned
+the first inserted. `fixtures.py` claimed *"PERSIST-1 is what keeps this fake and `PostgresCaseStore` honest about
+agreeing"* — **for that method the claim was false.** A fake that cannot express a failure cannot catch it.
+
+### The discipline this pass followed
+
+**Three separate approval gates, in sequence** — the shape #19's fix established:
+
+1. **`register-27-remediation-plan.md`** — the design. Q1–Q6 answered, then the mandatory ambiguity-check came back
+   **⛔ NOT CLEAN** and surfaced **Q7/Q8**; answered, re-run, **CLEAN**.
+2. **`register-27-reopening-authorization.md`** — a **standalone** artifact naming **exactly** four frozen files and
+   six changes, with an explicit not-covered list. **Deliberately not written until Q7 was answered**, because Q7
+   determined which files it would name.
+3. **`register-27-code-gen-plan.md`** — the execution plan. 23 steps, RED-before-GREEN, 12 stop-gates.
+
+⚑ **Two blocking findings came out of the ambiguity-check, both by reading actual code rather than the summary:**
+
+* **Q1(D) was NOT IMPLEMENTABLE AS WORDED.** It read as *remove `state` from `put_application`'s upsert* — but that
+  method is the **sole state-writing primitive** for `draft()`'s `evaluated → drafted`, `_transition`'s
+  `evaluated → failed`, **and register #19's CAS inside both test doubles**. The real `_swap_state` issues its own
+  `UPDATE` and is safe; **the doubles route through `put_application`**, so the change would have broken #19's claim
+  mechanism **at tier-U while tier-I stayed green**. The *intent* survived; the guard moved into `submit()` (Q7(a)).
+* **"Skip gracefully" would have printed as FAILED.** `DraftOutcome` had no channel to distinguish a benign skip
+  from a real drafting failure, so a routine re-seed would report `FAILED` on every already-drafted case — training
+  the operator to ignore exactly the line register #18's citation defect hid behind (Q8(a)).
+
+### The six authorized changes
+
+**(a)** `submit()` returns a case unchanged once it has progressed beyond `evaluated` — the root cause of **both**
+#27 and #28 · **(b)** the legality check moved to the **top** of `draft()`, using pure `is_legal` and returning a
+`DraftOutcome` instead of raising · **(c)** `DraftOutcome.skipped`, additive with a default · **(d)**
+`ORDER BY recommendation_id LIMIT 1` on `_recommendation_row` · **(e)** **both** doubles resolve by the same
+ordering key instead of first-inserted · **(f)** two new tier-U files plus one tier-I test.
+
+⚑ **(b)'s guard was DEAD CODE until (a) landed.** `assert_legal(state, DRAFTED)` could never fire, because
+`submit()` had always already reset the state. (a) made it reachable **for the first time** — which is why moving it
+above `draft_memo` was load-bearing rather than cosmetic: below it, a refused re-seed would have paid the full
+LLM-bearing drafting cost (real money under `--real-llm`) and *then* thrown.
+
+### Execution — 10 RED observations, seven natural and three provoked
+
+**Natural**: A1 `EVALUATED is not DRAFTED` · **A2 `EVALUATED is not COMMITTED` — #28 reproducing inside a test** ·
+B1/B2 `IllegalTransition: 'drafted' -> 'drafted'` · C1/C2 `no attribute 'skipped'` · D1 (the defective SQL printed
+in full) · E1 `'rec-dupe-zzz' == 'rec-dupe-aaa'` · S1 `no attribute '_report_case'`.
+
+**Provoked** (temporarily invert the implementing change, observe on screen, restore — the override pass's
+precedent): **A3** (guard made unconditional) · **A4** (guard widened to refuse `EVALUATED`, failing precisely on
+`assert 'evaluate' in []`) · **S2**, green on arrival because change (a) had already landed at step 6 — an ordering
+artifact of the plan, disclosed and then proven.
+
+⚑ **S2 was REWRITTEN mid-pass for fidelity.** Its first RED came back as `CON-BR2-STATE` — the orchestrator's own
+channel guard — because the test reused one `_SeedSeams` across three drafts, while **each real seed run is a fresh
+process**. It was measuring the wrong thing. Rebuilt with fresh seams per iteration, it failed on its actual
+subject: **`re-seeding created 3 recommendations, expected 1`**.
+
+### ⚠️ Prediction: +1 miss, disclosed where it arose
+
+Predicted **1648**; actual **1649**. **D1 became two tests, not one** — *that* the query is ordered and *which key*
+it orders by are separate properties, and collapsing them would leave a later change to the ordering key silently
+unasserted. **No test was trimmed or reshaped to hit the original figure** (stop-gate 3). Everything else landed
+exactly as predicted, including **D2 in the SKIP column** (43 → 44), not the error column.
+
+⚑ **The zero-existing-test-change prediction HELD** — checked after every implementing step, not just at the end.
+
+### Step 22 — live verification, user-run (reconstruction, not observation)
+
+Performed by the **user** via `psql`, `curl` and the seed CLI against a **real local PostgreSQL**, ~16:49–16:54.
+**Not observed by this agent**; values as reported.
+
+1. Reset by `DELETE` on both pending tables — ⛔ **no drop**, so `0002_grants.sql`'s un-guarded `CREATE ROLE` never
+   re-ran and the override pass's `AuditRecord a7b67ca8-…` survives.
+2. **Seeded three times**: run 1 drafted; runs 2–3 reported **`skipped (already drafted)`** — **no `FAILED`, no
+   crash**. Exactly what Q8(a)'s structural discriminator existed to buy.
+3. **Exactly one recommendation row per application** — #27's accumulation is gone.
+4. R4 served the single unambiguous `REC-DEMO-0001-101871ca` **with full outlier data attached** — the outlier
+   pass's delivery survives this change untouched.
+5. ⛔ **THE LOAD-BEARING CHECK.** DEMO-0001 **committed via R5 (200 OK)**, seed re-run → **`skipped (already
+   committed; not re-drafted)`**, and `psql` confirmed **`state=committed`, unchanged**. **Before this fix that
+   exact sequence silently reset it to `evaluated`.** ⚑ Note the message names the **specific** terminal state,
+   distinct from DEMO-0002's ordinary drafted-skip — `failure_reason` interpolates `state.value` rather than
+   emitting a generic string. Not something the plan called for; observed and kept.
+6. **Register #19 re-confirmed**: a repeat commit returned **409 `commit_conflict`** — not a duplicate, not a
+   crash. This retires the largest risk the reopening carried.
+
+### Register
+
+| Item | Status |
+|---|---|
+| **#27** `DUPLICATE-PENDING-RECOMMENDATION-ROWS` | ✅ **CLOSED on live evidence.** Accumulation stopped (a); lookup deterministic (d). ⚠️ **Deterministic ≠ chronological** — the id carries a random uuid suffix, so a *stable* row is returned, **not the newest**; a genuine "current" row needs a timestamp column, i.e. a migration, out of scope. ⛔ **Existing duplicates in a deployed database are NOT cleaned up** — operator action. |
+| **#28** `TERMINAL-STATE-RESURRECTION` | ✅ **CLOSED on live evidence.** Its stated condition — *"if the live verification is not run, #28 remains open"* — **was a real condition and it was met**, by step 22 check 5. ⛔ **The general weakness stays OPEN as a recorded residual**: `TERMINAL_STATES` is consulted by **no production code path** and `put_application` can still write any state to any row. Change (a) closed **the one reachable path**; nothing mechanical would catch a future caller reintroducing it. |
+| **#29** `TERMINAL-STATE-UNENFORCED` | ⛔ **NEWLY OPENED — a RECORDED RESIDUAL of this pass, not a new discovery.** The general capability behind #28, promoted out of #28's closure text into its own item so it stays independently triageable. `TERMINAL_STATES` is consulted by **no production code path**; `put_application` can still write **any** state to **any** row, applying no transition guard. ⚑ Change (a) closed the **one reachable path** (`submit()`), **not the capability** — and `put_application` was deliberately left alone because it is the sole state-writing primitive for `draft()`, `_transition()` **and register #19's CAS inside both doubles**. ⚠️ **Undetectable mechanically**: no test asserts terminal-state enforcement, and `case_lifecycle` is absent from `test_frozen_untouched.py`'s `FROZEN_UNITS`. **Non-blocking but real** — no other reachable path is currently known to exploit it. Closing it needs a **fifth** authorized reopening. |
+| **#2 · #3 · #8 · #17 · #18 · #26** | **Untouched.** |
+
+**Register now 29 tracked.**
+
+### ⚠️ Two scope items flagged rather than absorbed
+
+1. **`not_wired.py`'s doc fix was approved on a wrong premise** — the approval said *"while other case_lifecycle
+   files are already being touched"*, but that file is at `backend/app/routes/`, the **composition root**, and is
+   **not frozen**. It needed **no reopening authority**; §3's four-file list is unchanged by it. Corrected in the
+   authorization itself, because **a reopening's file list must never expand by inference.**
+2. **`test_persist_integration.py`** (an existing file) was modified to add D2. The **approved execution plan names
+   it explicitly at step 13**, but the **authorization's §3.3 change (f) says "new/extended tier-U tests"** and D2
+   is **tier-I**. The two approved artifacts are inconsistent; the later, more specific one named the file. **Left
+   flagged for the user rather than resolved unilaterally.**
+
+### Files — 10 changed, 5 new
+
+**Frozen (the authorized set)**: `case_lifecycle/pipeline.py` · `case_lifecycle/repository.py` ·
+`case_lifecycle/tests/fixtures.py` · `case_lifecycle/tests/test_persist_integration.py` + **new**
+`tests/test_resubmit.py`, `tests/test_recommendation_lookup.py`.
+**Non-frozen**: `app/tests/factories.py` · `scripts/seed_demo_cases.py` + its tests · `app/routes/not_wired.py` ·
+`guide-docs/` (three plan artifacts, register, audit, this file).
+
+**HOLDS — verified by `git status`**: ⛔ **`put_application` untouched** · ⛔ **neither double's `_swap_state`
+touched** · ⛔ **no `.sql`, no `checksums.json`** (no new register #26 entanglement) · ⛔ **no `DELETE` in
+application code** — `repository.py:250`'s never-deleted assumption intact, so R5's **404 stays a 404** ·
+**WIRE-1 untouched** · **frontend untouched at 723 / 147** · coverage threshold **unedited** at 99.63% ·
+**NO COMMIT**.

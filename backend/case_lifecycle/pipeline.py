@@ -33,19 +33,37 @@ from typing import Callable, Optional, Protocol
 
 from backend.audit_store.canon_adapter import CanonSerAdapter
 from backend.case_lifecycle.schemas import PendingApplication, PendingRecommendation
-from backend.case_lifecycle.states import CaseState, assert_legal
+from backend.case_lifecycle.states import CaseState, assert_legal, is_legal
 from backend.case_lifecycle.store import CaseStore
 from backend.memo_extensions.borderline_router import route_borderline
 
 
 @dataclass(frozen=True)
 class DraftOutcome:
-    """Success-with-artifacts or failure-with-reason. Q4-A."""
+    """Success-with-artifacts or failure-with-reason. Q4-A.
+
+    ⚑ **THREE outcomes, not two** (U24's fourth reopening, change (c)). ``succeeded`` splits
+    "produced a memo" from "did not", but *not producing one* has two very different meanings:
+
+      * a **real failure** — drafting ran and came back empty (citation validation gave up; the
+        shape behind register #18, where every seeded case silently FAILED), and
+      * a **benign skip** — the case was already drafted, so nothing was attempted.
+
+    ``skipped`` is a **field, not a parsed string**, deliberately. Callers print
+    ``"drafted" if succeeded else f"FAILED ({failure_reason})"``; without a discriminator a routine
+    re-seed reports **FAILED** on every already-drafted case, which trains an operator to ignore
+    FAILED lines — precisely how #18 stayed invisible. Matching on ``failure_reason``'s prose would
+    couple callers to wording; a field cannot drift.
+
+    ⚑ **Additive with a default**, so every existing construction and every existing caller is
+    unaffected.
+    """
 
     memo: Optional[object] = None
     outlier: Optional[object] = None
     thinking_mode: Optional[object] = None
     failure_reason: Optional[str] = None
+    skipped: bool = False
 
     @property
     def succeeded(self) -> bool:
@@ -77,9 +95,42 @@ class CasePipeline:
     # --- eager, atomic advance (BR-CASE-3) ---------------------------------------------
 
     def submit(self, application_id: str, raw: object) -> PendingApplication:
-        """``submitted -> profiled -> evaluated`` in ONE transaction. LLM-free throughout."""
+        """``submitted -> profiled -> evaluated`` in ONE transaction. LLM-free throughout.
+
+        ⚑ **A case that has PROGRESSED BEYOND ``evaluated`` is returned UNCHANGED** — register #27
+        and #28 (U24's fourth authorized reopening, change (a)).
+
+        ``put_application`` is an upsert whose ``set_`` includes ``state``, so this method used to
+        rewrite an existing row's state to ``evaluated`` unconditionally. Two defects followed:
+
+          * **#27** — the reset re-legalized ``(evaluated -> drafted)``, so ``draft()``'s guard
+            never fired and a **new ``pending_recommendation`` row was inserted on every re-seed**,
+            unbounded, with nothing to order them by.
+          * **#28** — a **terminal** ``committed`` case was silently reset and became re-draftable
+            **after it had already been committed to the audit trail**. Measured, not inferred.
+
+        ⚑ **The guard belongs HERE, not in ``put_application``** (remediation-plan Q7(a)). That
+        upsert is the sole state-writing primitive for ``draft()``'s ``evaluated -> drafted``, for
+        ``_transition``'s ``evaluated -> failed``, **and for register #19's CAS inside both test
+        doubles**. Making it stop writing ``state`` would break all three. ``submit()`` is the only
+        caller that is not performing a transition, so it is the only correct place to refuse.
+
+        ⚑ **An ``evaluated`` case is still refreshed**, deliberately: it has not been drafted, so
+        re-submitting is an ordinary re-evaluation (e.g. against an updated rulebook) and stays
+        useful. Only *progression* is protected.
+
+        ⚠️ **Consequence, disclosed rather than discovered:** a ``failed`` case is also returned
+        unchanged, because ``FAILED`` is in ``TERMINAL_STATES`` and resetting it would be the same
+        class of illegal write as #28. A re-seed therefore no longer retries a failed case — that
+        now requires clearing the row deliberately, which is the honest behaviour for a state the
+        machine calls terminal.
+        """
         assert_legal(CaseState.SUBMITTED, CaseState.PROFILED)
         assert_legal(CaseState.PROFILED, CaseState.EVALUATED)
+
+        existing = self._store.get_application(application_id)
+        if existing is not None and existing.state is not CaseState.EVALUATED:
+            return existing
 
         profile = self._seams.profile(raw)
         report = self._seams.evaluate(profile)
@@ -105,6 +156,25 @@ class CasePipeline:
         application = self._store.get_application(application_id)
         if application is None:
             return DraftOutcome(failure_reason="unknown application")
+
+        # ⚑ THE LEGALITY CHECK, MOVED HERE from just above the write (U24's fourth reopening,
+        # change (b)). Two reasons it belongs at the top rather than the bottom:
+        #
+        #   1. It was DEAD CODE until change (a). `submit()` always reset the state to
+        #      `evaluated` first, so `(evaluated -> drafted)` was always legal and this could
+        #      never fire. Now that `submit()` leaves a progressed case alone, a re-draft
+        #      genuinely reaches here — for the first time.
+        #   2. ⚑ Below `draft_memo` it would refuse only AFTER the LLM-bearing call had run.
+        #      Under `--real-llm` that spends money on a memo the refusal then discards.
+        #
+        # `is_legal` (pure) rather than `assert_legal`: a re-draft is a DOMAIN failure, and this
+        # method's contract is that it "never raises for a domain failure" (Q4-A) — the same
+        # shape as the unknown-application miss immediately above.
+        if not is_legal(application.state, CaseState.DRAFTED):
+            return DraftOutcome(
+                skipped=True,
+                failure_reason=f"already {application.state.value}; not re-drafted",
+            )
 
         profile = CanonSerAdapter.profile_from_canonical(application.profile_canonical)
         report = CanonSerAdapter.report_from_canonical(application.rule_results_canonical)
@@ -135,7 +205,10 @@ class CasePipeline:
             ),
         )
         # ⚑ COMMITBOUND-1(d): the drafted transition AND the recommendation share ONE atomic().
-        assert_legal(application.state, CaseState.DRAFTED)
+        # ⚑ The `assert_legal(application.state, CaseState.DRAFTED)` that stood here has MOVED to
+        # the top of this method (change (b)) — same check, same table, earlier and non-raising.
+        # It is not weakened: nothing between there and here mutates `application.state`, which is
+        # read once into a frozen dataclass.
         with self._store.atomic():
             self._store.put_application(
                 PendingApplication(

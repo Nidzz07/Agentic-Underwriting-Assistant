@@ -183,10 +183,20 @@ class InMemoryCaseStore:
     def recommendation_for_application(
         self, application_id: str
     ) -> Optional[PendingRecommendation]:
-        for rec in self._recommendations.values():
-            if rec.application_id == application_id:
-                return rec
-        return None
+        """⚑ Mirrors the shim's ``ORDER BY recommendation_id LIMIT 1`` (register #27, change (e)).
+
+        ⛔ This previously returned the **first inserted** match — iterating an insertion-ordered
+        dict — which made the fake **deterministic where Postgres was not**. It could not express
+        the defect at all, so no test could catch it, which is how #27 reached production. The
+        fake now resolves by the **same ordering key** the shim uses, so the two genuinely agree.
+        """
+        matches = [
+            rec for rec in self._recommendations.values()
+            if rec.application_id == application_id
+        ]
+        if not matches:
+            return None
+        return min(matches, key=lambda rec: rec.recommendation_id)
 
     def list_application_ids(self) -> list[str]:
         """⚑ AUTHORIZED U24 REOPENING (Q1-A). Sorted, mirroring the shim's ``ORDER BY``.

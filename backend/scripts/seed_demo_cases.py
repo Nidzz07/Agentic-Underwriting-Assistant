@@ -334,6 +334,28 @@ def _recommendation_id_factory(application_id: str) -> str:
     return f"REC-{application_id}-{uuid.uuid4().hex[:8]}"
 
 
+def _report_case(application_id: str, outcome) -> None:
+    """Print a case's drafting result as one of THREE states, not two (register #27/#28).
+
+    ⛔ This previously read ``"drafted" if outcome.succeeded else f"FAILED ({...})"``, which had no
+    way to distinguish a **benign skip** from a **real drafting failure**. Now that re-running the
+    seed correctly refuses to re-draft an already-drafted case, that two-way split would print
+    **FAILED** on every routine re-run — training an operator to ignore FAILED lines, which is
+    exactly how register #18's citation defect (every seeded case silently FAILED) stayed
+    invisible for so long.
+
+    ⚑ The distinction comes from ``DraftOutcome.skipped``, a **field, not parsed prose** — so it
+    cannot drift when a message is reworded.
+    """
+    if outcome.succeeded:
+        state = "drafted"
+    elif outcome.skipped:
+        state = f"skipped ({outcome.failure_reason})"
+    else:
+        state = f"FAILED ({outcome.failure_reason})"
+    print(f"  {application_id}: submitted -> {state}")
+
+
 def apply_all_migrations(engine: sa.Engine) -> None:
     """Apply BOTH sequences: ``database``'s (U15) then U24's (guard-first).
 
@@ -370,8 +392,7 @@ def seed(engine: sa.Engine, case_count: int, seams: _SeedSeams, draft: bool = Tr
         # Leave the LAST case at `evaluated` so R4's `pending` branch is exercisable too.
         if draft and index < case_count:
             outcome = pipeline.draft(application.application_id)
-            state = "drafted" if outcome.succeeded else f"FAILED ({outcome.failure_reason})"
-            print(f"  {application.application_id}: submitted -> {state}")
+            _report_case(application.application_id, outcome)
         else:
             print(f"  {application.application_id}: submitted -> evaluated (left pending)")
     return seeded
