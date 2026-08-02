@@ -195,6 +195,25 @@ def wired_client(audit_repository, case_store, commit_repository):
         yield test_client
 
 
+# --- R10/R11 (WIRE1-Fold-6, register #2) -------------------------------------------------
+
+@pytest.fixture
+def submission_client(audit_repository, case_store):
+    """A TestClient with the submission surface live.
+
+    ⚑ Seeded from the same ``case_store`` the R2-R5 tests use, so R11 has both a drafted case
+    (``APP-1``) and an ``evaluated`` one (``APP-2``) to act on — the two states its skip
+    discriminator has to tell apart.
+    """
+    app = create_app()
+    app.dependency_overrides[get_auth_service] = seeded_auth_service
+    app.dependency_overrides[get_user_role_repository] = lambda: InMemoryUserRoleRepository(dict(USERS))
+    app.dependency_overrides[get_audit_service] = lambda: AuditService(audit_repository)
+    app.dependency_overrides[get_case_store] = lambda: case_store
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 @pytest.fixture
 def empty_case_client(audit_repository):
     """A TestClient whose PENDING store is empty — R2's empty page, R3/R4's 404."""

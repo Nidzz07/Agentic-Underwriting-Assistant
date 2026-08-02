@@ -43,7 +43,6 @@ Run (out of band)::
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import uuid
 from datetime import date
@@ -55,19 +54,17 @@ import sqlalchemy as sa
 
 from backend.app.llm_client import build_gemini_client
 from backend.app.outlier_canonical import quantize_outlier
+from backend.app.outlier_composition import CORPUS_DIR, build_outlier_model
 from backend.audit_store.canon_adapter import CanonSerAdapter
 from backend.case_lifecycle.migrate import apply_case_migrations
 from backend.case_lifecycle.pipeline import CasePipeline
 from backend.case_lifecycle.repository import PostgresCaseStore
-from backend.corpus_generator.records import CorpusManifest
 from backend.database.migration_runner import MigrationRunner
 from backend.intake import schema as isch
 from backend.memo_agent_core.input_builder import MemoAgentInputBuilder
 from backend.memo_agent_core.orchestrator import LangGraphOrchestrator
 from backend.memo_agent_core.provider import GeminiAdapter
-from backend.outlier_model.corpus_source import CorpusSource
-from backend.outlier_model.model import FittedOutlierModel, OutlierModel
-from backend.outlier_model.shap_explainer import ShapExplainer
+from backend.outlier_model.model import FittedOutlierModel
 from backend.rules_engine.engine import RulesEngine
 from backend.rules_engine.loader import RulebookLoader
 from backend.secrets_config import get_settings
@@ -101,46 +98,17 @@ def rulebook_dir() -> str:
     return str(Path(__file__).resolve().parents[1] / "rules_engine" / "rulebook")
 
 
-#: The committed corpus the outlier model is fitted from (Q5(a)/Q6(a)). Module-level and named
-#: once so a test can point it elsewhere — mirroring ``rulebook_dir()``'s single-source shape.
-CORPUS_DIR = Path(__file__).resolve().parents[2] / "corpus"
-
-
-def build_outlier_model(corpus_dir: Path | str | None = None) -> FittedOutlierModel:
-    """Fit the outlier model from the COMMITTED corpus. Fails LOUDLY if it is absent (Q6(a)).
-
-    ⚑ **Why a missing corpus is an ERROR and not a graceful degrade.** The rejected alternative
-    (Q6(b)) was to fall back to ``outlier=None`` — which silently reproduces the exact defect this
-    wiring exists to fix, in the one script whose entire job is producing COMPLETE demo data. A
-    silent null here is indistinguishable from the Phase-1 behaviour and would be very hard to
-    notice; a named failure cannot be missed.
-
-    ⚑ **This does NOT violate BR-OUT-8 / NFR-OUT-CORPUS-1.** That invariant binds ``outlier_model``
-    itself — the unit still builds, tests and imports with no ``corpus/`` present, and its own 51
-    tier-U tests never read one. It does not bind a CALLER that chooses to supply a corpus, which
-    is exactly what ``CorpusSource.from_file`` exists for.
-
-    ⚠️ OPEN, and deliberately not answered here: whether ``corpus/`` ships to the DEPLOYED backend.
-    ``render.yaml`` neither places nor verifies it, and seeding is not part of deployment at all —
-    so nothing today depends on the answer. Carried to the deployment pass (plan §7 item 2).
-    """
-    corpus_dir = Path(corpus_dir) if corpus_dir is not None else CORPUS_DIR
-    profiles_path = corpus_dir / "profiles.json"
-    manifest_path = corpus_dir / "manifest.json"
-
-    for path in (profiles_path, manifest_path):
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"outlier corpus not found at {path} - the demo seed cannot produce complete "
-                f"data without it. The corpus is committed to this repository; if it is missing, "
-                f"restore it rather than seeding cases with a null outlier."
-            )
-
-    records = CorpusSource.from_file(profiles_path)
-    manifest = CorpusManifest.model_validate(
-        json.loads(manifest_path.read_text(encoding="utf-8"))
-    )
-    return OutlierModel.fit(CorpusSource.profiles(records), manifest, ShapExplainer())
+# ⚑ RELOCATED 2026-08-02 (WIRE1-Fold-6 stage 3): ``CORPUS_DIR`` and ``build_outlier_model``
+# now live in ``backend/app/outlier_composition.py`` and are IMPORTED above. They moved because
+# R11 needs to fit the same model from the same corpus, and ``backend/app/`` cannot import from
+# this out-of-band tree. **Moved, not duplicated** — the corpus path and the loud-failure
+# message must never drift between the seed path and the request path. Behaviour here is
+# unchanged; ``main()`` passes ``CORPUS_DIR`` explicitly so a test monkeypatching it on THIS
+# module still redirects the fit.
+#
+# ⛔ The corpus is now a HARD DEPLOYMENT DEPENDENCY — see ``outlier_composition.CORPUS_ON_RENDER``.
+# The "OPEN, and deliberately not answered here" note that stood in this file is SUPERSEDED:
+# it was answered at WIRE1-Fold-6's Q4(a) gate, because scoring is now reachable over HTTP.
 
 
 #: Matches a rule id as it appears in U4's prompt (e.g. ``DTI-CEIL-1``, ``IRDAI-EMP-SALARIED-1``).
@@ -428,7 +396,7 @@ def main(argv: list[str] | None = None) -> int:
     # returned a float-bearing `OutlierResult` and CANON-SER refuses float (barrier #5). It is
     # restored here only because `score_outlier` now returns the Decimal projection, which U24 can
     # actually serialize. The ordering above and the loud failure below are unchanged.
-    outlier_model = build_outlier_model()
+    outlier_model = build_outlier_model(CORPUS_DIR)
 
     # ⚑ TWO INDEPENDENT GATES (Q4): the --real-llm flag here, AND ALLOW_REAL_LLM_CALLS=true
     # checked inside build_gemini_client. The offline default touches neither.

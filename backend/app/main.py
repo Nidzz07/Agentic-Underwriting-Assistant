@@ -51,7 +51,7 @@ from backend.app.errors import (
     validation_error_handler,
     wire_error_handler,
 )
-from backend.app.routes import auth, decisions, not_wired, session
+from backend.app.routes import auth, decisions, not_wired, session, submission
 
 
 def create_app() -> FastAPI:
@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(session.router)     # R1
     app.include_router(decisions.router)   # R6, R7
     app.include_router(not_wired.router)   # R2-R5 (stale filename — register #13)
+    app.include_router(submission.router)  # R10, R11 (WIRE1-Fold-6)
 
     return app
 

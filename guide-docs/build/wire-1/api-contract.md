@@ -1,8 +1,9 @@
 # WIRE-1 — Frontend↔Backend API Contract
 
-**Kind**: Cross-unit **contract artifact** (NOT a per-unit-loop unit) · authored as a single lightweight contract-design pass · **Date**: 2026-07-08 · **Amended (additive)**: 2026-07-17 (WIRE1-Fold-4) · **2026-07-25 (WIRE1-Fold-5 — authentication routes)**
+**Kind**: Cross-unit **contract artifact** (NOT a per-unit-loop unit) · authored as a single lightweight contract-design pass · **Date**: 2026-07-08 · **Amended (additive)**: 2026-07-17 (WIRE1-Fold-4) · **2026-07-25 (WIRE1-Fold-5 — authentication routes)** · **2026-08-02 (WIRE1-Fold-6 — the application-submission routes)**
 **Status**: **PINNED** — the hard checkpoint before `ui-queue`'s FD (and the other four UI view units) is satisfied. **The 2026-07-17 amendment is an ADDITION to this same pin (not a new contract version replacing it)**: it adds one optional field (`MemoView.outlier`) + one by-value enum (`FlagDirection`) for outlier data; the four scope items and R1–R7 are otherwise unchanged.
 **The 2026-07-25 amendment (WIRE1-Fold-5) is likewise an ADDITION to this same pin, not a new version**: it adds **two routes** (R8 `POST /login`, R9 `POST /logout`), **one success convention** (204 no-content, §2), **one request body** (§5), and **corrects the now-false "handshake deferred" statements** (§6 + this header). ⚑ **R1–R7 remain byte-unchanged in path, method, purpose, success body and Auth** — verified row-by-row at sign-off. See **§7.2**.
+**The 2026-08-02 amendment (WIRE1-Fold-6) is likewise an ADDITION to this same pin, not a new version**: it adds **two routes** (R10 `POST /applications`, R11 `POST /applications/{application_id}/draft`) and **their request/response shapes** (§5). ⚑ **§1, §2, §4, §6 and §8 are UNTOUCHED**: no new WIRE-1 enum crosses the wire; both routes reuse §2's existing **bare resource body** success shape (no `201`, no `multipart/form-data`, no new convention); and all three failure modes are **already in §4's table** — `400 invalid_request` (whose row has named *"intake Pydantic reject"* since the 2026-07-08 pin), `401 unauthenticated`, `403 forbidden`. ⚑ **R1–R9 remain byte-unchanged in path, method, purpose, success body and Auth** — verified row-by-row at sign-off. See **§7.3**.
 **Scope**: exactly four items — **(1)** endpoint/route list · **(2)** response envelope shape · **(3)** error shape · **(4)** Role delivery to the client — plus the **frozen enum-by-value wire map** (not remapped/re-cased), grounded in the five built response shapes **plus a sixth response shape added by the 2026-07-17 additive amendment (U18 `OutlierResult`, carried on R4 — WIRE1-Fold-4; no new scope item, no new route)**.
 **Six answers (all A)**: A1 narrative markdown · A2 plain REST/JSON · A3 bare bodies + list wrapper + error envelope · A4 offset/limit pagination · A5 single error body + fixed status table · A6 `GET /session` role delivery, auth-handshake deferred *(⚑ the "deferred" half is **SUPERSEDED by WIRE1-Fold-5** — the handshake is now realized; the role-delivery half stands unchanged)*.
 
@@ -50,11 +51,19 @@ WIRE-1 transports these exact values; the client (ui-shell copy module, domain-e
 | R7 | `GET /decisions/{decision_id}` | one committed decision | **AuditRecord** | authenticated |
 | **R8** | `POST /login` | authenticate + issue a session (`authn`) | **204 No Content** + `Set-Cookie` (§2, §6) | **unauthenticated** — this route *is* the handshake |
 | **R9** | `POST /logout` | revoke the current session (`authn`) | **204 No Content** + cookie cleared | authenticated (any role) |
+| **R10** | `POST /applications` | submit a new application — intake → rules → persist at `evaluated` (`ui-submission`) | **SubmissionAccepted** (§5) | **`underwriter` only** (`RBAC_COMMIT`) |
+| **R11** | `POST /applications/{application_id}/draft` | trigger drafting for a pending case (`ui-submission`) | **DraftTriggerResult** (§5) | **`underwriter` only** (`RBAC_COMMIT`) |
 
 > ⚑ **R8/R9 added 2026-07-25 (WIRE1-Fold-5). R1–R7 above are BYTE-UNCHANGED** — path, method, purpose, success body and Auth all identical to the 2026-07-08 pin, verified row-by-row at sign-off.
 > **R8 request body**: `{ "user_id": str, "password": str }` (§5). **Failure**: a **uniform `401`** for *every* rejection — unknown user, no credential row, wrong password, **and locked-out** — because distinguishing them is a user-enumeration oracle; `400` for a malformed body. **No new error code and no `429`** is introduced (§4 unchanged).
 > **R9**: no request body; `401` if no valid session. Revocation is server-side, so a revoked session stops working **immediately** rather than at expiry.
 > ⚑ **R8 is the contract's first unauthenticated route.** This is additive: no existing row's Auth value changes, and the word *"authenticated"* in R1–R7 keeps its exact meaning — only the previously **unspecified** mechanism behind it becomes specified.
+
+> ⚑ **R10/R11 added 2026-08-02 (WIRE1-Fold-6). R1–R9 above are BYTE-UNCHANGED** — path, method, purpose, success body and Auth all identical, verified row-by-row at sign-off.
+> **Two phases, deliberately.** R10 is **LLM-free**: intake → rules → persist at `evaluated`, returning a case whose R4 `status` is **`pending`**. R11 is the **separate, explicit** trigger that drafts the memo and moves it to `ready`. ⚑ **No GET gains a write path**, so R4 stays side-effect-free and §2's advisory-only invariant is untouched: neither route creates a `CommittedDecision`, which remains R5's sole preserve.
+> **R10 request body**: `{ "form_fields": {…}, "documents": [] }` (§5). **`documents` MUST be empty under this fold** — PDF upload is a named follow-on, so no `multipart/form-data` and no `413` are introduced. **Failure**: `400 invalid_request` when intake rejects, carrying `RejectedIntake`'s `reason_category` / `field_errors` / `missing_items` in the error envelope's **existing** `detail` (§4).
+> **R11**: no request body; `404 not_found` for an unknown `application_id`. ⚑ **Re-triggering an already-drafted case is NOT an error** — `200` with `outcome: "skipped"`, mirroring `DraftOutcome.skipped`, so a repeat click is idempotent rather than a failure.
+> ⚑ **Both routes are `underwriter`-only, gated on the EXISTING `RBAC_COMMIT` rbac_action.** The vocabulary is closed inside the frozen `auth_rbac` unit, so no new permission is minted here; `RBAC_COMMIT` is precisely the underwriter-only slice of `PERMISSION_MATRIX`. ⚠️ **Recorded rather than smoothed over**: the action's value is `"commit"`, so it now gates three operations, only one of which commits. Splitting it into a distinct action is a **frozen-unit reopening**, deliberately not taken in this fold.
 
 > Commit is keyed by **`recommendation_id`** (the pending recommendation), matching `DecisionCommitService.commit(recommendation_id, underwriter_id, action, reason)`. R4's response carries the `recommendation_id` the client then commits (§5).
 
@@ -149,6 +158,50 @@ Field names/values mirror the frozen schemas; enum fields carry the §1 wire val
 
 **AuditRecord** (R7) — `audit_store.record_schema.AuditRecord`: `{ decision_id, application_id, recommendation_id, audit_tuple, applicant_profile_snapshot, committed_decision, status, supersedes_decision_id | null }`.
 
+**Submission request body** (R10 — added 2026-08-02, **WIRE1-Fold-6**):
+```json
+{
+  "form_fields": {
+    "date_of_birth": "YYYY-MM-DD",
+    "as_of_date": "YYYY-MM-DD",
+    "verifiable_income_annual": "decimal string",
+    "requested_cover_amount": "decimal string",
+    "full_name": "string",
+    "gender": "<intake Gender value>",
+    "city": "string",
+    "height_cm": "decimal string | null",
+    "weight_kg": "decimal string | null",
+    "existing_debt_obligations_annual": "decimal string | null",
+    "employment_type": "<intake EmploymentType value> | null",
+    "smoking_status": "<intake SmokingStatus value> | null",
+    "occupation": "string | null",
+    "health_flags": ["string"],
+    "free_text_fields": { "<source_ref>": "string" }
+  },
+  "documents": []
+}
+```
+- `form_fields` is passed **verbatim** to `intake.pipeline.IntakePipeline.process(form_fields, documents)`. **Its key vocabulary is `intake`'s, not WIRE-1's** — this contract pins the envelope; `intake`'s own `IntakeGate` governs which keys are required, exactly as §5's `ApplicantProfile` entry already defers (*"verbatim; intake's contract governs"*). Documented **here** rather than in §3 because §3 has **no request column** — the same placement the **R5 commit body** and the **R8 login body** already use.
+- ⛔ **Money values are decimal STRINGS, never JSON floats.** `intake`'s gate refuses a float outright (**BR-TYP-1** — *"float not permitted; use a decimal string"*), which surfaces as a `400`.
+- ⚑ **`documents` MUST be `[]` under this fold.** The key is present so the seam's shape is already correct when upload lands; a non-empty list is a `400`. **Consequence, stated here so it is not discovered later**: with no document supplied, `intake` marks all three expected documents `missing`, so **every Fold-6 submission yields `ApplicantProfile.incomplete = true`** and the rules engine routes it accordingly. That is intake's designed behaviour (*"reject only what is structurally unrecoverable; everything merely incomplete becomes a valid profile that rules-engine routes to REFER"*), **not a defect** — and it is why document upload is a named follow-on rather than an optional extra.
+- `free_text_fields` is the only free prose accepted; it passes the **sanitizer** and **PII guard** before the gate sees it.
+- **`application_id` is NOT in the body** — it is **system-assigned by `IntakeGate` on gate pass** (a `RejectedIntake` never receives one), the same shape as R5's server-derived `underwriter_id`. A client cannot choose its own application id.
+
+**SubmissionAccepted** (R10 success — added 2026-08-02, **WIRE1-Fold-6**):
+```json
+{ "application_id": "str", "status": "pending" }
+```
+- A **bare resource body** at **`200`** — §2's existing success shape, unchanged. ⚑ **No `201` convention is introduced**, deliberately: it would amend §2, and the smaller amendment is the one that can be verified byte-for-byte at sign-off.
+- `status` carries the **same `ready | pending` discriminator R4 already defines**, not a second lifecycle vocabulary. It is **`pending`** on every successful R10 — the case is persisted at `evaluated` and has no memo yet. The client then reads R2/R4 as it already does.
+
+**DraftTriggerResult** (R11 success — added 2026-08-02, **WIRE1-Fold-6**):
+```json
+{ "application_id": "str", "status": "ready | pending", "outcome": "drafted | skipped" }
+```
+- A **bare resource body** at **`200`**. `status` is again R4's discriminator; `outcome` distinguishes the two success paths, mirroring `case_lifecycle.DraftOutcome`'s own `skipped` **field** (register #27's fix) rather than parsing prose.
+- **`drafted`** → a memo was produced this call; `status` is `ready`. **`skipped`** → the case was already drafted, or already committed, so nothing was attempted; `status` reflects the case as it stands. ⚑ **Re-triggering is therefore idempotent and NOT an error** — the property `DraftOutcome.skipped` exists to express.
+- ⛔ **A genuine drafting FAILURE is NOT modelled here — a recorded limitation, not an omission.** When drafting runs and produces no memo, `case_lifecycle` moves the case to `failed`, and **`failed` has no wire representation**: `case_to_memo_view_state` maps it to `"pending"` (**register #14 `MEMOVIEW-FAILED-STATE-UNMODELLED`**, open). This fold maps a genuine drafting failure to the **existing `500 internal_error`** (§4, unchanged) and **declares only the two outcomes it can honestly express**. Adding a third status value would widen R4's discriminator and pre-empt #14's own resolution — **out of scope, and left to #14.**
+
 ---
 
 ## 6. Role delivery to the client (A6 · scope item 4)
@@ -193,6 +246,25 @@ Grounded on `commit_service.commit`/`_gate`, the built response schemas, and PRO
 **Semantics (binding)**: the **uniform 401** on R8 covers unknown-user, no-credential, wrong-password **and locked-out** alike — distinguishing them is a **user-enumeration oracle**. **No `429`** and **no new error code**: §4 is **unchanged**. Lockout, session TTL and cookie policy are **implementation** concerns, pinned in `login-signup-code-gen-plan.md`, not in this contract — WIRE-1 pins **shapes**.
 
 **Holds**: **§1**'s enum wire map **untouched** (R8 carries plain strings; a 204 has no body, so no enum crosses the wire) · **§4** status table **untouched** · **§8** untouched · the **advisory-only invariant preserved** — R8/R9 create no `CommittedDecision` and touch no underwriting state, **structurally enforced** by `test_no_non_get_route_but_the_commit_reaches_domain_state`, which forbids any route module but the commit handler from referencing the domain seams. **This is an ADDITION to the existing pin, not a new contract version.**
+
+### 7.3 WIRE1-Fold-6 — additive amendment for the application-submission routes (2026-08-02)
+
+**Trigger**: register **#2**'s standing qualifier **Q11-A** — *"the API layer is exercisable **after running a seed script**"*, explicitly **not** *"the demo path is runnable end-to-end"*. Two of Q11-A's three named gaps — **(i) no ingestion route** and **(ii) no clickable UI** — cannot be closed without a route by which an application enters the system. ⚑ **`intake` (U1) has never been wired in any reachable path**: the seed script hands `CasePipeline` a hardcoded profile and skips the unit entirely. This amendment is what makes the project's first component reachable over HTTP.
+
+**Decision — two routes in ONE fold, additively**: **§3** gains **R10** and **R11**; **§5** gains the **submission request body**, **SubmissionAccepted** and **DraftTriggerResult**; **§7** gains this record; the **header** records the amendment. **R1–R9 are byte-unchanged**, verified row-by-row.
+
+**⚑ Why R10 and R11 are ONE amendment, not two.** The two-phase flow is **incoherent with only one of them**: R10 alone creates cases nothing can draft; R11 alone has nothing to draft. **Fold-5 is the precedent** for a single amendment adding two routes (R8 + R9), likewise meaningful only as a pair.
+
+**⚑ Why the section set is SMALLER than first scoped — recorded, because Fold-5's lesson was the opposite.** Fold-5's blast radius grew twice during sign-off; here it **shrank once**, and for a reason worth writing down. **§4 was scoped as an amended section** (error mapping for rejection; a `413` for uploads) and turns out **not to need amending at all**: structured-only removes the upload and with it the `413`, and **§4's `400` row has read *"malformed request / input validation (intake Pydantic reject, bad body)"* since the original 2026-07-08 pin**, with `detail` documented as *"optional (e.g. per-field validation errors)"* — **exactly** `RejectedIntake`'s `field_errors` / `missing_items` / `reason_category`. **The contract has had a home for a rejected intake since before any ingestion route was contemplated.** The lesson generalizes Fold-5's: *an amendment's blast radius is knowable only by auditing every section — and the audit can shrink it as well as grow it.*
+
+**Semantics (binding)**:
+1. **Two phases.** R10 is **LLM-free** (intake → rules → persist at `evaluated`); R11 is the separate, explicit, LLM-bearing drafting trigger. §5's `MemoView` note stands: the contract pins the client-visible shapes; the two-phase model is how they are produced.
+2. **Advisory-only preserved.** Neither route creates a `CommittedDecision`; **R5 remains the only route by which one comes into existence**. Both new routes are non-GET, and **no GET gains a write path** — R4 stays side-effect-free.
+3. **`underwriter` only, on the existing `RBAC_COMMIT` action.** Both routes change state and consume resources; R5's row already establishes that a write gets its own role gate rather than bare authentication, and this keeps the **`auditor`** role read-only, which **SEC-4** treats as a security property. ⚠️ `RBAC_COMMIT`'s value is `"commit"` and it now gates three operations; minting a distinct action would reopen the frozen `auth_rbac` unit and is deliberately not done here.
+4. **No new error code and no new status.** 400 / 401 / 403 / 404 / 500 all already exist in §4.
+5. ⛔ **A `failed` case still has no wire representation** — register **#14** is untouched, and this fold explicitly declines to widen R4's `ready | pending` discriminator on its behalf.
+
+**Holds**: **§1** enum wire map **untouched** — and this was audited, not assumed. R10's body carries `intake`'s own enum values (`Gender`, `EmploymentType`, `SmokingStatus`) **inside the intake-governed `form_fields` object**, and §1 has **never** listed intake's enums even though **R3 has transported them since the original pin** (`ApplicantProfile` carries `demographics.gender`, `employment_type`, `smoking_status`, `documents.entries[].doc_type`/`status`). §1 lists the enums **WIRE-1 itself composes**; intake's travel under *"intake's contract governs"*. Fold-6 introduces no new class of thing, so it mints no §1 row. · **§2** conventions **untouched** (both routes reuse the bare-body 200) · **§4** status table **untouched** · **§6** role delivery **untouched** · **§8** untouched. No frozen artifact edited — intake's schema is consumed **by shape**, `DraftOutcome`'s `skipped` **by value**. **This is an ADDITION to the existing pin, not a new contract version.**
 
 ---
 

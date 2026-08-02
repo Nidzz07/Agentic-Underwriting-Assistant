@@ -64,8 +64,15 @@ _DECLARED_PATHS = {path for path, _ in ROUTE_INVENTORY}
 _DECLARED_NON_GET = sorted((path, method.upper()) for path, method in NON_GET_ALLOWLIST)
 _NON_GET_PATHS = {path for path, _ in NON_GET_ALLOWLIST}
 
-#: The ONLY route module permitted to reach underwriting state (the R5 commit handler).
-_DOMAIN_WRITE_MODULES = frozenset({"not_wired.py"})
+#: The ONLY route modules permitted to reach underwriting state.
+#:
+#: ⚑ ``submission.py`` ADDED 2026-08-02 (WIRE1-Fold-6, stage 2). Superseded text preserved:
+#: *"The ONLY route module permitted to reach underwriting state (the R5 commit handler)"* —
+#: ``frozenset({"not_wired.py"})``. R10 creates a case and R11 drafts one, so both reach domain
+#: state; **neither creates a ``CommittedDecision``**, which remains R5's sole preserve and is
+#: what the sibling assertions below still pin (``.commit(`` and the three claim methods are
+#: still callable **only** from ``not_wired.py``).
+_DOMAIN_WRITE_MODULES = frozenset({"not_wired.py", "submission.py"})
 
 #: The domain seams a non-domain-write route module must not reference. ⚑ The ``.commit(``
 #: and claim-method halves are covered by the two PRESERVED assertions further down; these
@@ -77,6 +84,20 @@ _DOMAIN_SEAMS = (
     "PostgresAuditRepository",
     "DecisionCommitService",
 )
+
+#: The pipeline seams. Referencing any of them is permitted ONLY in ``_PIPELINE_MODULES``.
+_PIPELINE_SEAMS = ("CasePipeline", ".draft(", ".submit(")
+
+#: ⚑ The EXACT set of production modules permitted to reference the pipeline (WIRE1-Fold-6).
+#: ``dependencies.py`` COMPOSES it — the composition root's job, the same latitude the
+#: ``_DOMAIN_SEAMS`` scan already grants it — and ``submission.py`` is R10/R11's module, the
+#: only place ``submit()`` and ``draft()`` are invoked.
+#:
+#: ⚑ Deliberately NOT merged into ``_DOMAIN_WRITE_MODULES``: that set is scoped to
+#: ``backend/app/routes/`` and exempts a ROUTE module from the domain-seam scan; this one is
+#: scoped to the WHOLE package and names the pipeline's reachable surface. Two differently
+#: scoped claims in one constant would weaken both.
+_PIPELINE_MODULES = frozenset({"dependencies.py", "submission.py"})
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_FILES = sorted(p for p in APP_ROOT.rglob("*.py") if "tests" not in p.parts)
@@ -122,6 +143,28 @@ def _handler(name: str) -> ast.FunctionDef:
         n for n in ast.walk(tree)
         if isinstance(n, ast.FunctionDef) and n.name == name
     )
+
+
+def module_serves_a_get_route(source: str) -> bool:
+    """True if the module declares at least one ``@….get(...)`` route decorator.
+
+    ⚑ Deliberately BROAD — it matches any ``.get(`` call decorator, not only ``@router.get``.
+    Broad means STRICTER here: a module wrongly classed as GET-serving is *forbidden* the
+    pipeline, so the error direction is fail-closed.
+    """
+    tree = ast.parse(source)
+    return any(
+        isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr == "get"
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for d in n.decorator_list
+    )
+
+
+def references_a_pipeline_seam(source: str) -> bool:
+    """True if the module references a pipeline seam in CODE — prose is stripped first."""
+    code = strip_comments_and_docstrings(source)
+    return any(seam in code for seam in _PIPELINE_SEAMS)
 
 
 # --- (i)-(iii) UNCHANGED from Scope A — these three survive the wiring verbatim -----------
@@ -284,17 +327,84 @@ class TestR5DelegatesToTheFrozenServiceAndReimplementsNothing:
                           "PendingCommitContextProvider(", "get_settings("):
             assert forbidden not in code, forbidden
 
-    def test_the_read_routes_invoke_no_pipeline_step(self):
+    def test_no_get_route_can_reach_the_pipeline(self):
         """⚑ BR-CASE-4 / TRIGGER-1 — no GET may trigger drafting.
 
-        Structural, not behavioural: ``CasePipeline`` is not imported or constructed anywhere in
-        this package, so a read CANNOT reach ``draft()`` even by mistake.
+        ⚑ **RENAMED + NARROWED A THIRD TIME BY WIRE1-Fold-6 (2026-08-02).** The old name was
+        ``test_the_read_routes_invoke_no_pipeline_step``; the claim it made is preserved
+        verbatim:
+
+        > *"Structural, not behavioural: ``CasePipeline`` is not imported or constructed
+        > anywhere in this package, so a read CANNOT reach ``draft()`` even by mistake."*
+
+        **That became FALSE BY DESIGN when R10/R11 landed** — a submission route must call
+        ``submit()`` and a drafting trigger must call ``draft()``. Deleting the assertion was
+        refused for the THIRD time on this file's own recorded reasoning: it would leave the
+        strongest structural guarantee in this package asserting nothing.
+
+        ⚑ **The old guard was ALSO BROADER THAN ITS OWN NAME.** It said *"the read routes"* but
+        scanned **every** production file, GET handler or not. The replacement asserts the claim
+        the name always made, and asserts it **directly**:
+
+        > **No module that serves a GET route may reference the pipeline; and the modules that
+        > DO reference it are EXACTLY ``_PIPELINE_MODULES``.**
+
+        **Strictly more specific, not more permissive**, in three ways.
+        **(i) Exact-set equality, not a skip-list** — a sixth module reaching for the pipeline
+        still fails, *and* a named module quietly dropping it fails too, which the old blanket
+        scan could not express.
+        **(ii) File-level, not handler-level** — following the sibling ``_DOMAIN_SEAMS``
+        assertion's deliberate choice, *"so a helper-function indirection inside a route module
+        cannot evade it"*. A GET handler cannot reach ``draft()`` via a module-level helper.
+        **(iii) It forces R10/R11 into a module with NO GET route in it**, converting what would
+        otherwise be reviewer discipline into a mechanical check.
+
+        ⚑ **Non-vacuity is DEMONSTRATED, not assumed** — see the detector test below.
         """
+        offenders = {
+            path.name
+            for path, source in production_source().items()
+            if references_a_pipeline_seam(source)
+        }
+        assert offenders == _PIPELINE_MODULES, offenders
+
         for path, source in production_source().items():
-            code = strip_comments_and_docstrings(source)
-            assert "CasePipeline" not in code, path
-            assert ".draft(" not in code, path
-            assert ".submit(" not in code, path
+            if module_serves_a_get_route(source):
+                assert not references_a_pipeline_seam(source), (
+                    f"{path.name} serves a GET route AND references the pipeline"
+                )
+
+    def test_detector_flags_a_get_module_reaching_for_the_pipeline(self):
+        """⚑ NON-VACUITY for the narrowing above — step 1.7, MANDATORY not optional.
+
+        A narrowing that is merely MORE PERMISSIVE rather than STRICTLY MORE SPECIFIC would
+        silently retire the only mechanical enforcement of the §0.2 invariant. These three cases
+        are what tell the two apart.
+        """
+        get_module_reaching_for_it = (
+            "@router.get('/applications/{application_id}/memo')\n"
+            "def memo_view(application_id: str):\n"
+            "    return CasePipeline().draft(application_id)\n"
+        )
+        assert module_serves_a_get_route(get_module_reaching_for_it)
+        assert references_a_pipeline_seam(get_module_reaching_for_it)     # ⚑ STILL CAUGHT
+
+        get_module_that_only_documents_it = (
+            '"""Unlike R11, this GET never reaches CasePipeline.draft()."""\n'
+            "@router.get('/applications')\n"
+            "def queue():\n"
+            "    return []\n"
+        )
+        assert module_serves_a_get_route(get_module_that_only_documents_it)
+        assert not references_a_pipeline_seam(get_module_that_only_documents_it)
+
+        post_only_module = (
+            "@router.post('/applications')\n"
+            "def submit_application(body: dict):\n"
+            "    return CasePipeline().submit(body)\n"
+        )
+        assert not module_serves_a_get_route(post_only_module)            # ⚑ the R10/R11 shape
+        assert references_a_pipeline_seam(post_only_module)
 
 
 # --- (vi)-(viii) REVISED: absence assertions become CHANNEL assertions ---------------------

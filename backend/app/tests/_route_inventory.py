@@ -38,6 +38,8 @@ ROUTE_INVENTORY: tuple[tuple[str, str], ...] = (
     ("/decisions/{decision_id}", "get"),                      # R7 — one committed decision
     ("/login", "post"),                                       # R8 — the handshake (WIRE1-Fold-5)
     ("/logout", "post"),                                      # R9 — session revocation (WIRE1-Fold-5)
+    ("/applications", "post"),                                # R10 — submission (WIRE1-Fold-6)
+    ("/applications/{application_id}/draft", "post"),         # R11 — drafting trigger (WIRE1-Fold-6)
 )
 
 #: The routes permitted to be non-GET, each with the reason it must be.
@@ -46,8 +48,14 @@ ROUTE_INVENTORY: tuple[tuple[str, str], ...] = (
 #: companion assertion in ``test_no_write_route.py`` additionally requires that only the
 #: commit route reaches domain state — being non-GET is necessary but never sufficient.
 NON_GET_ALLOWLIST: tuple[tuple[str, str], ...] = (
-    # R5 — the ONLY route that changes underwriting state. An explicit underwriter action
-    # is the sole way a CommittedDecision comes into existence (WIRE-1 §2 advisory-only).
+    # R5 — the ONLY route that creates a CommittedDecision. An explicit underwriter action is
+    # the sole way one comes into existence (WIRE-1 §2 advisory-only).
+    # ⚑ NARROWED 2026-08-02 (WIRE1-Fold-6). Old text preserved, not deleted: "R5 — the ONLY
+    # route that changes underwriting STATE." That became FALSE the moment R10/R11 landed —
+    # R10 creates a case and R11 drafts one, and both change underwriting state. The half that
+    # was always the substantive claim, and remains exactly true, is the CommittedDecision
+    # half: R5 is still the only door to the audit trail. Narrowed to what is still true and
+    # still falsifiable rather than left to rot (register #13's defect shape).
     ("/recommendations/{recommendation_id}/commit", "post"),
     # R8 — the authentication handshake. Non-GET because it accepts credentials in a body,
     # which must never appear in a URL (logs, history, referrers). Reaches NO domain state.
@@ -55,6 +63,16 @@ NON_GET_ALLOWLIST: tuple[tuple[str, str], ...] = (
     # R9 — session revocation. Non-GET because it MUTATES server-side session state; a GET
     # that logs you out would be actionable by any cross-origin image tag. Reaches NO domain state.
     ("/logout", "post"),
+    # R10 — application submission (WIRE1-Fold-6). Non-GET because it CREATES a case: it runs
+    # intake and persists a PendingApplication at `evaluated`. ⚑ It DOES reach domain state —
+    # the first non-R5 route to do so — but it creates NO CommittedDecision, so R5 remains the
+    # sole door to the audit trail. LLM-free throughout (WIRE-1 §7.3 semantics 1).
+    ("/applications", "post"),
+    # R11 — the drafting trigger (WIRE1-Fold-6). Non-GET because it MUTATES case state
+    # (`evaluated -> drafted`) and spends compute on an LLM-bearing draft. ⚑ A GET that drafted
+    # is exactly what BR-CASE-4 / TRIGGER-1 forbids, which is why the trigger is an explicit
+    # POST rather than a side effect of reading R4. Creates NO CommittedDecision.
+    ("/applications/{application_id}/draft", "post"),
 )
 
 #: The exact set of modules permitted under ``backend/app/routes/``.
@@ -67,4 +85,5 @@ ROUTE_MODULE_INVENTORY: tuple[str, ...] = (
     "decisions.py",   # R6, R7
     "not_wired.py",   # R2-R5 (name is stale — register #13, deliberately still open)
     "auth.py",        # R8, R9 (WIRE1-Fold-5)
+    "submission.py",  # R10, R11 (WIRE1-Fold-6) — the ONLY module that reaches the pipeline
 )

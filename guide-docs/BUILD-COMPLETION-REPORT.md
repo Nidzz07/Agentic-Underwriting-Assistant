@@ -1334,13 +1334,74 @@ handled in **#13's shape** (superseded in place, old name preserved, reason reco
 artifact**: #13 is `backend/app/routes/not_wired.py`, a backend file the pass was forbidden to touch. **Citing #13
 as precedent is not progress against #13.**
 
-### #2 `R2–R5 unwired` — **PARTLY DISCHARGED, unchanged. The strongest remaining candidate.**
+### #2 `R2–R5 unwired` — ⛔ **STILL PARTLY DISCHARGED. Gaps (i) and (ii) CLOSED on live evidence; (iii) OPEN.**
 
-R5's `override` action was **the last route-action never exercised end-to-end**, and it now has been, in a browser,
-against a real database, with the persisted row read back. But #2's residual is recorded as *"the end-to-end claim
-remains scoped per **Q11-A**"* — **a scoping qualifier this pass did not re-adjudicate.** Moving a register status on
-an unread qualifier is exactly what this project forbids. ⚑ **Flagged for a future deliberate pass**, not resolved
-by side effect.
+⚑ **UPDATED 2026-08-02 by the register-#2 submission-path pass (WIRE1-Fold-6).** The prior entry is preserved
+verbatim below because its reasoning was correct at the time and explains why the qualifier survived so long.
+
+> **SUPERSEDED, preserved**: *"**PARTLY DISCHARGED, unchanged. The strongest remaining candidate.** R5's `override`
+> action was **the last route-action never exercised end-to-end**, and it now has been… But #2's residual is
+> recorded as *'the end-to-end claim remains scoped per **Q11-A**'* — **a scoping qualifier this pass did not
+> re-adjudicate.** Moving a register status on an unread qualifier is exactly what this project forbids. ⚑ **Flagged
+> for a future deliberate pass**, not resolved by side effect."*
+
+**That future deliberate pass has now run, and it DID re-adjudicate the qualifier.** Q11-A named three gaps; two are
+closed and one is not.
+
+| Q11-A gap | Status | Evidence |
+|---|---|---|
+| **(i)** no ingestion route | ✅ **CLOSED** | **R10** `POST /applications` + **R11** `POST /applications/{id}/draft`, added by **WIRE1-Fold-6** (R1–R9 verified byte-unchanged at sign-off) and exercised live. |
+| **(ii)** not a clickable UI | ✅ **CLOSED for the submit → draft → commit journey** | Submitted in a browser as `demo-underwriter`; `APP-c60445dfd820458295b33849ac8bef7c` drafted and committed through the existing approval gate. ⚠️ **A residual inside this gap is named below.** |
+| **(iii)** memo prose is synthetic | ⛔ **OPEN — deliberately, by Q5(a)** | `model_version=OFFLINE-DOUBLE-NOT-A-REAL-LLM`, **read back out of the database** in live check 6. **This is register #18's territory.** |
+
+⛔ **THEREFORE #2 IS NOT FULLY DISCHARGED, AND MUST NOT BE DESCRIBED AS SUCH.** Q5(a) chose the offline double
+knowingly — *"free, safe, deterministic … honest by construction"* — over putting an unrated, unrate-limited spend
+path behind an HTTP route. **The sequencing was #2 first, then #18**, and the stamp exists precisely so a synthetic
+memo cannot be mistaken for a real one anywhere it travels: the API response, the database, and any `AuditRecord` it
+is committed into. **A claim of full discharge would be stronger than the evidence supports.**
+
+### ⚑ What the live evidence actually establishes (2026-08-02, user-run; reconstruction, not observation)
+
+1. ⛔ **`engine_version=composition-root-1`** on the persisted case. The seed script stamps `seed-script-1`. **That
+   single field is the mechanical proof that U1 `intake` executed in a reachable path for the first time in this
+   build's history** — sanitizer, PII guard and SEC-2 validation gate all ran, and the 786 `profile_canonical` bytes
+   describe an applicant **the system did not invent**.
+2. ⛔ **`AuditRecord 9d39d4e1-9c1a-48c5-99a7-bd362f472b96`**, `application_id=APP-c60445dfd820458295b33849ac8bef7c`,
+   `underwriter_id=demo-underwriter`. **The first audit record in this project's history whose lineage traces to an
+   application a human submitted through a browser.**
+3. **The first outlier score computed for an applicant the system did not invent** — `0.691335220069`, three
+   SHAP-explained flags, full provenance triple, 598 persisted bytes.
+4. **Rejection**: `requested cover amount = 0` → 400, *"requested cover must be > 0"* rendered **beside the correct
+   field**, other values preserved, **no row created**.
+5. **Authorization**: auditor 403 on R10 in the UI (no row created) and 403 on R11 by `curl`, the application
+   **undisturbed**. ⚑ The R11 attempt landed on an already-`committed` case and was refused **at the role gate**,
+   never reaching `draft()` — so the refusal is attributable to authorization alone, not confounded with register
+   **#28**'s terminal-state guard.
+
+### ⚠️ THE RESIDUAL INSIDE GAP (ii) — named, not absorbed
+
+**The drafting trigger exists only in the submission view's accepted panel, immediately after submitting.** A pending
+case reached any other way — a page reload, *"Submit another application"*, or a seeded `DEMO-*` row — **has no UI
+draft affordance anywhere**: the queue offers selection, memo, approve and override, but no trigger.
+
+⚑ **R11 itself is complete and correct**, and the journey this pass exists to demonstrate is clickable end to end.
+What is narrower than it sounds is the claim *"the UI can draft any pending case"* — it cannot. **Closing this means
+a draft affordance on a pending queue row: a future pass, named here so it is not discovered by someone assuming
+otherwise.**
+
+⚑ **Two further limits, carried forward rather than left implicit**: `queueEpoch` refreshes the queue on **submit**,
+not on **draft**, so a drafted row's recommendation column stays empty until the next submission or a reload; and
+under **Q2(a)** no document can be supplied, so **every** submission through this path yields
+`ApplicantProfile.incomplete = true` with all three expected documents `missing`. Both are designed behaviour,
+observed live, and recorded so neither is later read as a defect.
+
+### ⛔ A HARD DEPLOYMENT DEPENDENCY THIS PASS CREATED
+
+**`corpus/profiles.json` and `corpus/manifest.json` must be present on the deployed backend.** Outlier scoring is now
+reachable over HTTP, so the corpus stopped being a seed-script convenience the moment R11 shipped. If absent, drafting
+raises `FileNotFoundError` **by design** — there is no `outlier=null` fallback (Q6(b), refused). Declared as a named,
+greppable constant at **`backend/app/outlier_composition.py::CORPUS_ON_RENDER`** and asserted by a test, so it cannot
+be deleted silently. ⛔ **`render.yaml` is untouched: placing and verifying the corpus is the deployment pass's work.**
 
 ### #14 · #17 — unchanged
 

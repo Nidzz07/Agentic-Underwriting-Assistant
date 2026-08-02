@@ -193,3 +193,27 @@ def audit_record_wire(record: AuditRecord) -> dict[str, Any]:
     schema's own — this module neither re-declares nor re-cases it.
     """
     return record.model_dump(mode="json")
+
+
+def rejected_intake_detail(rejected) -> dict[str, Any]:
+    """R10's 400 ``detail`` -> ``RejectedIntake``'s three fields (WIRE1-Fold-6, Q8(a)).
+
+    ⚑ **WIRE-1 §4 ALREADY HAD A HOME FOR THIS.** Its 400 row has read *"malformed request /
+    input validation (**intake Pydantic reject**, bad body)"* since the 2026-07-08 pin, and
+    ``detail`` is documented there as *"optional (e.g. **per-field validation errors**)"* —
+    which is exactly ``reason_category`` / ``field_errors`` / ``missing_items``. The contract
+    anticipated a rejected intake before any ingestion route existed; this projection fills the
+    shape it left, and Fold-6 amended §4 not at all.
+
+    ⛔ **No applicant VALUE crosses this boundary — only FIELD NAMES and reason codes.** WIRE-1
+    §4 binds *"no secret VALUE ever appears in message/detail"*, and intake's own ``FieldError``
+    messages are static descriptions ("required value absent"), never the rejected input.
+    """
+    return {
+        "reason_category": rejected.reason_category.value,
+        "field_errors": [
+            {"field": error.field, "code": error.code, "message": error.message}
+            for error in rejected.field_errors
+        ],
+        "missing_items": list(rejected.missing_items),
+    }

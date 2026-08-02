@@ -36,13 +36,19 @@ does not exist. Replacing this with the real OIDC handshake touches only this mo
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+from typing import Any, Optional
 
 import sqlalchemy as sa
 from fastapi import Cookie, Depends, Header
 
 from backend.app.errors import FORBIDDEN, UNAUTHENTICATED, WireError
+from backend.app.offline_memo_double import OFFLINE_MODEL_VERSION, OfflineMemoLLMClient
+from backend.app.outlier_canonical import quantize_outlier
+from backend.app.outlier_composition import build_outlier_model
 from backend.audit_store.audit_service import AuditService
 from backend.audit_store.commit_service import DecisionCommitService
 from backend.audit_store.pg_repository import PostgresAuditRepository
@@ -53,8 +59,15 @@ from backend.auth_rbac.pg_repository import PostgresUserRoleRepository
 from backend.auth_rbac.roles import READ_AUDIT, Role, to_role
 from backend.authn.repository import PostgresCredentialStore, PostgresSessionStore
 from backend.authn.service import AuthenticationService
+from backend.case_lifecycle.pipeline import CasePipeline
 from backend.case_lifecycle.provider import PendingCommitContextProvider
 from backend.case_lifecycle.repository import PostgresCaseStore
+from backend.intake.pipeline import IntakePipeline
+from backend.memo_agent_core.input_builder import MemoAgentInputBuilder
+from backend.memo_agent_core.orchestrator import LangGraphOrchestrator
+from backend.memo_agent_core.provider import GeminiAdapter
+from backend.rules_engine.engine import RulesEngine
+from backend.rules_engine.loader import RulebookLoader
 from backend.secrets_config import get_settings
 
 #: ⚑ SUPERSEDED 2026-07-25 (register #25 / WIRE1-Fold-5). Retained because the name is still
@@ -179,6 +192,158 @@ def get_commit_service(
     )
 
 
+# --- U1 (intake) + the pipeline — the SUBMISSION surface behind R10/R11 (WIRE1-Fold-6) ---
+#
+# ⛔ **THIS REVERSES THE "NOTE what is DELIBERATELY ABSENT" ABOVE, AND DOES SO KNOWINGLY.** That
+# note is preserved verbatim because it was true for R2-R5 and its reasoning still holds for
+# them: no GET route may reach the pipeline. What changes is that R10/R11 are POSTs whose whole
+# purpose is to call ``submit()`` and ``draft()``, so ``CasePipeline`` must be composed here.
+# The invariant's SUBSTANCE survives — R4 is still side-effect-free — and the mechanical guard
+# was narrowed to say exactly that (``test_no_write_route.py``, WIRE1-Fold-6 / Q9(a)).
+
+#: The repo rulebook directory. ⚑ ``RulebookLoader`` takes this as a REQUIRED argument and has
+#: no default; named here once, mirroring ``seed_demo_cases.rulebook_dir()``.
+RULEBOOK_DIR = str(Path(__file__).resolve().parents[1] / "rules_engine" / "rulebook")
+RULEBOOK_VERSION = "1.0.0"
+ENGINE_VERSION = "composition-root-1"
+
+
+class _NoDocumentParseWorker:
+    """⛔ Refuses to parse. **The document path is NOT part of WIRE1-Fold-6** (Q2(a)).
+
+    ⚑ Injecting a worker that RAISES rather than the real ``SubprocessParseWorker`` makes the
+    fold's structured-only scope **structural instead of documentary**: if a future change lets a
+    non-empty ``documents`` list reach intake, it fails loudly and by name here rather than
+    silently spawning subprocesses from a request handler — six infrastructure costs (temp
+    storage, PII retention, size limits, subprocess concurrency, Render's ephemeral filesystem,
+    ``multipart/form-data``) that Q2(a) deliberately deferred to their own pass.
+    """
+
+    def parse(self, doc_type, source_path):
+        raise NotImplementedError(
+            "document parsing is not wired: WIRE1-Fold-6 accepts structured fields only"
+        )
+
+
+class _CompositionSeams:
+    """U24's ``CaseSeams``, composed from the frozen units — the request-path counterpart of the
+    seed script's ``_SeedSeams``.
+
+    ⚑ Every unit here is REAL: ``rules_engine``'s deterministic engine and ``memo_agent_core``'s
+    real ``LangGraphOrchestrator``. **The ONLY substitution is the LLM client** (Q5(a)), and the
+    rules evaluation — the part that actually produces the recommendation — is genuine and
+    LLM-free regardless, exactly as the deterministic-core architecture requires.
+    """
+
+    def __init__(self) -> None:
+        loader = RulebookLoader(RULEBOOK_DIR)
+        self._engine = RulesEngine(loader, engine_version=ENGINE_VERSION)
+        self._builder = MemoAgentInputBuilder()
+        self._orchestrator = LangGraphOrchestrator(
+            GeminiAdapter(OfflineMemoLLMClient(), model=OFFLINE_MODEL_VERSION),
+            rulebook=loader.load_rulebook(RULEBOOK_VERSION),
+            model_version=OFFLINE_MODEL_VERSION,
+        )
+
+    def profile(self, raw: object) -> object:
+        """⚑ PASS-THROUGH, and deliberately so. ``raw`` is already an ``ApplicantProfile`` here
+        because **R10 runs intake in the handler** (Q8(a)) — it has to, so that a
+        ``RejectedIntake`` can become a 400 without ever entering the pipeline. U24's seam is
+        duck-typed at both ends (``profile(raw: object) -> object``), which is what lets an
+        intake-backed submission satisfy it **with no U24 reopening at all**.
+        """
+        return raw
+
+    def evaluate(self, profile: object) -> object:
+        return self._engine.evaluate(profile, RULEBOOK_VERSION)
+
+    def score_outlier(self, profile: object) -> Optional[object]:
+        """Score the applicant against the committed corpus (WIRE1-Fold-6 stage 3).
+
+        ⚑ **SUPERSEDED, preserved because it was true for the whole of stage 2**: *"``None`` for
+        now — stage 3's job, not a stub standing in for something missing. A case drafted through
+        R11 today carries ``outlier: null``, exactly as every case did before the outlier pass."*
+
+        ⛔ **Returns a QUANTIZED PROJECTION, not the raw ``OutlierResult`` — barrier #5.**
+        ``CanonSerAdapter.canonical_bytes`` **rejects IEEE float outright** (CON-DET-1), and every
+        numeric field of ``OutlierResult`` is a float straight out of IsolationForest and SHAP.
+        U24 serializes whatever this seam returns with exactly that adapter, so returning the raw
+        result would make ``draft()`` RAISE before writing a row. Handing back the Decimal
+        projection is what makes the score persistable **without reopening a single frozen
+        unit** — ``CaseSeams.score_outlier`` is typed ``Optional[object]``, so U24's path is
+        untouched.
+
+        ⛔ **What this does NOT claim**: the projection guarantees the persisted REPRESENTATION
+        round-trips at a named precision. It is **not** a claim that the ML computation is
+        bit-for-bit reproducible across library versions — which is precisely why
+        ``OUTLIER_MODEL_VERSION`` bundles the sklearn version.
+
+        ⚑ The model is resolved **at call time, not in ``__init__``**, so constructing the seams
+        (which happens on the first *submission*) still fits nothing. The ~2.6 s lands on the
+        first *drafting* request, which is the only one that needs it.
+        """
+        return quantize_outlier(outlier_model().score(profile))
+
+    def draft_memo(self, profile: object, report: object, thinking_mode: object) -> Optional[object]:
+        return self._orchestrator.run(
+            self._builder.build(applicant_profile=profile, rule_report=report)
+        )
+
+
+def _recommendation_id_factory(application_id: str) -> str:
+    """⚑ Mirrors the seed script's factory. ``audit_store``'s frozen ``IdGenerator.new_id()``
+    takes no argument, so it cannot key by application; a uuid4 suffix keeps ids unique.
+
+    ⚠️ **Deterministic is not chronological** (register #27's recorded limit): the random suffix
+    means ``recommendation_for_application``'s ``ORDER BY`` returns a STABLE row, not the newest.
+    """
+    return f"REC-{application_id}-{uuid.uuid4().hex[:8]}"
+
+
+@lru_cache(maxsize=1)
+def outlier_model():
+    """⚑ **THE FOURTH ``lru_cache`` PROVIDER** — identical in shape to the three engines above,
+    which is the whole argument for Q4(a): it introduces **no new pattern and no new artifact
+    type** (Q4(c)'s persisted pickle would have added a build step, a versioning question, and a
+    staleness risk against ``corpus_version`` that would silently break score replay).
+
+    ⛔ **LAZY, AND THE LAZINESS IS LOAD-BEARING** (ambiguity-check Fold C). The ~2.6 s fit happens
+    on FIRST USE — the first case actually drafted — not at import and not at ``create_app()``.
+    An eager fit (Q4(b)) would cost ~2.6 s x **every** ``create_app()``, of which the test suite
+    alone performs many. Pinned by ``test_create_app_does_not_fit_the_model``.
+
+    ⚠️ Two consequences accepted openly at the Q4(a) gate: the first drafting request after a cold
+    start is slow, and the deployed backend **must** carry ``corpus/`` — see
+    ``outlier_composition.CORPUS_ON_RENDER``, where that stopped being a carried question.
+    """
+    return build_outlier_model()
+
+
+@lru_cache(maxsize=1)
+def case_seams() -> _CompositionSeams:
+    """⚑ LAZY + CACHED, the established idiom (``app_engine``/``reader_engine``/``writer_engine``).
+
+    The rulebook is loaded from disk and the LangGraph orchestrator is built ONCE per process,
+    not per request. **The laziness is load-bearing, not incidental**: an eager build would move
+    this cost onto every ``create_app()``, including the ones in the test suite.
+    """
+    return _CompositionSeams()
+
+
+def get_intake_pipeline() -> IntakePipeline:
+    """U1's pipeline — ⚑ **wired into a reachable path for the FIRST time in this build.**
+
+    The sanitizer, the PII guard and the SEC-2 validation gate all run. Only the parse step has
+    nothing to parse (Q2(a)), which is why the worker above refuses rather than exists.
+    """
+    return IntakePipeline(parse_worker=_NoDocumentParseWorker())
+
+
+def get_case_pipeline(store: PostgresCaseStore = Depends(get_case_store)) -> CasePipeline:
+    """U24's pipeline over the injected store — R10's ``submit()`` and R11's ``draft()``."""
+    return CasePipeline(store, case_seams(), _recommendation_id_factory)
+
+
 # --- authn (register #25 / PER-4) — credential + session construction --------------------
 # ⚑ Both stores bind to the OWNER engine. ``0003_auth.sql`` grants nothing (it applies after
 # ``0002_grants.sql``), so ``user_credential``/``user_session`` are owner-only by
@@ -272,4 +437,33 @@ def require_commit(
     """
     if not guard.check(identity.user_id, RBAC_COMMIT):
         raise WireError(FORBIDDEN, "You do not have permission to commit a decision.")
+    return identity
+
+
+def require_underwriter(
+    identity: Identity = Depends(current_identity),
+    guard: ApiAuthGuard = Depends(get_auth_guard),
+) -> Identity:
+    """Enforce ``underwriter``-only on R10/R11 (WIRE1-Fold-6, Q10(a)).
+
+    ⚑ **Deliberately SEPARATE from ``require_commit`` despite checking the same action**, on
+    that dependency's own recorded reasoning: a route's role gate should be able to move without
+    dragging unrelated routes with it. Submission and commit are different operations that
+    happen to share a permission today; fusing them would make a future divergence an edit to a
+    shared guard rather than to the route that changed.
+
+    ⚠️ **RECORDED COST, not an oversight.** The action checked is ``RBAC_COMMIT``, whose value is
+    ``"commit"`` — so one action now gates three operations, only one of which commits. The
+    rbac_action vocabulary and ``PERMISSION_MATRIX`` live in the **frozen** ``auth_rbac`` unit, so
+    minting a distinct ``submit``/``draft`` action needs its own authorized reopening. Reusing
+    the underwriter-only slice was the option that reopened nothing (Q7(a)); the semantic stretch
+    is disclosed in WIRE-1 §3 and §7.3 rather than hidden here.
+
+    ⚑ **Ordering matters and is guaranteed by construction.** FastAPI resolves ``Depends(...)``
+    before the handler body runs, so this fires **before any intake code executes**: a wrong-role
+    caller never reaches intake, so no work is wasted and **no rejection detail — field names,
+    missing items — can leak to a caller with no right to it**. Pinned by a spy, not by timing.
+    """
+    if not guard.check(identity.user_id, RBAC_COMMIT):
+        raise WireError(FORBIDDEN, "You do not have permission to submit or draft an application.")
     return identity
