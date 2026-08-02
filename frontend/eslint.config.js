@@ -5,6 +5,7 @@ import queueRules from './eslint-rules/queue.js';
 import memoRules from './eslint-rules/memoView.js';
 import approvalRules from './eslint-rules/approvalGate.js';
 import overrideRules from './eslint-rules/overrideForm.js';
+import submissionRules from './eslint-rules/submission.js';
 import historyRules from './eslint-rules/history.js';
 import outlierRules from './eslint-rules/outlierView.js';
 
@@ -15,6 +16,7 @@ const approvalPlugin = { rules: approvalRules };
 const overridePlugin = { rules: overrideRules };
 const historyPlugin = { rules: historyRules };
 const outlierPlugin = { rules: outlierRules };
+const submissionPlugin = { rules: submissionRules };
 
 export default [
   { ignores: ['node_modules/**', 'coverage/**'] },
@@ -133,6 +135,23 @@ export default [
       'shell/no-inline-label': 'error',
       'shell/advisory-vocabulary': 'error',
       'outlier/outlier-testid-convention': 'error',
+    },
+  },
+  {
+    // submission (register #2 / WIRE1-Fold-6) — REUSES the shell no-inline-label +
+    // advisory-vocabulary lints (the ONE FORBIDDEN_TERMS, no new word-list) and adds ONLY the
+    // submission-<element>-<purpose> testid rule. Every block above is untouched; no file under
+    // any frozen src/ tree is modified. The advisory-vocabulary lint is applied UNMODIFIED: this
+    // unit describes an APPLICATION being submitted and an assessment being started, never an
+    // outcome, so no SUBMISSION_COPY value carries a systemOutput token and no carve-out is
+    // needed. `*` quantifier family, for the two-segment ids in the inventory.
+    files: ['src/submission/**/*.{js,jsx}'],
+    ignores: ['src/submission/__tests__/**'],
+    plugins: { shell: shellPlugin, submission: submissionPlugin },
+    rules: {
+      'shell/no-inline-label': 'error',
+      'shell/advisory-vocabulary': 'error',
+      'submission/submission-testid-convention': 'error',
     },
   },
   {

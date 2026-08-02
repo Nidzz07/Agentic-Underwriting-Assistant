@@ -5,6 +5,7 @@ import { QueueView } from '../queue/QueueView.jsx';
 import { MemoView } from '../memoView/MemoView.jsx';
 import { ApprovalGateView } from '../approvalGate/ApprovalGateView.jsx';
 import { OverrideFormView } from '../overrideForm/OverrideFormView.jsx';
+import { SubmissionView } from '../submission/SubmissionView.jsx';
 import { LoginView } from '../login/LoginView.jsx';
 import { LogoutControl } from '../login/LogoutControl.jsx';
 import { createLoginFetch } from '../login/loginFetchSeam.js';
@@ -44,6 +45,7 @@ export function App({ seams, transport, testid = 'app-root' }) {
   const [status, setStatus] = useState('checking');
   const [role, setRole] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [queueEpoch, setQueueEpoch] = useState(0);
 
   const loginSeam = createLoginFetch(transport);
 
@@ -87,7 +89,17 @@ export function App({ seams, transport, testid = 'app-root' }) {
           loginSeam={loginSeam}
           onLoggedOut={() => { setSelectedId(null); refreshSession(); }}
         />
-        <QueueView fetchSeam={seams.queue} onSelect={setSelectedId} />
+        {/* ⚑ MOUNTED ABOVE THE QUEUE, and behind the login gate like every other surface.
+            Submission is how a case ENTERS the queue, so it reads top-down: submit, then see
+            it listed. ⚠️ `queueEpoch` is bumped on a successful submission and passed as a
+            React key, which REMOUNTS QueueView so it re-reads R2 — without it a user would
+            submit and see nothing appear until a manual reload, because the frozen QueueView
+            fetches on mount and owns its own state (no refresh prop exists to call). */}
+        <SubmissionView
+          submissionSeam={seams.submission}
+          onSubmitted={() => setQueueEpoch((epoch) => epoch + 1)}
+        />
+        <QueueView key={queueEpoch} fetchSeam={seams.queue} onSelect={setSelectedId} />
         {selectedId ? (
           <>
             {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView, ApprovalGateView AND

@@ -544,9 +544,39 @@ describe('App — the Scope-A composition root', () => {
 });
 
 describe('createSeams — every frozen unit seam over one real transport', () => {
-  it('wires all five units seams', () => {
+  it('wires every registered unit seam', () => {
+    // ⚑ SUPERSEDED 2026-08-02 (register #2 / WIRE1-Fold-6). Preserved verbatim, not erased:
+    //
+    //     it('wires all five units seams', ...)
+    //     expect(...).toEqual(['commit', 'history', 'memo', 'override', 'queue']);
+    //
+    // The submission unit registers a sixth key. RENAMED as well as widened, because "five" is a
+    // cardinality in a NAME — register #13's exact defect shape, and leaving it would mint a new
+    // instance of the problem that register keeps open. The new name carries no count.
+    //
+    // ⚠️ **THIS IS NOT THE LAST TIME THIS ASSERTION MOVES, AND IT DOES NOT CLAIM TO BE.** The
+    // deferred outlier mount pass (its own Q4(a), already answered) supersedes THIS SAME
+    // assertion. Whichever of the two lands second inherits the other's set — so if outlier
+    // lands after this, the set becomes SEVEN, not six.
+    //
+    // ⛔ CORRECTION TO BOTH PLANS, recorded where it will be read. `register-2-submission-path-
+    // plan.md` §8 item 3 and `register-2-code-gen-plan.md` §4.7 both say this pass produces a
+    // "seven-key set" and that outlier would then make it eight. **Both are off by one**: the
+    // superseded set above has FIVE keys, not six. The plans counted UNITS (queue, memoView,
+    // approvalGate, overrideForm, history, login) where the assertion counts SEAMS — and login
+    // registers none, because it takes its seam directly from the transport in App.jsx. Six now;
+    // seven if outlier follows.
     const { seams } = fakeServer();
-    expect(Object.keys(seams).sort()).toEqual(['commit', 'history', 'memo', 'override', 'queue']);
+    expect(Object.keys(seams).sort())
+      .toEqual(['commit', 'history', 'memo', 'override', 'queue', 'submission']);
+  });
+
+  it('the submission seam exposes both routes of the two-phase flow', () => {
+    // ⚑ The set assertion above proves the KEY is registered; this proves it is the real seam and
+    // not a placeholder. R10 without R11 creates cases nothing can draft — the incoherence Fold E
+    // gave as the reason both routes had to land in ONE contract amendment.
+    const { seams } = fakeServer();
+    expect(Object.keys(seams.submission).sort()).toEqual(['submit', 'triggerDraft']);
   });
 
   it('the history seam is the dual-read one ui-history expects', () => {
