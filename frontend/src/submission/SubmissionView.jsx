@@ -108,6 +108,31 @@ export function SubmissionView({ submissionSeam, onSubmitted, testid = 'submissi
     setDocStatuses((current) => ({ ...current, [docType]: file ? 'selected' : undefined }));
   }, []);
 
+  // ⛔ Q7's per-document outcome, fetched from R3 because R10 DOES NOT CARRY IT. WIRE-1 §5's
+  // `SubmissionAccepted` is `{application_id, status}` and has been byte-unchanged since Fold-6;
+  // the view previously read `body.documents` from it, got `undefined`, and left every attached
+  // document on its optimistic "Ready to upload" label regardless of what the server parsed.
+  // `ApplicantProfile.documents` is a `DocumentManifest`, so the entries are one level down.
+  const loadDocumentStatuses = useCallback(async (applicationId) => {
+    // No attachment, no manifest worth a round trip — and the JSON path stays as cheap as
+    // Constraint 4 left it.
+    if (!DOC_TYPES.some((docType) => files[docType])) return;
+    try {
+      const profile = await submissionSeam.fetchProfile(applicationId);
+      setDocStatuses(toDocumentStatuses(profile.documents?.entries, files));
+    } catch {
+      // ⛔ CLAIM NOTHING RATHER THAN CLAIM WRONGLY. Without the manifest we do not know what
+      // happened to each file, and both remaining options would lie: 'selected' is the very
+      // "Ready to upload" this fix removes, and 'uploading' would imply work still in flight.
+      // Clearing hides the per-document list entirely (AcceptedPanel renders it only when a
+      // status exists) while the acceptance itself stands untouched.
+      //
+      // ⚠️ This also absorbs a seam with NO `fetchProfile` at all, which is deliberate: the
+      // manifest is an enhancement, and an older seam should degrade rather than throw.
+      setDocStatuses({});
+    }
+  }, [files, submissionSeam]);
+
   const onSubmit = useCallback(async () => {
     if (!isValid) return;
     setState('submitting');
@@ -120,12 +145,13 @@ export function SubmissionView({ submissionSeam, onSubmitted, testid = 'submissi
     });
     try {
       const body = await submissionSeam.submit(toFormFields(values), files);
-      // ⛔ Q7: the per-document outcome comes from the SERVER's manifest, never assumed. A
-      // document that failed to parse still lets the application through, so silently showing
-      // "uploaded" would hide the one thing the applicant could act on.
-      setDocStatuses(toDocumentStatuses(body.documents, files));
+      // ⛔ ACCEPT FIRST, THEN ASK. The case is persisted and the id is in hand; everything below
+      // is cosmetic. Ordering these two the other way round would let a failed manifest lookup
+      // retract a submission the server has already committed to — and push the user to submit
+      // it twice. Pinned by `a FAILING profile fetch still leaves the application ACCEPTED`.
       setAccepted(body);
       setState('accepted');
+      await loadDocumentStatuses(body.application_id);
       if (onSubmitted) onSubmitted(body.application_id);
     } catch (envelope) {
       // envelope is always a well-formed { error: {...} } — the seam guarantees it.
@@ -141,7 +167,10 @@ export function SubmissionView({ submissionSeam, onSubmitted, testid = 'submissi
         setState('error');
       }
     }
-  }, [files, isValid, onSubmitted, submissionSeam, values]);
+    // ⚑ `loadDocumentStatuses` is listed explicitly. It closes over `files`, as does this
+    // callback, so today they are rebuilt together — but depending on that coincidence is how a
+    // stale closure gets in, and this unit has already shipped one wrong-data bug.
+  }, [files, isValid, loadDocumentStatuses, onSubmitted, submissionSeam, values]);
 
   const onDraft = useCallback(async () => {
     setDraftState('drafting');

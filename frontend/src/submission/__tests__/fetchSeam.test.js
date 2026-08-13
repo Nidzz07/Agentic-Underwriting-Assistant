@@ -133,10 +133,20 @@ describe('createSubmissionFetch', () => {
     });
   });
 
-  it('exposes exactly the two operations the two routes need', () => {
-    // ⚑ An exact-key assertion, mirroring `createSeams`'s own. A third operation appearing here
-    // would mean a third route arrived without a contract amendment.
+  it('exposes exactly the three operations the flow needs', () => {
+    // ⚑ An exact-key assertion, mirroring `createSeams`'s own.
+    //
+    // ⚠️ ITS ORIGINAL REASON WAS TOO STRONG, and the correction is worth recording. It read:
+    // *"A third operation appearing here would mean a third route arrived without a contract
+    // amendment."* That conflates two different things — a seam gaining an OPERATION, and the
+    // contract gaining a ROUTE. `fetchProfile` calls **R3**, which has been in WIRE-1 §3 since
+    // the 2026-07-08 pin; the submission unit simply had no reason to read it until the
+    // per-document manifest turned out to live on `ApplicantProfile` rather than on R10's
+    // response. ⛔ **No route was added and no fold was needed.**
+    //
+    // The assertion is kept exact — it is still the thing that would catch a genuinely new route
+    // being consumed silently — but its claim is now the one its shape actually supports.
     expect(Object.keys(createSubmissionFetch(async () => ({ ok: true, body: {} }))).sort())
-      .toEqual(['submit', 'triggerDraft']);
+      .toEqual(['fetchProfile', 'submit', 'triggerDraft']);
   });
 });

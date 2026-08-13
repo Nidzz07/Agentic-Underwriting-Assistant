@@ -152,14 +152,30 @@ describe('the user SEES what happened to each document', () => {
   it('⛔ shows PARSED and UNPARSEABLE per document, never one aggregate', async () => {
     // Q7's requirement. `DOCS-COMPLETE-1` counts only documents that PARSED, so a failure
     // changes the assessment — an applicant told nothing cannot fix the one file at fault.
+    //
+    // ⛔ THIS TEST USED TO LIE, AND THE LIE IS WHY THE BUG SHIPPED. Its double returned
+    // `{application_id, status, documents:[…]}` — but WIRE-1 §5's `SubmissionAccepted` is
+    // `{application_id, status}` and NOTHING ELSE, byte-unchanged through Fold-7. R10 has never
+    // returned a manifest, so `body.documents` was always `undefined`, `toDocumentStatuses` fell
+    // through to `selected`, and the screen read "Ready to upload" forever. The double invented
+    // a response shape the server does not produce, so this test proved the MAPPING worked while
+    // the manifest never ARRIVED. Observed live in the browser during §9's walkthrough.
+    //
+    // ⚑ The manifest comes from **R3** (`GET /applications/{id}` -> `ApplicantProfile`), whose
+    // `documents` is a `DocumentManifest` — `{expected_count, satisfied_count, entries[]}`. The
+    // entries are one level down, which is why the view reads `documents.entries`.
     const seam = stubSeam({
-      submit: async () => ({
+      submit: async () => ({ application_id: 'APP-1', status: 'pending' }),
+      fetchProfile: async () => ({
         application_id: 'APP-1',
-        status: 'pending',
-        documents: [
-          { doc_type: 'salary_slip', status: 'parsed' },
-          { doc_type: 'bank_statement', status: 'unparseable' },
-        ],
+        documents: {
+          expected_count: 3,
+          satisfied_count: 1,
+          entries: [
+            { doc_type: 'salary_slip', status: 'parsed', content_hash: 'abc' },
+            { doc_type: 'bank_statement', status: 'unparseable', content_hash: '' },
+          ],
+        },
       }),
     });
     render(<SubmissionView submissionSeam={seam} />);
@@ -173,6 +189,76 @@ describe('the user SEES what happened to each document', () => {
       .toHaveTextContent(SUBMISSION_COPY.documentStatusLabels.parsed);
     expect(screen.getByTestId(documentStatusTestid('bank_statement')))
       .toHaveTextContent(SUBMISSION_COPY.documentStatusLabels.unparseable);
+  });
+
+  it('⛔ reads the manifest from the PROFILE (R3), not from R10\'s response', async () => {
+    // ⛔ THE STRUCTURAL CLAIM behind the fix, asserted directly rather than inferred from the
+    // rendered text. `SubmissionAccepted` is two keys; the manifest lives on `ApplicantProfile`,
+    // which R3 already serves. Without this, a future edit could satisfy the test above by
+    // reading `body.documents` again from some other invented source and nobody would notice.
+    const seam = stubSeam({ fetchProfile: vi.fn(async () => ({ documents: { entries: [] } })) });
+    render(<SubmissionView submissionSeam={seam} />);
+    fillValid();
+    attach('salary_slip');
+    fireEvent.click(screen.getByTestId('submission-submit'));
+
+    await screen.findByTestId('submission-accepted');
+    await waitFor(() => expect(seam.fetchProfile).toHaveBeenCalledWith('APP-1'));
+  });
+
+  it('does NOT fetch a profile when no document was attached', async () => {
+    // ⚑ A document-free submission has no manifest to show, so the round trip would buy nothing.
+    // This also keeps the JSON path exactly as cheap as Constraint 4 left it.
+    const seam = stubSeam({ fetchProfile: vi.fn(async () => ({ documents: { entries: [] } })) });
+    render(<SubmissionView submissionSeam={seam} />);
+    fillValid();
+    fireEvent.click(screen.getByTestId('submission-submit'));
+
+    await screen.findByTestId('submission-accepted');
+    expect(seam.fetchProfile).not.toHaveBeenCalled();
+  });
+
+  it('⛔ a FAILING profile fetch still leaves the application ACCEPTED', async () => {
+    // ⛔ THE FAILURE-ISOLATION PROPERTY. The submission has already SUCCEEDED — the case is
+    // persisted and the id is in hand — by the time the manifest is fetched. A second, purely
+    // COSMETIC round trip must never be able to retract that: turning a successful submission
+    // into an apparent error would be a far worse defect than the stale label this fix removes,
+    // and it would push the user to resubmit an application the server already has.
+    const seam = stubSeam({ fetchProfile: vi.fn(async () => { throw new Error('boom'); }) });
+    render(<SubmissionView submissionSeam={seam} />);
+    fillValid();
+    attach('salary_slip');
+    fireEvent.click(screen.getByTestId('submission-submit'));
+
+    await screen.findByTestId('submission-accepted');
+    await waitFor(() => expect(seam.fetchProfile).toHaveBeenCalled());
+
+    // the success surface is intact: the id is shown and NO error region is rendered
+    expect(screen.getByTestId('submission-accepted-id')).toHaveTextContent('APP-1');
+    expect(screen.queryByTestId('submission-error')).not.toBeInTheDocument();
+    // ...and the drafting trigger — the next step of the journey — is still reachable
+    expect(screen.getByTestId('submission-draft')).toBeInTheDocument();
+  });
+
+  it('⛔ a failing profile fetch CLAIMS NOTHING rather than claiming wrongly', async () => {
+    // ⚑ The degraded state asserted separately from the survival above, because "did not crash"
+    // and "did not lie" are different properties and only one of them is about honesty.
+    // With no manifest we do not know what happened to the file, so the panel says nothing about
+    // it. ⛔ It must NOT fall back to "Ready to upload" (the bug this pass exists to remove) and
+    // must NOT sit on "Checking…" forever, which would imply work still in flight.
+    const seam = stubSeam({ fetchProfile: vi.fn(async () => { throw new Error('boom'); }) });
+    render(<SubmissionView submissionSeam={seam} />);
+    fillValid();
+    attach('salary_slip');
+    fireEvent.click(screen.getByTestId('submission-submit'));
+
+    await screen.findByTestId('submission-accepted');
+    await waitFor(() => expect(seam.fetchProfile).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('submission-accepted-documents')).not.toBeInTheDocument();
+    const panel = screen.getByTestId('submission-accepted');
+    expect(panel).not.toHaveTextContent(SUBMISSION_COPY.documentStatusLabels.selected);
+    expect(panel).not.toHaveTextContent(SUBMISSION_COPY.documentStatusLabels.uploading);
   });
 
   it('the attached files reach the seam', async () => {

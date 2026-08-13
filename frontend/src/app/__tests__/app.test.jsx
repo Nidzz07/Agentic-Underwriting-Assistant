@@ -571,12 +571,18 @@ describe('createSeams — every frozen unit seam over one real transport', () =>
       .toEqual(['commit', 'history', 'memo', 'override', 'queue', 'submission']);
   });
 
-  it('the submission seam exposes both routes of the two-phase flow', () => {
+  it('the submission seam exposes both routes of the two-phase flow, plus the manifest read', () => {
     // ⚑ The set assertion above proves the KEY is registered; this proves it is the real seam and
     // not a placeholder. R10 without R11 creates cases nothing can draft — the incoherence Fold E
     // gave as the reason both routes had to land in ONE contract amendment.
+    //
+    // ⚑ `fetchProfile` is **R3**, pre-existing since the 2026-07-08 pin — the unit began reading
+    // it when the per-document manifest turned out to live on `ApplicantProfile`, not on R10's
+    // two-key `SubmissionAccepted`. ⛔ A seam gaining an operation is not the contract gaining a
+    // route; no fold was required and none was made.
     const { seams } = fakeServer();
-    expect(Object.keys(seams.submission).sort()).toEqual(['submit', 'triggerDraft']);
+    expect(Object.keys(seams.submission).sort())
+      .toEqual(['fetchProfile', 'submit', 'triggerDraft']);
   });
 
   it('the history seam is the dual-read one ui-history expects', () => {

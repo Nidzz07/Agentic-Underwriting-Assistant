@@ -50,6 +50,27 @@ export function buildDraftRequest(applicationId) {
   };
 }
 
+// Build the WIRE-1 R3 request — the applicant profile, and with it the DOCUMENT MANIFEST.
+//
+// ⛔ WHY THIS EXISTS, stated plainly because it corrects a shipped bug. R10's success body is
+// `SubmissionAccepted` — `{ application_id, status }` and nothing else, byte-unchanged from
+// Fold-6 through Fold-7 (WIRE-1 §5). It has NEVER carried a per-document manifest. The view read
+// `body.documents` anyway, got `undefined`, and every attached document stayed on its optimistic
+// `selected` label — "Ready to upload" — no matter what the server had actually parsed. Observed
+// in the browser during §9's manual walkthrough.
+//
+// ⚑ R3 already serves the manifest and needs NO contract change: it returns
+// `intake.schema.ApplicantProfile` verbatim, whose `documents` is a `DocumentManifest`
+// — `{ expected_count, satisfied_count, entries: [{ doc_type, status, content_hash }] }`. That is
+// the very field §9 read out of `profile_canonical` with psql. A GET is also the honest place for
+// it: the manifest is state to be read, not a side effect of submitting.
+export function buildProfileRequest(applicationId) {
+  return {
+    method: 'GET',
+    path: `/applications/${encodeURIComponent(applicationId)}`,
+  };
+}
+
 // Normalize ANY failure to a well-formed error envelope { error: { code, message, detail } } so no
 // state view ever has to unpack a raw exception. A parsed non-2xx body that is already a
 // well-formed envelope passes through UNCHANGED, detail included.
@@ -86,7 +107,9 @@ async function send(transport, request) {
  *
  *   submit(formFields, documents = {})  -> resolves { application_id, status } (R10)
  *       `documents` is a { docTypeValue: File } map; empty -> JSON, non-empty -> multipart
+ *       ⛔ TWO KEYS. No manifest — see `buildProfileRequest`; use `fetchProfile` for that.
  *   triggerDraft(applicationId)         -> resolves { application_id, status, outcome } (R11)
+ *   fetchProfile(applicationId)         -> resolves ApplicantProfile, incl. `documents` (R3)
  *
  * Both REJECT with a well-formed `{ error: { code, message, detail } }` envelope — never a raw
  * exception, and never with `detail` stripped.
@@ -96,6 +119,7 @@ export function createSubmissionFetch(transport) {
     submit: (formFields, documents = {}) =>
       send(transport, buildSubmitRequest(formFields, documents)),
     triggerDraft: (applicationId) => send(transport, buildDraftRequest(applicationId)),
+    fetchProfile: (applicationId) => send(transport, buildProfileRequest(applicationId)),
   };
 }
 
