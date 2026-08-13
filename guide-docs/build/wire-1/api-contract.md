@@ -1,9 +1,10 @@
 # WIRE-1 — Frontend↔Backend API Contract
 
-**Kind**: Cross-unit **contract artifact** (NOT a per-unit-loop unit) · authored as a single lightweight contract-design pass · **Date**: 2026-07-08 · **Amended (additive)**: 2026-07-17 (WIRE1-Fold-4) · **2026-07-25 (WIRE1-Fold-5 — authentication routes)** · **2026-08-02 (WIRE1-Fold-6 — the application-submission routes)**
+**Kind**: Cross-unit **contract artifact** (NOT a per-unit-loop unit) · authored as a single lightweight contract-design pass · **Date**: 2026-07-08 · **Amended (additive)**: 2026-07-17 (WIRE1-Fold-4) · **2026-07-25 (WIRE1-Fold-5 — authentication routes)** · **2026-08-02 (WIRE1-Fold-6 — the application-submission routes)** · **2026-08-03 (WIRE1-Fold-7 — document upload)**
 **Status**: **PINNED** — the hard checkpoint before `ui-queue`'s FD (and the other four UI view units) is satisfied. **The 2026-07-17 amendment is an ADDITION to this same pin (not a new contract version replacing it)**: it adds one optional field (`MemoView.outlier`) + one by-value enum (`FlagDirection`) for outlier data; the four scope items and R1–R7 are otherwise unchanged.
 **The 2026-07-25 amendment (WIRE1-Fold-5) is likewise an ADDITION to this same pin, not a new version**: it adds **two routes** (R8 `POST /login`, R9 `POST /logout`), **one success convention** (204 no-content, §2), **one request body** (§5), and **corrects the now-false "handshake deferred" statements** (§6 + this header). ⚑ **R1–R7 remain byte-unchanged in path, method, purpose, success body and Auth** — verified row-by-row at sign-off. See **§7.2**.
 **The 2026-08-02 amendment (WIRE1-Fold-6) is likewise an ADDITION to this same pin, not a new version**: it adds **two routes** (R10 `POST /applications`, R11 `POST /applications/{application_id}/draft`) and **their request/response shapes** (§5). ⚑ **§1, §2, §4, §6 and §8 are UNTOUCHED**: no new WIRE-1 enum crosses the wire; both routes reuse §2's existing **bare resource body** success shape (no `201`, no `multipart/form-data`, no new convention); and all three failure modes are **already in §4's table** — `400 invalid_request` (whose row has named *"intake Pydantic reject"* since the 2026-07-08 pin), `401 unauthenticated`, `403 forbidden`. ⚑ **R1–R9 remain byte-unchanged in path, method, purpose, success body and Auth** — verified row-by-row at sign-off. See **§7.3**.
+**The 2026-08-03 amendment (WIRE1-Fold-7) is likewise an ADDITION to this same pin, not a new version**: it lets **R10** *also* accept `multipart/form-data` **alongside its existing JSON body**, adds **one enum row** (§1 `DocType`), **one request convention** (§2), **one error row** (§4 `413`), and the request shape (§5). ⚑ **R10's ROW in §3 is byte-unchanged** — path, method, purpose, success body and Auth are all identical; only the note block beneath it is superseded. ⚑ **R1–R11 remain byte-unchanged**, verified row-by-row at sign-off. See **§7.4**.
 **Scope**: exactly four items — **(1)** endpoint/route list · **(2)** response envelope shape · **(3)** error shape · **(4)** Role delivery to the client — plus the **frozen enum-by-value wire map** (not remapped/re-cased), grounded in the five built response shapes **plus a sixth response shape added by the 2026-07-17 additive amendment (U18 `OutlierResult`, carried on R4 — WIRE1-Fold-4; no new scope item, no new route)**.
 **Six answers (all A)**: A1 narrative markdown · A2 plain REST/JSON · A3 bare bodies + list wrapper + error envelope · A4 offset/limit pagination · A5 single error body + fixed status table · A6 `GET /session` role delivery, auth-handshake deferred *(⚑ the "deferred" half is **SUPERSEDED by WIRE1-Fold-5** — the handshake is now realized; the role-delivery half stands unchanged)*.
 
@@ -22,8 +23,11 @@ WIRE-1 transports these exact values; the client (ui-shell copy module, domain-e
 | **Role** | `auth_rbac.roles.Role` | `underwriter` · `auditor` · `admin` | **lowercase** |
 | **CommitAction** *(human gate action — distinct namespace)* | `audit_store.record_schema.CommitAction` | `approve` · `override` | **lowercase** |
 | **FlagDirection** *(outlier flag tail — added by the 2026-07-17 amendment, §7 WIRE1-Fold-4)* | `outlier_model.schemas.FlagDirection` | `high` · `low` | **lowercase** |
+| **DocType** *(uploaded document kind — added by the 2026-08-03 amendment, §7 WIRE1-Fold-7)* | `intake.schema.DocType` | `salary_slip` · `bank_statement` · `medical_questionnaire` | **lowercase** |
 
 > **Namespace-distinctness (binding)**: `CommitAction` `approve`/`override` (lowercase — the **human's** committed action) is a **different value space** from `Recommendation` `APPROVE`/`REFER`/`DECLINE-RECOMMEND` (UPPERCASE — the **system's** advisory output). The human **`override`** (disagree) must never be serialized as, or confused with, the system `DECLINE-RECOMMEND`.
+
+> ⚑ **`DocType` is the FIRST enum in this table the CLIENT asserts rather than the server emits** (added 2026-08-03, WIRE1-Fold-7). Every row above travels server→client; this one travels client→server, as a multipart part name. That asymmetry is why it earns a row at all: an unrecognised value must have a defined outcome, and it does — **400 `invalid_request`**, never a silent drop. ⚑ The values are `intake`'s own, consumed **by value**; this contract re-declares nothing.
 
 ---
 
@@ -33,6 +37,7 @@ WIRE-1 transports these exact values; the client (ui-shell copy module, domain-e
 - **Success — bare resource body** (the resource object directly).
 - **Success — collections** — a **list wrapper**: `{ "items": [ … ], "page": { "page": <int>, "size": <int>, "total": <int> } }` (A4 offset/limit; 1-based `page`).
 - **Success — no content (added 2026-07-25, WIRE1-Fold-5)** — a **state-changing route that returns no resource** responds **`204 No Content`** with an **empty body and no `Content-Type`**. ⚑ **Purely additive**: it introduces a third success shape alongside the two above and **changes neither of them**; every existing route keeps the shape it already had. The `Content-Type: application/json` rule above governs responses **that carry a body**, which a 204 by definition does not. Used by **R8** and **R9** only.
+- **Request — `multipart/form-data` (added 2026-08-03, WIRE1-Fold-7)** — **R10 only**, and **only as an ALTERNATIVE to its JSON body, never as a replacement**. A submission carrying **no documents** stays plain JSON exactly as before; a submission carrying documents sends `multipart/form-data` with one `form_fields` part (a JSON string) and up to three file parts named by `DocType`. ⚑ **Purely additive**: the `Content-Type: application/json` rule above continues to govern **every other request in the contract**, and R10's JSON path is **unchanged in shape, status and error mapping**. ⛔ **No other route accepts multipart.**
 - **Failure — a single canonical error envelope** (§4). Success responses carry no `error` key; error responses carry no resource body.
 - **Advisory-only invariant (binding)**: the API **never finalizes a decision**. GET routes never mutate. A `Recommendation` is advisory output; **only** `POST …/commit` — an **explicit underwriter action** — creates a `CommittedDecision`. There is no auto-commit path.
 
@@ -62,6 +67,9 @@ WIRE-1 transports these exact values; the client (ui-shell copy module, domain-e
 > ⚑ **R10/R11 added 2026-08-02 (WIRE1-Fold-6). R1–R9 above are BYTE-UNCHANGED** — path, method, purpose, success body and Auth all identical, verified row-by-row at sign-off.
 > **Two phases, deliberately.** R10 is **LLM-free**: intake → rules → persist at `evaluated`, returning a case whose R4 `status` is **`pending`**. R11 is the **separate, explicit** trigger that drafts the memo and moves it to `ready`. ⚑ **No GET gains a write path**, so R4 stays side-effect-free and §2's advisory-only invariant is untouched: neither route creates a `CommittedDecision`, which remains R5's sole preserve.
 > **R10 request body**: `{ "form_fields": {…}, "documents": [] }` (§5). **`documents` MUST be empty under this fold** — PDF upload is a named follow-on, so no `multipart/form-data` and no `413` are introduced. **Failure**: `400 invalid_request` when intake rejects, carrying `RejectedIntake`'s `reason_category` / `field_errors` / `missing_items` in the error envelope's **existing** `detail` (§4).
+>
+> ⚑ **SUPERSEDED 2026-08-03 (WIRE1-Fold-7).** The Fold-6 sentence above is retained verbatim, not deleted. *"`documents` MUST be empty under this fold — PDF upload is a named follow-on"* — **that follow-on is this fold.** R10 now accepts up to **three** documents, one per `DocType`, as `multipart/form-data` (§2, §5). ⛔ **R10's ROW ABOVE IS BYTE-UNCHANGED — a media type is not a route.**
+> **Failures added by Fold-7**: a file over the per-file cap, or a request over the total cap → **413** `payload_too_large`; an unknown `doc_type`, a fourth document, or two parts of the same `doc_type` → **400** `invalid_request`. ⚑ **A document that fails to PARSE is NOT an error** — it is recorded `unparseable` in the manifest and the application still persists, because a thin file is a **REFER**, never a rejection.
 > **R11**: no request body; `404 not_found` for an unknown `application_id`. ⚑ **Re-triggering an already-drafted case is NOT an error** — `200` with `outcome: "skipped"`, mirroring `DraftOutcome.skipped`, so a repeat click is idempotent rather than a failure.
 > ⚑ **Both routes are `underwriter`-only, gated on the EXISTING `RBAC_COMMIT` rbac_action.** The vocabulary is closed inside the frozen `auth_rbac` unit, so no new permission is minted here; `RBAC_COMMIT` is precisely the underwriter-only slice of `PERMISSION_MATRIX`. ⚠️ **Recorded rather than smoothed over**: the action's value is `"commit"`, so it now gates three operations, only one of which commits. Splitting it into a distinct action is a **frozen-unit reopening**, deliberately not taken in this fold.
 
@@ -84,8 +92,11 @@ WIRE-1 transports these exact values; the client (ui-shell copy module, domain-e
 | **403** | authenticated but role-forbidden (e.g. `auditor` calling R5 commit) — auth-rbac `RBAC_COMMIT` | `forbidden` |
 | **404** | no such application / recommendation / decision | `not_found` |
 | **409** | commit-gate conflict — **override with a blank/missing reason** (BR-COMMIT-GATE), or an already-committed recommendation | `commit_conflict` |
+| **413** | upload exceeds the per-file or per-request size cap (WIRE1-Fold-7) | `payload_too_large` |
 | **422** | well-formed but unprocessable (e.g. action outside `{approve, override}`) | `unprocessable` |
 | **500** | internal error | `internal_error` |
+
+> ⛔ **The 413 cap is enforced by a STREAMING BYTE COUNTER, not by `Content-Length`** (WIRE1-Fold-7). A client may understate `Content-Length` or omit it entirely; the header is used only as a cheap early reject and **is not the control**. The counter refuses mid-stream, so **no oversized body is ever fully received and none is ever written to disk**.
 
 > **Advisory-only (restated)**: there is no status/route by which the API itself finalizes a decision — a `CommittedDecision` exists **only** as the result of R5 (explicit underwriter action).
 
@@ -183,7 +194,29 @@ Field names/values mirror the frozen schemas; enum fields carry the §1 wire val
 ```
 - `form_fields` is passed **verbatim** to `intake.pipeline.IntakePipeline.process(form_fields, documents)`. **Its key vocabulary is `intake`'s, not WIRE-1's** — this contract pins the envelope; `intake`'s own `IntakeGate` governs which keys are required, exactly as §5's `ApplicantProfile` entry already defers (*"verbatim; intake's contract governs"*). Documented **here** rather than in §3 because §3 has **no request column** — the same placement the **R5 commit body** and the **R8 login body** already use.
 - ⛔ **Money values are decimal STRINGS, never JSON floats.** `intake`'s gate refuses a float outright (**BR-TYP-1** — *"float not permitted; use a decimal string"*), which surfaces as a `400`.
-- ⚑ **`documents` MUST be `[]` under this fold.** The key is present so the seam's shape is already correct when upload lands; a non-empty list is a `400`. **Consequence, stated here so it is not discovered later**: with no document supplied, `intake` marks all three expected documents `missing`, so **every Fold-6 submission yields `ApplicantProfile.incomplete = true`** and the rules engine routes it accordingly. That is intake's designed behaviour (*"reject only what is structurally unrecoverable; everything merely incomplete becomes a valid profile that rules-engine routes to REFER"*), **not a defect** — and it is why document upload is a named follow-on rather than an optional extra.
+- ⚑ **SUPERSEDED 2026-08-03 (WIRE1-Fold-7). The Fold-6 bullet is retained VERBATIM AND IN FULL:**
+
+  > ⚑ **`documents` MUST be `[]` under this fold.** The key is present so the seam's shape is already correct when upload lands; a non-empty list is a `400`. **Consequence, stated here so it is not discovered later**: with no document supplied, `intake` marks all three expected documents `missing`, so **every Fold-6 submission yields `ApplicantProfile.incomplete = true`** and the rules engine routes it accordingly. That is intake's designed behaviour (*"reject only what is structurally unrecoverable; everything merely incomplete becomes a valid profile that rules-engine routes to REFER"*), **not a defect** — and it is why document upload is a named follow-on rather than an optional extra.
+
+  **Upload has landed — the first sentence is superseded. ⛔ THE CONSEQUENCE CLAUSE IS NOT: it remains TRUE.**
+  Three parsed documents clear the *documents* clause of `intake`'s completeness test, but that test has
+  **seven** clauses and documents are **one**. An application can carry three parsed documents and still be
+  `incomplete = true`. **Fold-7 makes `DOCS-COMPLETE-1` passable; it does not make an application complete.**
+
+  **R10 now accepts TWO request encodings, and the JSON one is UNCHANGED:**
+
+  **(1) `application/json`** — exactly as Fold-6 pinned it, `documents` remaining `[]`. **Byte-unchanged in shape, status and error mapping.** A submission carrying no documents uses this and pays nothing for multipart.
+
+  **(2) `multipart/form-data`** — for a submission carrying documents:
+
+  | Part | Content | Required |
+  |---|---|---|
+  | `form_fields` | the **same JSON object** as (1)'s `form_fields`, sent as a string | yes |
+  | `salary_slip` · `bank_statement` · `medical_questionnaire` | one PDF each; the part name **is** the `DocType` value (§1) | no — any subset, including none |
+
+  - ⛔ **At most ONE part per `DocType`.** A duplicate is **400**, never last-wins: silently discarding a document an applicant believed they had supplied is the worst available outcome.
+  - ⚑ **A supplied document that cannot be parsed is recorded `unparseable`** and the application still persists. `DOCS-COMPLETE-1` counts only `parsed` entries, so an unparseable document affects the **recommendation**, not the **acceptance**.
+  - ⛔ **RETENTION (BINDING).** An uploaded document exists on disk **only for the duration of the request that carried it**, under an application-owned temp root, and is deleted on **every** exit path — success, rejection, parse failure and unhandled error alike. **A file surviving an abnormal termination (a crash, an OOM kill, a deploy) is removed by a sweep at the next startup.** ⚑ **No uploaded document is persisted and none is written to the database** — only the derived `DocumentEntry` manifest and its content hash.
 - `free_text_fields` is the only free prose accepted; it passes the **sanitizer** and **PII guard** before the gate sees it.
 - **`application_id` is NOT in the body** — it is **system-assigned by `IntakeGate` on gate pass** (a `RejectedIntake` never receives one), the same shape as R5's server-derived `underwriter_id`. A client cannot choose its own application id.
 
@@ -265,6 +298,64 @@ Grounded on `commit_service.commit`/`_gate`, the built response schemas, and PRO
 5. ⛔ **A `failed` case still has no wire representation** — register **#14** is untouched, and this fold explicitly declines to widen R4's `ready | pending` discriminator on its behalf.
 
 **Holds**: **§1** enum wire map **untouched** — and this was audited, not assumed. R10's body carries `intake`'s own enum values (`Gender`, `EmploymentType`, `SmokingStatus`) **inside the intake-governed `form_fields` object**, and §1 has **never** listed intake's enums even though **R3 has transported them since the original pin** (`ApplicantProfile` carries `demographics.gender`, `employment_type`, `smoking_status`, `documents.entries[].doc_type`/`status`). §1 lists the enums **WIRE-1 itself composes**; intake's travel under *"intake's contract governs"*. Fold-6 introduces no new class of thing, so it mints no §1 row. · **§2** conventions **untouched** (both routes reuse the bare-body 200) · **§4** status table **untouched** · **§6** role delivery **untouched** · **§8** untouched. No frozen artifact edited — intake's schema is consumed **by shape**, `DraftOutcome`'s `skipped` **by value**. **This is an ADDITION to the existing pin, not a new contract version.**
+
+### 7.4 WIRE1-Fold-7 — additive amendment for document upload (2026-08-03)
+
+**Trigger**: register **#2**'s **Q2(a)**, which chose structured-only submission and named this pass as its
+deliberate follow-on, listing six costs it was deferring: bytes-to-disk, temp-storage lifetime as a PII retention
+issue, missing size limits, unbounded subprocess concurrency, Render's ephemeral filesystem, and
+`multipart/form-data` as a new request convention. ⚑ **All six are paid here.** Register #2 shipped a submission
+path on which **every** application was permanently `documents_missing_count = 3`, because no document could be
+supplied. This fold is what lets `DOCS-COMPLETE-1` actually pass.
+
+**Decision — additive, across five substantive sections plus this record**: **§1** gains a `DocType` row; **§2**
+gains a `multipart/form-data` **request** convention; **§3**'s R10 **note** is superseded (**the row is not**);
+**§4** gains a **413** row; **§5** gains R10's second request encoding. **R1–R11 are byte-unchanged**, verified
+row-by-row at sign-off.
+
+**⛔ WHY R10 SPEAKS BOTH ENCODINGS — forced, not chosen.** The scoping answer read *"amend R10 to accept
+multipart"*, which is ambiguous between **adding** a media type and **replacing** one. Multipart-only was never
+viable: **~15 existing backend tests POST JSON to R10**, and the **frontend shipped at `d43b661` sends JSON**.
+Beyond the cost of breaking both, it would be wrong on its own terms — an application carrying **no documents**
+has no reason to pay multipart's overhead. So R10 branches on `Content-Type`, and **its JSON path is unchanged in
+shape, status and error mapping**. ⚑ Found by the ambiguity-check as *Constraint 4*, and recorded in the scoping
+plan's Q1 as well as here, because Q1's own wording is where the ambiguity lived.
+
+**⚑ WHY `DocType` EARNS A §1 ROW when Fold-6 argued intake's enums do not.** Fold-6 declined to add rows for
+`Gender`/`EmploymentType`/`SmokingStatus` on the grounds that *"intake's contract governs"* and that R3 had been
+echoing them back since the original pin. **`DocType` is different in kind: it is the first enum in §1 that the
+CLIENT asserts rather than the server emits.** A value the server produces cannot be unrecognised; a value the
+client sends can, and must therefore have a defined outcome — **400 `invalid_request`**, never a silent drop.
+⚑ Fold-6's own lesson was that an amendment's blast radius is knowable only by auditing every section; that audit
+made Fold-6 **smaller** and makes Fold-7 **one row larger**. Same discipline, opposite result.
+
+**Semantics (binding)**:
+
+1. **Two encodings, one route.** JSON when no documents; `multipart/form-data` when documents are attached. No
+   other route in the contract accepts multipart.
+2. ⛔ **The 413 cap is a STREAMING BYTE COUNTER, not `Content-Length`.** The header may be understated or absent
+   and is used only as a cheap early reject; **it is not the control**. The counter refuses mid-stream, so an
+   oversized body is never fully received and **never lands on disk**.
+3. ⛔ **RETENTION.** An uploaded document exists on disk **only for the duration of its request**, under an
+   application-owned temp root, deleted on every exit path; a survivor of abnormal termination is removed by a
+   **startup sweep**. **No uploaded document is persisted; none reaches the database.** Only the derived manifest
+   entry and its content hash do.
+4. ⚑ **UNPARSEABLE IS NOT REJECTED.** A supplied document that fails to parse is recorded `unparseable` and the
+   application still persists. It changes the **recommendation** (a thin file is a REFER), never the
+   **acceptance**. A 5xx here would be wrong: the applicant did nothing invalid.
+5. **At most one part per `DocType`**; a duplicate is **400**, never last-wins.
+6. ⛔ **This fold does NOT make an application "complete".** `ApplicantProfile.incomplete` is set by **seven**
+   clauses in intake's gate and documents are **one** of them. Three parsed documents satisfy
+   `DOCS-COMPLETE-1`; they do not by themselves clear `incomplete`. Stated here because the opposite is the
+   natural assumption and it is wrong.
+7. ⛔ **No document CONTENT reaches any profile field.** The parse yields a manifest entry and a content hash;
+   extracting values from a document — and the override-policy and provenance decisions that would come with it —
+   is **explicitly out of scope** and named as a future pass.
+
+**Holds**: **§3**'s R10 **row byte-unchanged** (a media type is not a route) · **§6** role delivery **untouched** ·
+**§8** untouched · the **advisory-only invariant preserved** — R10 creates no `CommittedDecision`, and R5 remains
+the only route that does · no frozen artifact edited (`intake`'s `DocType` and `DocumentEntry` are consumed **by
+value**) · R1–R11 byte-unchanged. **This is an ADDITION to the existing pin, not a new contract version.**
 
 ---
 

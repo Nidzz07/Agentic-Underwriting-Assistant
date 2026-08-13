@@ -30,6 +30,7 @@ INVALID_REQUEST = (400, "invalid_request")
 UNAUTHENTICATED = (401, "unauthenticated")
 FORBIDDEN = (403, "forbidden")
 NOT_FOUND = (404, "not_found")
+PAYLOAD_TOO_LARGE = (413, "payload_too_large")  # WIRE1-Fold-7 (upload size caps)
 COMMIT_CONFLICT = (409, "commit_conflict")
 UNPROCESSABLE = (422, "unprocessable")
 INTERNAL_ERROR = (500, "internal_error")
@@ -37,7 +38,7 @@ NOT_IMPLEMENTED = (501, "not_implemented")  # additive extension (Q2-A)
 
 #: Every status this app can emit, as the frozen table defines them.
 STATUS_TABLE: dict[int, str] = dict(
-    [INVALID_REQUEST, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND,
+    [INVALID_REQUEST, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, PAYLOAD_TOO_LARGE,
      COMMIT_CONFLICT, UNPROCESSABLE, INTERNAL_ERROR, NOT_IMPLEMENTED]
 )
 

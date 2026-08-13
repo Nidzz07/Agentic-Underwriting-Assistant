@@ -13,7 +13,6 @@ from __future__ import annotations
 import pytest
 
 from backend.app.dependencies import (
-    _NoDocumentParseWorker,
     case_seams,
     get_case_pipeline,
     get_case_store,
@@ -412,15 +411,33 @@ class TestTheSubmissionCompositionIsReal:
         # ⚑ Reading through the pipeline reaches the store it was handed, not a global.
         assert pipeline.read("APP-NOPE") is None
 
-    def test_the_parse_worker_refuses_rather_than_exists(self):
-        """⛔ Q2(a) made structured-only a SCOPE decision; this makes it a mechanical one. If a
-        future change lets a document reach intake, it fails loudly here rather than silently
-        spawning a subprocess from inside a request handler."""
-        with pytest.raises(NotImplementedError, match="structured fields only"):
-            _NoDocumentParseWorker().parse("salary_slip", "/tmp/whatever.pdf")
+    def test_the_parse_worker_is_the_REAL_sandboxed_one(self):
+        """⚑ SUPERSEDED 2026-08-03 (WIRE1-Fold-7). The Fold-6 assertion is preserved verbatim:
 
-    def test_a_non_empty_documents_list_is_refused_at_the_route(self, submission_client):
-        """...and the route refuses first, so the worker above stays unreachable in practice."""
+            it('the parse worker refuses rather than exists')
+            with pytest.raises(NotImplementedError, match="structured fields only"):
+                _NoDocumentParseWorker().parse("salary_slip", "/tmp/whatever.pdf")
+
+        ⛔ **Its subject no longer exists, and that is the point.** Under Fold-6 the composition
+        root injected a worker that REFUSED, so structured-only was mechanical rather than
+        documentary. Fold-7 is the named follow-on that lands documents, so the refusing stub is
+        replaced by the real sandboxed worker — fresh subprocess per document, 5 s wall clock,
+        POSIX RLIMIT_CPU/RLIMIT_AS, data-only IPC.
+
+        What this still pins is the half that matters: the worker is the **real** one, not a
+        permissive double that would let an unsandboxed parse into the request path.
+        """
+        from backend.intake.parser import SubprocessParseWorker
+
+        worker = get_intake_pipeline()._parse
+        assert isinstance(worker, SubprocessParseWorker)
+        assert worker.DEFAULT_MEM_BYTES == 256 * 1024 * 1024
+        assert worker.DEFAULT_TIMEOUT_S == 5.0
+
+    def test_documents_in_a_JSON_body_are_still_refused(self, submission_client):
+        """⚑ Fold-7 did NOT make the JSON encoding document-bearing. Documents travel as
+        `multipart/form-data`; a `documents` array in a JSON body is still a 400, because it
+        would otherwise look like it worked while carrying nothing but metadata."""
         response = submit(
             submission_client, documents=[{"doc_type": "salary_slip", "source_path": None}]
         )

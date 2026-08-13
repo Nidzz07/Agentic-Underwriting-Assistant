@@ -115,4 +115,18 @@ class TestStatusTableIntegrity:
         # made, used, and retired, and removing it would erase that. Its disuse is the
         # assertion elsewhere; its existence is the record here.
         assert STATUS_TABLE[501] == "not_implemented"
-        assert len(STATUS_TABLE) == 8
+
+        # ⚑ 413 ADDED 2026-08-03 (WIRE1-Fold-7, document upload). It is a genuine §4 ROW — the
+        # contract's status table gained it — which makes it DIFFERENT IN KIND from 501, and the
+        # distinction is worth keeping: 501 is an additive EXTENSION that §4 never contained,
+        # while 413 is now part of §4 itself.
+        assert STATUS_TABLE[413] == "payload_too_large"
+
+        # ⚑ SUPERSEDED 2026-08-03. The Fold-6 assertion is preserved verbatim:
+        #
+        #     assert len(STATUS_TABLE) == 8
+        #
+        # It was TRUE until Fold-7 added the 413 row. **The cardinality is kept rather than
+        # dropped**: it is what stops a status appearing in this table without a contract
+        # amendment behind it, which is the whole reason the table is asserted at all.
+        assert len(STATUS_TABLE) == 9

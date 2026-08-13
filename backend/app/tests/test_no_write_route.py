@@ -99,6 +99,43 @@ _PIPELINE_SEAMS = ("CasePipeline", ".draft(", ".submit(")
 #: scoped claims in one constant would weaken both.
 _PIPELINE_MODULES = frozenset({"dependencies.py", "submission.py"})
 
+#: The filesystem-WRITE constructs. ⛔ **WRITES ONLY — reads are deliberately absent.**
+#: ``outlier_composition.py`` legitimately READS the committed corpus and ``RulebookLoader`` reads
+#: the rulebook; the invariant here is about what this package PUTS on disk, not what it takes off.
+#:
+#: ⚑ ``open(`` is included even though it also opens for READING. Matching on mode would be
+#: brittle (``"wb"``, ``"w"``, ``mode=`` keyword, a variable), and no production file in this
+#: package uses ``open(`` at all — so the strictness costs nothing today and forces any future
+#: read to say so explicitly with ``Path.read_text()`` / ``Path.read_bytes()``.
+_FILESYSTEM_WRITE_CALLS = (
+    "open(", ".write_bytes(", ".write_text(", ".mkdir(", "os.makedirs(",
+    "tempfile", "shutil", "NamedTemporaryFile", "TemporaryDirectory",
+)
+
+#: ⛔ The EXACT set of production modules permitted to write to the filesystem.
+#:
+#: ⚑ **EMPTY, DELIBERATELY — AND THAT IS THE POINT** (WIRE1-Fold-7 / Q14(a)). No module in
+#: ``backend/app/`` has ever written a file, and until this guard existed **nothing in this
+#: package had an opinion about that**: every other assertion here polices transactions, engines,
+#: domain seams and pipeline reachability. A grep of this file for ``open(`` / ``write_bytes`` /
+#: ``mkdir`` / ``tempfile`` / ``shutil`` returned **zero** before Fold-7.
+#:
+#: The guard is created **BEFORE** the first module that writes, so that module's first encounter
+#: with it is a **FAILURE** — the same RED-first discipline every other assertion in this file was
+#: created under, applied to a guard being **created** rather than **widened**.
+#:
+#: ⚑ Adding a name here is a DELIBERATE ACT, and a weightier one than the sibling sets: the
+#: subject is **raw applicant PII on disk**, not a transaction boundary.
+#: ⚑ ``upload_storage.py`` ADDED 2026-08-03 (WIRE1-Fold-7, stage 2). Superseded text preserved:
+#: the set was ``frozenset()`` — **empty** — from its creation at stage 1 until this line, and the
+#: guard **failed on ``upload_storage.py`` before this edit was made**, observed on screen. That
+#: failure is the whole reason the guard was created first (Q14(a)).
+#:
+#: ⛔ It is the **ONLY** member and must stay so. Every uploaded byte lands in a directory this
+#: module creates, under a root it defines — which is precisely what makes the orphan sweep safe,
+#: because it never touches a path the framework manages.
+_FILESYSTEM_WRITE_MODULES: frozenset[str] = frozenset({"upload_storage.py"})
+
 APP_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_FILES = sorted(p for p in APP_ROOT.rglob("*.py") if "tests" not in p.parts)
 ROUTES_MODULE = APP_ROOT / "routes" / "not_wired.py"
@@ -165,6 +202,17 @@ def references_a_pipeline_seam(source: str) -> bool:
     """True if the module references a pipeline seam in CODE — prose is stripped first."""
     code = strip_comments_and_docstrings(source)
     return any(seam in code for seam in _PIPELINE_SEAMS)
+
+
+def references_a_filesystem_write(source: str) -> bool:
+    """True if the module WRITES to the filesystem in CODE — prose is stripped first.
+
+    ⚑ Reads are not writes: ``Path.read_text()`` / ``read_bytes()`` / ``is_file()`` / ``exists()``
+    are all permitted and must stay permitted, because the corpus and the rulebook are read from
+    disk by design.
+    """
+    code = strip_comments_and_docstrings(source)
+    return any(call in code for call in _FILESYSTEM_WRITE_CALLS)
 
 
 # --- (i)-(iii) UNCHANGED from Scope A — these three survive the wiring verbatim -----------
@@ -509,6 +557,98 @@ class TestEveryWriteGoesThroughTheFrozenCommitService:
         source = ast.unparse(handler)
         assert source.index("claim_for_commit") < source.index("service.commit")
         assert source.index("service.commit") < source.index("finalize_commit")
+
+
+
+class TestNothingWritesToTheFilesystem:
+    """⛔ WIRE1-Fold-7 / Q14(a) — a guard CREATED, not widened, and created BEFORE its subject.
+
+    ``backend/app/`` has never written a file. Document upload will make it write **raw applicant
+    PDFs**, and until this class existed **nothing in this package had an opinion about that**:
+    every other assertion in this file polices transactions, engines, domain seams and pipeline
+    reachability. A grep for ``open(`` / ``write_bytes`` / ``mkdir`` / ``tempfile`` / ``shutil``
+    over this file returned **zero** before Fold-7.
+
+    ⚑ **Created FIRST, deliberately.** The module that writes does not exist yet, so the declared
+    set below is **empty** and the first module to write will **fail** this — which is the same
+    RED-first discipline every other assertion here was created under, applied to a guard being
+    created rather than narrowed.
+    """
+
+    def test_no_production_module_writes_to_the_filesystem_but_the_declared_ones(self):
+        """**Exact-set equality, not a skip-list** — the shape ``_PIPELINE_MODULES`` established.
+
+        A new module writing files fails until it is deliberately named, **and** a named module
+        that stops writing fails too, so the declaration cannot rot into a stale exemption
+        nobody notices.
+        """
+        writers = {
+            path.name
+            for path, source in production_source().items()
+            if references_a_filesystem_write(source)
+        }
+        assert writers == _FILESYSTEM_WRITE_MODULES, writers
+
+    def test_exactly_one_module_has_earned_a_place_in_the_declared_set(self):
+        """⚑ SUPERSEDED 2026-08-03 (stage 2). The stage-1 assertion is preserved verbatim:
+
+            it('the declared set is empty until a module earns a place in it')
+            assert _FILESYSTEM_WRITE_MODULES == frozenset()
+
+        It was TRUE for the whole of stage 1 and is FALSE now, **which is the point**:
+        ``upload_storage.py`` earned its place by failing the guard first, observed on screen
+        before this set was widened.
+
+        ⛔ What the assertion still pins is the thing that matters — **exactly one** module writes
+        to disk. A second name appearing here must be a reviewed act with its own gate, never a
+        quiet edit made to turn a red assertion green.
+        """
+        assert _FILESYSTEM_WRITE_MODULES == frozenset({"upload_storage.py"})
+
+    def test_detector_flags_every_filesystem_write_construct(self):
+        """⚑ NON-VACUITY, tier 1 — and fed EACH construct SEPARATELY, not one representative.
+
+        ⛔ **This is stage 1's named risk made mechanical.** A guard that catches ``open(`` and
+        misses ``Path.write_bytes`` would look identical to a working one on the day it is
+        written and would let an applicant's PDF onto disk unnoticed six months later.
+        """
+        for construct in (
+            "def h():\n    open('/tmp/x', 'wb').write(b'')\n",
+            "from pathlib import Path\ndef h():\n    Path('/tmp/x').write_bytes(b'')\n",
+            "from pathlib import Path\ndef h():\n    Path('/tmp/x').write_text('x')\n",
+            "from pathlib import Path\ndef h():\n    Path('/tmp/d').mkdir()\n",
+            "import os\ndef h():\n    os.makedirs('/tmp/d')\n",
+            "import tempfile\ndef h():\n    return tempfile.mkdtemp()\n",
+            "import shutil\ndef h():\n    shutil.copy('a', 'b')\n",
+            "from tempfile import NamedTemporaryFile\ndef h():\n    return NamedTemporaryFile()\n",
+            "from tempfile import TemporaryDirectory\ndef h():\n    return TemporaryDirectory()\n",
+        ):
+            assert references_a_filesystem_write(construct), construct
+
+    def test_the_detector_permits_reads_and_prose(self):
+        """⛔ THE OTHER HALF, and the one that stops the guard being merely restrictive.
+
+        ``outlier_composition.py`` READS the committed corpus and ``RulebookLoader`` reads the
+        rulebook — both by design. A guard that failed those would be wrong, not strict, and the
+        pressure would be to weaken it rather than fix it.
+        """
+        from pathlib import Path as _P  # noqa: F401  (referenced in the synthetic sources below)
+
+        for permitted in (
+            "from pathlib import Path\ndef h():\n    return Path('corpus.json').read_text()\n",
+            "from pathlib import Path\ndef h():\n    return Path('corpus.json').read_bytes()\n",
+            "from pathlib import Path\ndef h():\n    return Path('corpus.json').is_file()\n",
+            "from pathlib import Path\ndef h():\n    return Path('corpus.json').exists()\n",
+            "from pathlib import Path\nROOT = Path(__file__).resolve().parents[2]\n",
+        ):
+            assert not references_a_filesystem_write(permitted), permitted
+
+        # ...and prose naming a write must not be flagged — this file's stripping precedent.
+        documented_only = (
+            '"""This module never calls write_bytes and creates no tempfile."""\n'
+            "def h():\n    return None\n"
+        )
+        assert not references_a_filesystem_write(documented_only)
 
 
 # --- detector self-tests (unchanged substrate) --------------------------------------------

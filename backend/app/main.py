@@ -41,6 +41,8 @@ authorized change).
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -52,6 +54,33 @@ from backend.app.errors import (
     wire_error_handler,
 )
 from backend.app.routes import auth, decisions, not_wired, session, submission
+from backend.app.upload_storage import sweep_orphaned_uploads
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """⚑ STARTUP ONLY — and the FIRST lifespan hook this application has ever had (WIRE1-Fold-7).
+
+    ⛔ **DELIBERATELY NOT IN ``create_app()``'s BODY.** Register #2's ambiguity-check Fold C found
+    that *"``create_app()`` constructs nothing and reads no setting"* is **load-bearing**, not
+    incidental — it is what keeps the ~2.6 s outlier fit off every app construction, including the
+    several per test session. A lifespan hook runs at **startup**, not construction, so
+    ``create_app()`` still does nothing and ``test_create_app_does_not_fit_the_model`` still holds.
+
+    ⛔ **WRAPPED IN ``try``/``except`` EVEN THOUGH THE SWEEP IS ALREADY FAIL-OPEN.** Belt and
+    braces, and the braces matter: an exception escaping here would **take the whole service down
+    at boot**, which is strictly worse than the leaked file the sweep exists to remove. This layer
+    survives even a sweep that is later changed to raise.
+
+    ⚑ It is CHEAP: a shallow ``iterdir`` over one app-owned directory, normally empty. It runs in
+    every fixture that enters ``TestClient(app)``, which is most of them, so cost was a design
+    constraint rather than an afterthought.
+    """
+    try:
+        sweep_orphaned_uploads()
+    except Exception:  # noqa: BLE001 - see the docstring: startup must never fail on cleanup
+        pass
+    yield
 
 
 def create_app() -> FastAPI:
@@ -62,6 +91,7 @@ def create_app() -> FastAPI:
         title="Agentic Underwriting Assistant — composition root (Scope B)",
         description="Advisory-only. Wires all seven WIRE-1 routes (R1-R7). Every write goes through the frozen DecisionCommitService.",
         version="0.2.0-scope-b",
+        lifespan=_lifespan,
     )
 
     # Every non-2xx leaves as the WIRE-1 §4 envelope — no route can emit a non-contract body.

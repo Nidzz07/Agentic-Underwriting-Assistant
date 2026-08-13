@@ -46,6 +46,7 @@ import sqlalchemy as sa
 from fastapi import Cookie, Depends, Header
 
 from backend.app.errors import FORBIDDEN, UNAUTHENTICATED, WireError
+from backend.app.intake_telemetry import build_intake_telemetry
 from backend.app.offline_memo_double import OFFLINE_MODEL_VERSION, OfflineMemoLLMClient
 from backend.app.outlier_canonical import quantize_outlier
 from backend.app.outlier_composition import build_outlier_model
@@ -62,6 +63,7 @@ from backend.authn.service import AuthenticationService
 from backend.case_lifecycle.pipeline import CasePipeline
 from backend.case_lifecycle.provider import PendingCommitContextProvider
 from backend.case_lifecycle.repository import PostgresCaseStore
+from backend.intake.parser import SubprocessParseWorker
 from backend.intake.pipeline import IntakePipeline
 from backend.memo_agent_core.input_builder import MemoAgentInputBuilder
 from backend.memo_agent_core.orchestrator import LangGraphOrchestrator
@@ -208,21 +210,15 @@ RULEBOOK_VERSION = "1.0.0"
 ENGINE_VERSION = "composition-root-1"
 
 
-class _NoDocumentParseWorker:
-    """⛔ Refuses to parse. **The document path is NOT part of WIRE1-Fold-6** (Q2(a)).
-
-    ⚑ Injecting a worker that RAISES rather than the real ``SubprocessParseWorker`` makes the
-    fold's structured-only scope **structural instead of documentary**: if a future change lets a
-    non-empty ``documents`` list reach intake, it fails loudly and by name here rather than
-    silently spawning subprocesses from a request handler — six infrastructure costs (temp
-    storage, PII retention, size limits, subprocess concurrency, Render's ephemeral filesystem,
-    ``multipart/form-data``) that Q2(a) deliberately deferred to their own pass.
-    """
-
-    def parse(self, doc_type, source_path):
-        raise NotImplementedError(
-            "document parsing is not wired: WIRE1-Fold-6 accepts structured fields only"
-        )
+# ⚑ SUPERSEDED 2026-08-03 (WIRE1-Fold-7). The Fold-6 stub is preserved as the record of what
+# structured-only meant: a worker that REFUSED, so the fold's scope was structural rather than
+# documentary. Documents have landed, so the real sandboxed worker replaces it.
+#
+#     class _NoDocumentParseWorker:
+#         """Refuses to parse. The document path is NOT part of WIRE1-Fold-6 (Q2(a))."""
+#         def parse(self, doc_type, source_path):
+#             raise NotImplementedError(
+#                 "document parsing is not wired: WIRE1-Fold-6 accepts structured fields only")
 
 
 class _CompositionSeams:
@@ -333,10 +329,31 @@ def case_seams() -> _CompositionSeams:
 def get_intake_pipeline() -> IntakePipeline:
     """U1's pipeline — ⚑ **wired into a reachable path for the FIRST time in this build.**
 
-    The sanitizer, the PII guard and the SEC-2 validation gate all run. Only the parse step has
-    nothing to parse (Q2(a)), which is why the worker above refuses rather than exists.
+    ⚑ **WIRE1-Fold-7: the REAL sandboxed worker.** Each document is parsed in a fresh,
+    ephemeral subprocess under a 5 s wall clock plus POSIX ``RLIMIT_CPU``/``RLIMIT_AS`` (256 MB),
+    with only data crossing back (no pickle). Every termination mode converges on a deterministic
+    ``unparseable``. Fold-6's refusing stub is preserved above as the record of what
+    structured-only meant.
+
+    ⛔ **WIRE1-Fold-7 / Q8(c): a REAL telemetry emitter, replacing a DISCARDING default.** The
+    superseded construction is preserved verbatim:
+
+        return IntakePipeline(parse_worker=SubprocessParseWorker())
+
+    ⚑ With no ``telemetry=`` argument the pipeline fell back to ``TelemetryEmitter()``, whose
+    default sink is ``lambda event: None`` — so ``neutralization_count`` was computed on every
+    submission and **thrown away**. Harmless while intake was structured-only (no applicant free
+    text, nothing to inject); **not harmless now that documents are uploadable**, which is what
+    makes PROJECT-BRIEF §10 failure mode #4 reachable. See ``intake_telemetry`` for what the sink
+    may and may not carry — counts yes, spans never.
+
+    ⚠️ **UNCACHED, AND THAT IS LOAD-BEARING.** ``TelemetryEmitter`` appends every event to an
+    unbounded ``.emitted`` list, so the emitter must die with the request. ⛔ Do not add
+    ``@lru_cache`` here.
     """
-    return IntakePipeline(parse_worker=_NoDocumentParseWorker())
+    return IntakePipeline(
+        parse_worker=SubprocessParseWorker(), telemetry=build_intake_telemetry()
+    )
 
 
 def get_case_pipeline(store: PostgresCaseStore = Depends(get_case_store)) -> CasePipeline:
