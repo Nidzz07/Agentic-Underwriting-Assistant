@@ -81,6 +81,24 @@ const R4_PENDING = {
   profile: null, report: null, memo: null,
 };
 
+// A `ready` R4 body CARRYING real outlier data — the Phase-2-OUT slice the outlier-wiring pass made
+// servable. ⚑ R4_READY above keeps `outlier: null` deliberately and is NOT edited: that is the shape
+// 12 of the 13 rows in the real database produce, so it stays the default and the scored case is the
+// special fixture. Values mirror the live verification (`outlier_score=0.567032896281`, two flags,
+// full provenance) rather than being invented.
+const R4_READY_OUTLIER = {
+  ...R4_READY,
+  outlier: {
+    outlier_score: 0.567032896281,
+    is_outlier: true,
+    flagged_features: [
+      { feature: 'requested_cover_amount', z_score: 2.41, shap_value: 0.18, direction: 'high' },
+      { feature: 'verifiable_income_annual', z_score: -1.97, shap_value: 0.11, direction: 'low' },
+    ],
+    provenance: { corpus_version: '1.0.0', seed: 42, outlier_model_version: 'om-1' },
+  },
+};
+
 const COMMITTED = { recommendation_id: 'rec-1', underwriter_id: 'UW-1', action: 'approve', reason: null };
 const FORBIDDEN = { error: { code: 'forbidden', message: 'You do not have permission.', detail: {} } };
 
@@ -341,10 +359,26 @@ describe('App — the Scope-A composition root', () => {
   //     (as memo and the gate do) — so its absence here is the NO-SELECTION fact, not an exclusion;
   //   * the second block is UNAUTHENTICATED, where no application surface mounts at all.
   // Override's mounted state is pinned POSITIVELY by `selection mounts the override form` above.
-  // OUTLIER remains genuinely excluded (#17) and its absence here still asserts exactly that.
+  //
+  // ⛔ SUPERSEDED 2026-08-13 (outlier mount). The sentence here read: "OUTLIER remains genuinely
+  // excluded (#17) and its absence here still asserts exactly that." ⚑ THAT IS NOW FALSE IN ITS
+  // REASON THOUGH NOT IN ITS RESULT — outlier IS mounted, in the selection branch, exactly as memo,
+  // the gate and override are. Its absence below is therefore the NO-SELECTION fact, identical to
+  // override's, and NOT an exclusion. The assertion is BYTE-UNCHANGED and still correct; only the
+  // reason changed, which is precisely why the comment could not be left alone: a file that asserts
+  // a retired premise is worse than one that asserts nothing. Outlier's mounted state is pinned
+  // POSITIVELY by `selection mounts the outlier view` above.
   //
   // ⚑ RENAMED (2026-07-26, authorized separately after the override pass). The previous name was:
   //     'mounts exactly the backed surfaces — queue + history always; override and outlier never'
+  // ⚑ RENAMED AGAIN (2026-08-13, GATE G1 of the outlier mount plan, authorized explicitly in
+  // writing rather than folded into the mount). The name immediately before this one was:
+  //     'mounts exactly the backed surfaces — queue + history always; outlier never; detail surfaces only on selection'
+  // ⛔ "outlier never" became FALSE the moment outlier was mounted — the SAME staleness override's
+  // clause suffered one pass earlier, in this same name. The clause is DELETED rather than replaced:
+  // "detail surfaces only on selection" already covers every per-application surface, and
+  // enumerating one of four is what made this name go stale twice. ⚑ The shorter name is the one
+  // that cannot go stale again.
   // ⛔ The trailing "override ... never" became FALSE the moment override was mounted: it mounts on
   // selection, exactly as memo and the gate do. The name was left stale for one pass because the
   // authorizing answer (Q4(a)) covered the comment only — the imprecision was recorded in this file
@@ -353,7 +387,7 @@ describe('App — the Scope-A composition root', () => {
   // still pins EXACTLY which surfaces the composition root mounts, in both gate states. This is the
   // #13 `NOTWIRED-FILENAME-STALE` shape — a name that outlived the thing it described — handled the
   // way this project has handled every other one: superseded in place, with the old name preserved.
-  it('mounts exactly the backed surfaces — queue + history always; outlier never; detail surfaces only on selection', async () => {
+  it('mounts exactly the backed surfaces — queue + history always; detail surfaces only on selection', async () => {
     const { transport, seams } = fakeServer();
     const authenticated = render(<App seams={seams} transport={transport} />);
     await screen.findByTestId('history-list');
@@ -364,8 +398,9 @@ describe('App — the Scope-A composition root', () => {
     // once the gate is mounted — the accidental-pass trap this build has twice refused).
     expect(screen.queryByTestId('memo-view')).toBeNull();
     expect(screen.queryByTestId('approval-gate')).toBeNull();
-    // override: absent because nothing is SELECTED here — it mounts in the selection branch, pinned
-    // positively above. outlier: genuinely never mounted (#17), which is what this line still asserts.
+    // override AND outlier: both absent because nothing is SELECTED here — both mount in the
+    // selection branch, and both are pinned positively above. ⚑ Neither line asserts an exclusion
+    // any more; as of 2026-08-13 there is no unmounted unit left in this build.
     expect(screen.queryByTestId('override-form-view')).toBeNull();
     expect(screen.queryByTestId('outlier-view')).toBeNull();
 
@@ -424,6 +459,52 @@ describe('App — the Scope-A composition root', () => {
     render(<App seams={seams} transport={transport} />);
     fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
     expect(await screen.findByTestId('override-form-view')).toBeInTheDocument();
+  });
+
+  it('selection mounts the outlier view — the advisory statistical panel is reachable', async () => {
+    // ⛔ THE MOUNT ITSELF (#17's frontend half). Asserts `outlier-view`, NOT the panel heading —
+    // `OutlierView` renders its `Panel` in EVERY state (loading / not-available / error), but the
+    // inner `outlier-view` testid ONLY on the READY branch inside `ReadOnlyRegion`
+    // (OutlierView.jsx:88-93). An assertion against the panel would therefore pass from
+    // NOT_AVAILABLE — i.e. for the wrong reason, and against the very body 12 of 13 real rows
+    // produce. This is the FOURTH instance of the accidental-pass trap this file has refused.
+    const { transport, seams } = backedServer({ memoBody: R4_READY_OUTLIER });
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    expect(await screen.findByTestId('outlier-view')).toBeInTheDocument();
+    // ...and it is rendering the REAL numbers off the wire, not chrome that happens to mount.
+    expect(screen.getByTestId('outlier-score')).toHaveTextContent('0.567032896281');
+  });
+
+  it('the outlier seam is the REAL R4 seam, not a placeholder', async () => {
+    // ⚑ THE NON-VACUITY PARTNER of the mount assertion above. A seam registered as a stub — or one
+    // bound to the wrong route — would still let `outlier-view` mount from a fixture; only calling
+    // it proves `createSeams` wired the real transport to R4. Mirrors `the unbacked seams are real
+    // and callable`, which pinned the same property when these seams answered 501.
+    const { seams, calls } = backedServer({ memoBody: R4_READY_OUTLIER });
+    expect(typeof seams.outlier).toBe('function');
+    const body = await seams.outlier('app-1');
+    expect(body.outlier.outlier_score).toBe(0.567032896281);
+    expect(calls.some((c) => c.url === '/applications/app-1/memo' && c.method === 'GET')).toBe(true);
+  });
+
+  it('⛔ a selected case with NO outlier data renders NOT_AVAILABLE, never the ERROR state', async () => {
+    // ⛔ THE CASE 12 OF 13 REAL ROWS PRODUCE, and the most likely way this mount goes wrong. A
+    // `pending` body and a `ready` body carrying `outlier: null` BOTH mean "not analyzed" — not
+    // "failed to load". `deriveOutlierState` is failure-first precisely so NOT_AVAILABLE can never
+    // mask a genuine error; this asserts the other direction, which nothing else does: that an
+    // absent score is not dressed up AS an error. Getting it backwards is invisible to anyone who
+    // only exercises the scored case.
+    const { transport, seams } = backedServer();   // R4_READY -> outlier: null
+    render(<App seams={seams} transport={transport} />);
+    fireEvent.click(await screen.findByTestId('queue-row-select-app-1'));
+    expect(await screen.findByTestId('outlier-state-notavailable')).toBeInTheDocument();
+    expect(screen.queryByTestId('outlier-state-error')).toBeNull();
+    // ⚑ The retry affordance belongs to the ERROR state alone. Its presence here would mean the
+    // user was being invited to retry something that did not fail.
+    expect(screen.queryByTestId('outlier-error-retry')).toBeNull();
+    // ...and the READY surface is genuinely absent, not merely empty.
+    expect(screen.queryByTestId('outlier-view')).toBeNull();
   });
 
   it('no selection -> no detail surfaces (the other branch of the selection condition — fold 5)', async () => {
@@ -567,8 +648,15 @@ describe('createSeams — every frozen unit seam over one real transport', () =>
     // registers none, because it takes its seam directly from the transport in App.jsx. Six now;
     // seven if outlier follows.
     const { seams } = fakeServer();
+    // ⚑ SUPERSEDED 2026-08-13 (outlier mount). The set was
+    //     ['commit', 'history', 'memo', 'override', 'queue', 'submission']
+    // and `outlier` makes it SEVEN. ⛔ This is the supersession the outlier-wiring pass answered in
+    // advance (its Q4(a)) and carried forward — with two figures that have since gone stale and are
+    // corrected here: it said "five keys" and "add outlier as the sixth", both true before
+    // submission landed on 2026-08-02. Six became seven, exactly as the register #2 backfill
+    // predicted: "It is SIX now, and SEVEN if the outlier mount lands after this."
     expect(Object.keys(seams).sort())
-      .toEqual(['commit', 'history', 'memo', 'override', 'queue', 'submission']);
+      .toEqual(['commit', 'history', 'memo', 'outlier', 'override', 'queue', 'submission']);
   });
 
   it('the submission seam exposes both routes of the two-phase flow, plus the manifest read', () => {

@@ -6,6 +6,7 @@ import { MemoView } from '../memoView/MemoView.jsx';
 import { ApprovalGateView } from '../approvalGate/ApprovalGateView.jsx';
 import { OverrideFormView } from '../overrideForm/OverrideFormView.jsx';
 import { SubmissionView } from '../submission/SubmissionView.jsx';
+import { OutlierView } from '../outlierView/OutlierView.jsx';
 import { LoginView } from '../login/LoginView.jsx';
 import { LogoutControl } from '../login/LogoutControl.jsx';
 import { createLoginFetch } from '../login/loginFetchSeam.js';
@@ -102,12 +103,16 @@ export function App({ seams, transport, testid = 'app-root' }) {
         <QueueView key={queueEpoch} fetchSeam={seams.queue} onSelect={setSelectedId} />
         {selectedId ? (
           <>
-            {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView, ApprovalGateView AND
-                OverrideFormView each issue their OWN GET /applications/{id}/memo, so a selection now
-                makes THREE identical R4 requests (was two before override was mounted). Each frozen
-                unit owning its own fetch is the design; removing the duplication would mean lifting
-                R4 into this root and prop-injecting three frozen units — a redesign, not a wiring
-                change. Accepted knowingly and left visible rather than quietly absorbed. */}
+            {/* Fold 4 — DISCLOSED, not optimized (#15 precedent): MemoView, ApprovalGateView,
+                OverrideFormView AND OutlierView each issue their OWN GET /applications/{id}/memo,
+                so a selection now makes FOUR identical R4 requests (was THREE before outlier was
+                mounted, and two before override). Each frozen unit owning its own fetch is the
+                design; removing the duplication would mean lifting R4 into this root and
+                prop-injecting FOUR frozen units — a redesign, not a wiring change. Accepted
+                knowingly and left visible rather than quietly absorbed.
+                ⚠️ The count in this comment has now been corrected twice, once per mount. It is
+                stated as a number deliberately — a vaguer wording would stop being checkable, and
+                §7 step 5 of the mount plan verifies it in DevTools rather than trusting it. */}
             <MemoView memoFetchSeam={seams.memo} applicationId={selectedId} />
             {/* Fold 3 — testid passed EXPLICITLY (equals the default) so the assertion pins the REAL
                 rendered id and cannot pass by accident against a stale `approval-gate-view`. */}
@@ -122,6 +127,17 @@ export function App({ seams, transport, testid = 'app-root' }) {
                 ⚑ NOT RoleGate-wrapped here — the gate lives INSIDE OverrideAffordance, so a
                 non-underwriter sees the context without the affordance. */}
             <OverrideFormView overrideFetchSeam={seams.override} applicationId={selectedId} />
+            {/* ⛔ THE LAST UNMOUNTED UNIT IN THIS BUILD, and register #17's frontend half. Advisory
+                statistical context for the decision above it — read-only by construction: the unit
+                exposes no write seam at all, reads no Role, and emits nothing upward.
+                ⚑ MOUNTED LAST, after both write affordances, deliberately: approve and disagree are
+                peer choices and splitting them with a panel between would misread as a sequence.
+                ⚑ PROP IS `fetchSeam`, NOT `outlierFetchSeam` — this unit follows QueueView's naming,
+                not its three neighbours' here. The sibling-style name would leave the prop undefined
+                and the view would render its ERROR state rather than failing loudly.
+                ⚠️ Renders NOT_AVAILABLE for any case with no stored score — which today is 12 of the
+                13 rows in the demo database, so it is the ORDINARY state, not an edge case. */}
+            <OutlierView fetchSeam={seams.outlier} applicationId={selectedId} />
           </>
         ) : null}
         <HistoryView fetchSeam={seams.history} />

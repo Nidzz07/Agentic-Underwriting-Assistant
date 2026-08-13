@@ -30,8 +30,24 @@
 // present in Scope A: every other key existed before it was backed. Its unit is also the first
 // built for the composition root rather than inherited frozen from the BUILD phase.
 //
-// ⚑ NOT registered: the outlier seam. That is still a real exclusion (#17 — a wired OutlierView would
-// render permanently empty), and it is the only remaining case the old rationale still describes.
+//     outlier  -> R4     ✅ real   (mounted — the Phase-2-OUT slice, register #17)
+//
+// ⚑ OUTLIER ADDED 2026-08-13, and with it the LAST unmounted unit in this build.
+//
+// ⛔ SUPERSEDED, the original preserved VERBATIM because it was true for this file's whole history
+// until now: "⚑ NOT registered: the outlier seam. That is still a real exclusion (#17 — a wired
+// OutlierView would render permanently empty), and it is the only remaining case the old rationale
+// still describes."
+//
+// ⚑ ITS PREMISE DIED IN THE OUTLIER-WIRING PASS, not in this one. "Would render permanently empty"
+// was exact while `outlier_canonical` was NULL on every row ever written and R4 bound the field to
+// `null`. That pass computed, persisted and served a real `OutlierResult` — verified on a real local
+// PostgreSQL — so the seam's exclusion outlived its reason by one pass. Registering it here is the
+// second half of #17 and closes the item.
+//
+// ⚠️ The seam reads R4, the SAME route memo/commit/override already read. That makes a selection
+// issue FOUR identical `GET /applications/{id}/memo` requests — disclosed in App.jsx and carried
+// forward on the #15 precedent, NOT redesigned here.
 
 import { createQueueFetch } from '../queue/fetchSeam.js';
 import { createMemoFetch } from '../memoView/memoFetchSeam.js';
@@ -39,6 +55,7 @@ import { createCommitFetch } from '../approvalGate/commitFetchSeam.js';
 import { createOverrideFetch } from '../overrideForm/overrideFetchSeam.js';
 import { createHistoryFetch } from '../history/historyFetchSeam.js';
 import { createSubmissionFetch } from '../submission/fetchSeam.js';
+import { createOutlierFetch } from '../outlierView/fetchSeam.js';
 
 /**
  * createSeams(transport) -> every unit's seam, each over the same real transport.
@@ -57,6 +74,10 @@ export function createSeams(transport) {
     override: createOverrideFetch(transport),   // R5 — unbacked in Scope A
     history: createHistoryFetch(transport),     // R6 + R7 — REAL
     submission: createSubmissionFetch(transport), // R10 + R11 — REAL (WIRE1-Fold-6)
+    // ⚑ A BARE FUNCTION, not an object — `createOutlierFetch` follows queue/memo's single-operation
+    // shape, unlike commit/override/history/submission. Not an inconsistency to fix: the unit has
+    // exactly one read and no write path, structurally (its noWriteSeam scan asserts that).
+    outlier: createOutlierFetch(transport),     // R4 — REAL (Phase-2-OUT, register #17)
   };
 }
 

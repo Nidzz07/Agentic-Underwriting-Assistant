@@ -7133,3 +7133,130 @@ DATA** — nothing in this pass should ever be described as populating a profile
 no `.sql` · no `checksums.json` · no `render.yaml` · **coverage thresholds unedited on both sides** ·
 ⛔ **HEAD is still `d43b661` — NO COMMIT.** ⚑ The stray `uw.txt` (an untracked, un-gitignored `curl` cookie jar
 carrying a **live session token** left by the walkthrough) was **deleted** before any commit could sweep it in.
+
+---
+
+## ✅ OUTLIER MOUNT — **COMPLETE**. ⛔ **THE LAST UNMOUNTED UNIT IN THIS BUILD IS MOUNTED** · A REAL SCORE ON SCREEN FOR THE FIRST TIME · **REGISTER #17 CLOSED** · **NOT COMMITTED** (2026-08-13T17:01:28Z)
+
+**Frontend 812 → 815 / 154. Predicted +3, actual +3 — hit exactly, with no variance to reconcile**, which is worth
+recording precisely because this project's prediction misses are recorded so often. Backend **1774 / 0 / 45 / 5 /
+99.49%**, untouched. Two files changed, **no new files**.
+
+⚑ **`OutlierView` was built during the 24-unit BUILD phase and had never once rendered against a real backend.**
+It shipped complete — 5 source files, 10 test files, four plan artifacts — and sat unmounted for the whole of
+Phase 1 because a wired view would have rendered permanently empty. **That premise died in the outlier-wiring pass;
+the exclusion outlived its reason by one pass, and this closes the gap.**
+
+### What this pass did — and how little of it was the mount
+
+The mount is **six lines in two files**. The pass's real content was **five supersessions**, because a mount that
+edited only `App.jsx` and `seams.js` would have left four documents asserting an exclusion that no longer existed.
+
+| | Change |
+|---|---|
+| **S1** | `seams.js` — `outlier: createOutlierFetch(transport)`, the **seventh** key |
+| **S2** | `seams.js` — the exclusion comment superseded, original preserved verbatim |
+| **S3** | `app.test.jsx` — the exact-key set → seven |
+| **S4** | ⛔ **GATE G1** — the test **rename**, authorized explicitly in writing |
+| **S5** | `app.test.jsx` — the **reason-flip** comments, a change with no assertion behind it |
+
+⚑ **S5 was found while writing the plan, not while coding it.** `queryByTestId('outlier-view')).toBeNull()` in the
+no-selection block **stays green and stays correct** — but its reason flips from *"genuinely excluded (#17)"* to
+*"nothing is selected"*, the identical transition override made on 2026-07-26. A comment-only change a diff reader
+could dismiss as cosmetic, and it is not: it is the difference between a test documenting reality and one
+documenting a retired premise.
+
+⛔ **GATE G1 — the rename, granted its own authorization rather than folded in.** Precedent in that very file: when
+override was mounted, the same rename was **deliberately left stale for a whole pass** because the authorizing
+answer covered the comment only. Repeated here rather than quietly improved on. **The clause was DELETED, not
+replaced** — *"detail surfaces only on selection"* already covers every per-application surface, and enumerating
+one of four is what made this name go stale **twice**. ⚑ The shorter name is the one that cannot go stale again.
+**Name only; every assertion byte-unchanged.**
+
+### ⚠️ Two figures in the inherited answer were stale, and were corrected
+
+The outlier-wiring pass answered this pass's seam question **in advance** — *"add `outlier` as the sixth key and
+supersede the exact-key assertion at `app.test.jsx:547-550`"*. Both figures had since expired: submission landed
+2026-08-02, so it is the **seventh** key, and the assertion had moved to **`:570-571`**. ⚑ Exactly as the register
+#2 backfill predicted in writing: *"It is SIX now, and SEVEN if the outlier mount lands after this."*
+
+### The three new tests — all RED before GREEN
+
+`selection mounts the outlier view` · `the outlier seam is the REAL R4 seam, not a placeholder` ·
+`⛔ a selected case with NO outlier data renders NOT_AVAILABLE, never the ERROR state`. **None was green on
+arrival.**
+
+⚑ **The mount assertion targets `outlier-view`, not the panel heading.** `OutlierView` renders its `Panel` in
+**every** state but the inner `outlier-view` testid only on the READY branch — so a panel-level assertion would
+have passed from NOT_AVAILABLE, i.e. **for the wrong reason, against the exact body 12 of 13 real rows produce.**
+**The fourth instance of the accidental-pass trap this file has refused**, and recorded alongside the prior three.
+
+### ⛔ §7 MANUAL VERIFICATION — user-run (reconstruction, not observation)
+
+Performed by the **USER** via browser, `curl` and DevTools against a real running stack and a real local
+PostgreSQL, **2026-08-13**. **Not observed by this agent**; values as reported. ⚠️ Per-step clock times not
+captured, not invented. **All 5 steps passed.**
+
+⛔ **THE FIRST OUTLIER SCORE EVER SEEN ON SCREEN.** `APP-1d3cc48d…` rendered the score, the flag status, both
+flagged features with `z_score` and `shap_value`, and the advisory note — ⚑ **and every value matched `curl`'s R4
+body digit for digit**: `outlier_score=0.567032896281`, `is_outlier=true`, `requested_cover_amount`
+(z=89.538266146672, shap=−1.819747510403), `verifiable_income_annual` (z=23.160709820284, shap=−2.013322131055).
+**That cross-check is what psql-only verification could never make** — it is the only check that catches a view
+rendering the right *shape* with the wrong *numbers*. ⛔ **No verdict language**: direction rendered *"Above the
+typical range"*, the statistical-position wording chosen so a `high` flag never reads as *"high risk"*.
+
+**NOT_AVAILABLE confirmed genuinely distinct from ERROR** — an unscored case (12 of 13 rows) rendered *"Outlier
+analysis is not available for this application."* with **no error framing and no Retry button**. ⚑ That absence is
+the whole assertion. Selection-switching swapped the panel cleanly with **no stale caching**.
+
+⛔ **THE ERROR-WORDING FINDING WAS A DEFECT IN THE PLAN, NOT IN THE CODE — and the attribution was corrected rather
+than accepted.** Step 4 observed *"Unable to reach the server."* where §7 expected *"Unable to load the outlier
+analysis."*, reported with the hypothesis *"a more general shared error-handling layer"*. ⚑ **It is not that, and
+this unit structurally could not do that** — `outlierView` imports nothing from any sibling and
+`noSiblingImport.test.js` enforces it. A stopped backend makes `transport` throw; the unit's **own**
+`normalizeError` synthesizes `{code:'network_error', message:'Unable to reach the server.'}`; `OutlierStateView`
+renders **`envelope.message`** — `ErrorEnvelopeToRenderPattern` (ERROR-1) behaving exactly as specified.
+`OUTLIER_COPY.unknownErrorMessage` is a **purely defensive fallback** for a malformed envelope, and the component
+says so in terms. ⛔ **The observed behaviour is correct; §7 step 4 named the fallback and was wrong.** Recorded as
+a plan error — **there is nothing in the code to look at later.**
+
+⚑ **THE 8-vs-4 REQUEST COUNT — a dev artifact, recorded emphatically so it is never misread.** DevTools showed
+**8** requests to `/applications/{id}/memo` on one selection: 6 clustered at ~193–198 ms, 2 at ~377–384 ms. That is
+React **Strict Mode's development-only double invocation** — **8 = 4 × 2**. ⛔ **This is NOT evidence against the
+documented four-fetch design.** The four genuine sources are MemoView, ApprovalGateView, OverrideFormView and
+OutlierView, each frozen unit owning its own R4 read. ⚑ **The clustering is the proof**: a fifth genuine source
+would have added **one** request, not doubled the set. The Fold-4 disclosure in `App.jsx` was updated **THREE →
+FOUR** in this pass and is confirmed accurate.
+
+### ⚠️ What the walkthrough deliberately does NOT claim
+
+* ⛔ **The `ready` + `outlier: null` sub-branch was NOT exercised live** — **no such row exists** in the database
+  (13 applications: 12 `evaluated`/unscored, 1 `drafted`/scored). Step 2 covered the `pending` null-cause only.
+  Both reach NOT_AVAILABLE by the **same code path** and the unit's own tests cover both, but **only one was seen
+  live**, and that is stated rather than glossed.
+* ⚠️ **Nothing here re-verifies the SCORE's correctness.** That closed in the wiring pass on live evidence
+  (determinism across two seeds, identical to twelve decimals). **This pass verifies RENDERING.**
+
+### Register — ⛔ #17 CLOSES
+
+| Item | Status |
+|---|---|
+| **#17** `OUTLIER-DATA-EXISTS-CONTRACT-FORBIDS` | ✅ **CLOSED on live evidence.** Both halves the item named are done: the **technical** half (a real score computed, persisted at 464 canonical bytes, and served — closed by the outlier-wiring pass) and the **frontend** half (mounted, and **observed rendering that real data on screen**). ⛔ **Row 17-C is PRESERVED, not deleted** — the closure is of the **ITEM**, not an endorsement of its title, whose two load-bearing claims 17-C records as **both false** (*"persists real outlier data"* — it did not; *"the frozen contract forbids sending it"* — it does not). ⚠️ **Closing #17 does NOT mean "the system is in Phase 2"** — only the named **Phase-2-OUT** slice; `ObservabilityService`, Langfuse and Prometheus stay untouched. It does not close the corpus-deployment question, and it does not touch **#5 `OUTLIER-IN-PROSE`**, a different item about memo prose. |
+| **#5 `OUTLIER-IN-PROSE`** | **OPEN — unchanged, and explicitly not absorbed.** The outlier signal still does not appear in memo prose. |
+| **#2 · #3 · #8 · #12 · #13 · #14 · #18 · #26 · #29 · #30 · #31** | **Untouched.** |
+
+**Register 31 tracked — 20 open · 7 closed/discharged · 4 narrowed (#3, #8, #18, #19).** ⛔ **No new item opened by
+this pass** — the first pass in some time that opens none. ⚠️ The breakdown is **derived from the running tallies**
+(26 tracked / 18 open at 2026-07-26, then +#27 +#28 +#29 +#30 +#31, with #27/#28 closed on arrival and #17 closing
+here) rather than from a re-enumeration of all 31 rows; stated so a future reader knows which it is.
+
+### Files — 2 changed, 0 new. ⛔ NOT COMMITTED.
+
+`frontend/src/app/App.jsx` (the mount + the THREE→FOUR disclosure) · `frontend/src/app/seams.js` (S1, S2) ·
+`frontend/src/app/__tests__/app.test.jsx` (S3, S4/G1, S5, +3 tests). Plus `guide-docs/` — the plan, this entry,
+`audit.md`, `BUILD-COMPLETION-REPORT.md`.
+
+**HOLDS — verified by `git status`**: ⛔ **`frontend/src/outlierView/` NOT TOUCHED — not one source file, not one
+test.** The plan's strongest hold, and it held: the frozen unit needed **no** change, which is the finding that the
+wire shape it was built against is exactly what the backend serves. ⚑ Had it needed one, the plan required
+stopping. · no backend file · no WIRE-1 · no migration · no coverage threshold · **NO COMMIT.**
