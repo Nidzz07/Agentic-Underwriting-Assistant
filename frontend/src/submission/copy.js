@@ -29,6 +29,40 @@ export const REQUIRED_FIELDS = Object.freeze([
   'requested_cover_amount',
 ]);
 
+// ⛔ THE OPTIONAL FIELDS — added by WIRE1-Fold-7 (Q10).
+//
+// ⚑ SUPERSEDED, and the Fold-6 text is kept because its reasoning was sound at the time:
+// *"OPTIONAL intake fields are deliberately NOT offered. Under Q2(a) no document can be
+// supplied, so `ApplicantProfile.incomplete` is TRUE for every Fold-6 submission regardless —
+// collecting optional values would not change that."*
+//
+// **Documents have landed, so the premise is gone.** With three parsed documents the
+// documents clause clears, and these fields clear the other six — so an application can now
+// reach `incomplete = false` for the first time in this project's history.
+//
+// ⛔ THEY MUST NEVER JOIN `REQUIRED_FIELDS`. The submit affordance keys on that tuple alone; an
+// optional field added there would become mandatory by UI accident. Pinned by a test.
+export const OPTIONAL_FIELDS = Object.freeze([
+  'height_cm',
+  'weight_kg',
+  'existing_debt_obligations_annual',
+  'occupation',
+  'employment_type',
+  'smoking_status',
+  'health_flags',
+]);
+
+//: Values the frozen `intake.schema.EmploymentType` / `SmokingStatus` enums accept, by value.
+export const EMPLOYMENT_OPTIONS = Object.freeze([
+  'salaried', 'self_employed', 'contract', 'unemployed', 'unknown',
+]);
+export const SMOKING_OPTIONS = Object.freeze(['smoker', 'non_smoker', 'unknown']);
+
+//: The three `intake.schema.DocType` values, by value — the part names R10 accepts (WIRE-1 §1).
+export const DOC_TYPES = Object.freeze([
+  'salary_slip', 'bank_statement', 'medical_questionnaire',
+]);
+
 //: The gender values the frozen `intake.schema.Gender` enum accepts, by value.
 export const GENDER_OPTIONS = Object.freeze(['female', 'male', 'other', 'unspecified']);
 
@@ -84,6 +118,57 @@ export const SUBMISSION_COPY = Object.freeze({
   draftedMessage: 'The assessment is ready to review.',
   // ⚑ Re-triggering is idempotent, not a failure (register #27's `DraftOutcome.skipped`).
   skippedMessage: 'This application has already been assessed.',
+
+  // --- documents (WIRE1-Fold-7) ---
+  documentsHeading: 'Supporting documents',
+  documentsHint: 'PDF only. Each document is checked when you submit.',
+  documentLabels: Object.freeze({
+    salary_slip: 'Salary slip',
+    bank_statement: 'Bank statement',
+    medical_questionnaire: 'Medical questionnaire',
+  }),
+  // ⛔ Q7: per-document status must be VISIBLE, never a silent downgrade. A document that fails
+  // to read changes the assessment, and the applicant is entitled to know which one and why.
+  documentStatusLabels: Object.freeze({
+    selected: 'Ready to upload',
+    uploading: 'Checking…',
+    parsed: 'Read successfully',
+    unparseable: 'Could not be read — the application was still accepted',
+  }),
+  removeDocumentLabel: 'Remove',
+  tooLargeMessage: 'That file is too large. Choose a smaller PDF.',
+
+  // --- the optional section (Q10) ---
+  optionalHeading: 'Additional details (optional)',
+  optionalHint: 'These are not required, but a complete application can be assessed more fully.',
+  optionalFieldLabels: Object.freeze({
+    height_cm: 'Height (cm)',
+    weight_kg: 'Weight (kg)',
+    existing_debt_obligations_annual: 'Existing annual debt obligations',
+    occupation: 'Occupation',
+    employment_type: 'Employment type',
+    smoking_status: 'Smoking status',
+    health_flags: 'Health notes',
+  }),
+  employmentLabels: Object.freeze({
+    salaried: 'Salaried', self_employed: 'Self-employed', contract: 'Contract',
+    unemployed: 'Not currently employed', unknown: 'Prefer not to say',
+  }),
+  smokingLabels: Object.freeze({
+    smoker: 'Smoker', non_smoker: 'Non-smoker', unknown: 'Prefer not to say',
+  }),
+
+  // ⚠️ Q11(a) — THE DISCLOSED LIMITATION, STATED TO THE USER, not buried in a code comment.
+  // `intake`'s completeness test treats an EMPTY health-notes list as incomplete, so an
+  // applicant who reports nothing cannot be marked complete however many documents they attach.
+  // This pass does not reopen frozen `intake` to change that; it says so plainly instead.
+  completenessDisclosure:
+    'Attaching every document does not by itself mark an application complete. '
+    + 'Leaving health notes empty will also keep it marked incomplete, even when nothing is '
+    + 'wrong — write "none reported" if that is the case.',
+
+  // Q3(a): the upload latency is DISCLOSED rather than engineered away.
+  uploadLatencyHint: 'Checking documents can take a few seconds.',
 
   unknownErrorMessage: 'Something went wrong.',
 });

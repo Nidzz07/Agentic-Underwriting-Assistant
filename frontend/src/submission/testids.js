@@ -34,3 +34,13 @@ export function fieldErrorTestid(field) {
 export function missingItemTestid(item) {
   return `submission-missing-${slugSegment(item)}`;
 }
+
+// One document file input, keyed by its `DocType` value.
+export function documentInputTestid(docType) {
+  return `submission-doc-${slugSegment(docType)}`;
+}
+
+// The visible per-document status — ⛔ Q7 requires this be addressable, not merely rendered.
+export function documentStatusTestid(docType) {
+  return `submission-docstatus-${slugSegment(docType)}`;
+}

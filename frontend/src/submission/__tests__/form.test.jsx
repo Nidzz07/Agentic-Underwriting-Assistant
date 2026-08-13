@@ -63,11 +63,23 @@ describe('the submit affordance is disabled until the form is valid', () => {
   });
 
   it('submits the typed values to the seam, verbatim', () => {
+    // ⚑ SUPERSEDED 2026-08-03 (WIRE1-Fold-7). The Fold-6 assertion is preserved verbatim:
+    //
+    //     expect(seam.submit).toHaveBeenCalledWith(VALID);
+    //
+    // The seam gained a SECOND argument — the `{ docType: File }` map — so a one-argument
+    // assertion no longer describes the call. ⛔ What it still pins is unchanged and is the
+    // point: the REQUIRED values reach the seam verbatim, none renamed, none dropped, and with
+    // no documents attached the second argument is empty (which is what keeps the JSON encoding
+    // in play for a document-free submission).
     const seam = stubSeam();
     render(<SubmissionView submissionSeam={seam} />);
     fillValid();
     fireEvent.click(screen.getByTestId('submission-submit'));
-    expect(seam.submit).toHaveBeenCalledWith(VALID);
+
+    const [formFields, documents] = seam.submit.mock.calls[0];
+    expect(formFields).toEqual(VALID);
+    expect(Object.values(documents).filter(Boolean)).toEqual([]);
   });
 
   it('⛔ NEVER sends an application_id — the server assigns it', () => {

@@ -15,13 +15,31 @@
 // a normalizer that flattened it to a message would reduce every rejection to "something was
 // wrong" — discarding precisely the structured rejection that choosing Q8(a) bought.
 
-// Build the WIRE-1 R10 request. `documents` is ALWAYS present and ALWAYS `[]` under Fold-6.
-export function buildSubmitRequest(formFields, documents = []) {
-  return {
-    method: 'POST',
-    path: '/applications',
-    body: { form_fields: formFields, documents },
-  };
+// Build the WIRE-1 R10 request.
+//
+// ⚑ TWO ENCODINGS, and the JSON one is UNCHANGED (WIRE1-Fold-7 / Constraint 4). A submission
+// carrying NO documents stays plain JSON exactly as Fold-6 pinned it — an application with no
+// attachments has no reason to pay multipart's cost, and ~15 backend tests plus the shipped
+// frontend depend on that path being untouched.
+//
+// ⛔ With documents it becomes `multipart/form-data`: one `form_fields` part carrying the SAME
+// JSON object, plus one file part per `DocType`. The transport sets no Content-Type, so the
+// browser supplies the boundary.
+export function buildSubmitRequest(formFields, documents = {}) {
+  const attached = Object.entries(documents).filter(([, file]) => file);
+  if (attached.length === 0) {
+    return {
+      method: 'POST',
+      path: '/applications',
+      body: { form_fields: formFields, documents: [] },
+    };
+  }
+  const form = new FormData();
+  form.append('form_fields', JSON.stringify(formFields));
+  for (const [docType, file] of attached) {
+    form.append(docType, file, file.name);
+  }
+  return { method: 'POST', path: '/applications', body: form };
 }
 
 // Build the WIRE-1 R11 request. No body — the application id is the whole input.
@@ -66,7 +84,8 @@ async function send(transport, request) {
  * `transport(request)` is INJECTED — a capturing double in tests, the real HTTP transport at the
  * composition root. It resolves `{ ok, body }` and may throw on a transport failure.
  *
- *   submit(formFields, documents = [])  -> resolves { application_id, status } (R10)
+ *   submit(formFields, documents = {})  -> resolves { application_id, status } (R10)
+ *       `documents` is a { docTypeValue: File } map; empty -> JSON, non-empty -> multipart
  *   triggerDraft(applicationId)         -> resolves { application_id, status, outcome } (R11)
  *
  * Both REJECT with a well-formed `{ error: { code, message, detail } }` envelope — never a raw
@@ -74,7 +93,7 @@ async function send(transport, request) {
  */
 export function createSubmissionFetch(transport) {
   return {
-    submit: (formFields, documents = []) =>
+    submit: (formFields, documents = {}) =>
       send(transport, buildSubmitRequest(formFields, documents)),
     triggerDraft: (applicationId) => send(transport, buildDraftRequest(applicationId)),
   };

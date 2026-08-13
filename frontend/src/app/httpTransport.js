@@ -49,14 +49,24 @@ export function createHttpTransport({ baseUrl = DEFAULT_BASE_URL, userId, fetchI
 
   return async function transport(request) {
     const { method, path, body } = request;
+    // ⚑ WIRE1-Fold-7: FormData passes through UNTOUCHED, and deliberately carries NO
+    // Content-Type. `fetch` generates `multipart/form-data; boundary=...` itself, and a
+    // hand-set header would omit the boundary — the server then cannot split the parts, and it
+    // fails looking like a malformed body rather than a missing header.
+    //
+    // ⛔ ADDITIVE ONLY. Every other request still stringifies and still sends
+    // `Content-Type: application/json`, byte for byte — this module is shared by all six seams,
+    // so a change made for document upload must not touch login, commit, override or history.
+    // Pinned by `httpTransport.formData.test.js`.
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     const response = await doFetch(`${baseUrl}${path}`, {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined || isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(userId ? { [USER_ID_HEADER]: userId } : {}),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: isFormData ? body : JSON.stringify(body) }),
     });
 
     // ⚑ A 204 has NO BODY BY DEFINITION, so `.json()` on it rejects with a SyntaxError. Parsing

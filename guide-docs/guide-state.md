@@ -6769,3 +6769,367 @@ touched** · ⛔ **no `.sql`, no `checksums.json`** (no new register #26 entangl
 application code** — `repository.py:250`'s never-deleted assumption intact, so R5's **404 stays a 404** ·
 **WIRE-1 untouched** · **frontend untouched at 723 / 147** · coverage threshold **unedited** at 99.63% ·
 **NO COMMIT**.
+
+---
+
+## ✅ REGISTER #2 — THE REAL SUBMISSION PATH — **COMPLETE**. WIRE1-Fold-6 · FOUR STAGES · VERIFIED ON REAL POSTGRES · **COMMITTED** `d102c52` + `d43b661` (2026-08-02T16:41:52Z)
+
+⚠️ **THIS ENTRY IS A BACKFILL, WRITTEN AFTER THE PASS CLOSED AND AFTER BOTH COMMITS LANDED.** The pass's
+close-out updated `audit.md` and `BUILD-COMPLETION-REPORT.md` but **not this file**, so guide-state stood at the
+#27/#28 pass and carried no record of Fold-6, R10/R11, the `submission/` unit or #2's status change. The gap was
+found while scoping the document-upload follow-on — by grepping this file for `WIRE1-Fold-6` and getting **zero
+hits**. Recorded as a backfill rather than presented as contemporaneous.
+
+**An application a human typed into a browser now reaches a committed decision.** Backend **1691 / 0 / 44 / 5 /
+99.64%** (from 1649 / 99.63%). Frontend **778 / 152** (from 723 / 147). Both suites re-run green after committing.
+
+### What this pass delivered
+
+**R10 `POST /applications`** and **R11 `POST /applications/{application_id}/draft`** — the ingestion route the
+project has never had, plus the explicit drafting trigger that follows it. ⚑ **The first exercise of U1 `intake` in
+any reachable path in this build's history**: before this pass, `IntakePipeline` had **zero call sites outside
+`backend/intake/` itself**, and the seed script — the only thing that had ever created a case — bypassed it
+entirely with a hardcoded `_demo_profile()`.
+
+### The three gates, and why there were three
+
+Q1(a)/Q9(a) refused to bundle a contract amendment with a load-bearing assertion change. Each got its own written
+sign-off:
+
+| Gate | Subject | Outcome |
+|---|---|---|
+| **G1** | **WIRE1-Fold-6**, the contract's **third** amendment | §3 gained R10/R11, §5 their shapes, §7.3 the record. ⚑ **R1–R9 verified BYTE-UNCHANGED** — `sha256 abd3ce10…` identical before and after, `git diff` showing every §3 hunk as pure insertion. |
+| **G2** | the route-set widening | Both `_route_inventory.py` copies, held identical by `test_route_inventory_sync.py`, each new POST carrying its stated reason. |
+| **G3** | the **TRIGGER-1** narrowing | `test_the_read_routes_invoke_no_pipeline_step` → `test_no_get_route_can_reach_the_pipeline`. |
+
+⚑ **Fold-6 amended ONE FEWER SECTION than scoped.** §4 was expected to need an error-mapping change and did not:
+its **400** row has read *"malformed request / input validation (**intake Pydantic reject**, bad body)"* since the
+**2026-07-08** pin, with `detail` documented as *"per-field validation errors"* — **exactly** `RejectedIntake`'s
+shape. **The contract had a home for a rejected intake drafted before any ingestion route was contemplated.**
+⚑ Fold-5's lesson was that a blast radius grows under audit; this is the first time one **shrank**.
+
+### ⛔ The §0.2 invariant was reversed deliberately, and the guard narrowed rather than deleted
+
+The scoping pass found that *"the LLM-bearing composition never enters the request path"* was **not merely
+documented — it was mechanically enforced**, by an assertion that forbade `CasePipeline`, `.submit(` and `.draft(`
+across **all** of `backend/app/`. R10 and R11 break it by name. Deletion was refused for the **third** time in that
+file's history. The replacement is **strictly more specific**:
+
+> **No module that serves a GET route may reference the pipeline; and the modules that DO reference it are
+> EXACTLY `_PIPELINE_MODULES`** (`dependencies.py`, `submission.py`).
+
+⚑ **The old guard was also broader than its own name** — it said *"the read routes"* but scanned every production
+file. The replacement asserts the claim the name always made, and asserts it directly. **Non-vacuity was
+demonstrated twice**: a committed detector test, and a real synthetic GET module dropped into
+`backend/app/routes/`, observed failing by name on the live tree, then deleted.
+
+### The four stages, and what each cost
+
+| Stage | Content | Δ |
+|---|---|---|
+| **1** | Fold-6 + both inventories + the TRIGGER-1 narrowing | **+1** (predicted 0 — the mandated non-vacuity detector) |
+| **2** | R10/R11 handlers, intake wiring, Q8(a) rejection, auth | **+33** (predicted +18, which itself double-counted 2 state-changes as additions) |
+| **3** | the fourth lazy `lru_cache` — the fitted outlier model | **+8** (predicted +6) |
+| **4** | the `submission/` frontend unit + mount | **+55 frontend** (predicted +32) |
+
+⚠️ **Every delta was reconciled with a stated cause and NO test was trimmed to hit a number.** Stage 1 ran **RED by
+construction** for five tests between G2 and stage 2's implementation — which is why stage 1 was never
+independently committable.
+
+⚑ **A reader the approved plan never enumerated**: `test_auth_stub.py` also reads `ROUTE_INVENTORY` and polices
+every declared route for a 401. The plan named two readers; there are three. Its underlying claim — *"every reading
+assertion still fails until the entry is added"* — was **vindicated**, not contradicted.
+
+### Two boundary decisions, resolved opposite ways for a stated reason
+
+Both stages 2 and 3 hit the same wall: something the request path needed lived in `backend/scripts/`, a tree
+outside every `--cov=` entry whose docstring forbids being *"wired into a production path"*.
+
+* **The offline LLM double → DUPLICATED** into `backend/app/offline_memo_double.py`. It is a **test double**, and
+  the seed script explicitly wants it out of the production tree. The duplication is disclosed, and a test pins the
+  two stamps equal **by value** so an operator never has to know which path wrote a row.
+* **`build_outlier_model` + `CORPUS_DIR` → MOVED** into `backend/app/outlier_composition.py`. It is **real
+  production logic**, and duplicating it would fork the corpus path and the loud-failure message. ⚑ The import
+  direction is the established one — the seed script already imported `backend.app.llm_client`.
+
+### ⛔ A HARD DEPLOYMENT DEPENDENCY THIS PASS CREATED
+
+**`corpus/profiles.json` and `corpus/manifest.json` must be present on the deployed backend.** Outlier scoring is
+now reachable over HTTP, so the corpus stopped being a seed-script convenience the moment R11 shipped. A missing
+corpus raises `FileNotFoundError` **by design** — Q6(b)'s silent `outlier=null` fallback was refused. Declared as
+the named, greppable constant **`outlier_composition.CORPUS_ON_RENDER`** and asserted by a test so it cannot be
+deleted quietly. ⛔ **`render.yaml` is UNTOUCHED — placing and verifying it is the deployment pass's work.**
+
+### Step 6 — live verification, user-run (reconstruction, not observation)
+
+Performed by the **user** via browser, `curl` and `psql` against a **real local PostgreSQL**, ~20:54–21:26 IST.
+**Not observed by this agent**; values as reported. ⚑ **§6 was CORRECTED BEFORE IT RAN** — two of its eight steps
+were unperformable as written, because they described interactions with a UI the implementation forbids (the
+disabled-until-valid affordance, and an auditor who can never reach the drafting trigger).
+
+**THE THREE FIRSTS:**
+
+1. ⛔ **`engine_version=composition-root-1`** on the persisted case (786 `profile_canonical` bytes). The seed script
+   stamps `seed-script-1`. **That single field is the mechanical proof that U1 `intake` ran** — sanitizer, PII
+   guard and SEC-2 gate all executed on a profile the system did not invent.
+2. ⛔ **`AuditRecord 9d39d4e1-9c1a-48c5-99a7-bd362f472b96`** ← `APP-c60445dfd820458295b33849ac8bef7c`,
+   `underwriter_id=demo-underwriter`. **The first audit record in this project's history whose lineage traces to an
+   application a human submitted through a browser.**
+3. **The first outlier score computed for an applicant the system did not invent** — `0.691335220069`, `is_outlier`
+   true, three SHAP-explained flags, full provenance triple, 598 persisted bytes.
+
+**Three predictions made in writing before the run were observed in it**: the ~2.6 s lazy corpus fit on first
+draft, the `queueEpoch` no-reload queue refresh, and `incomplete=true` with all three documents `missing` under
+Q2(a)'s structured-only scope. **Rejection** (`cover=0`) rendered *"requested cover must be > 0"* beside the
+correct field with **no row created**. **Authorization**: auditor 403 on R10 in the UI, 403 on R11 by `curl`.
+
+⚑ **Check 9b came back stronger than specified**: the auditor's draft attempt landed on an already-`committed`
+case and was refused **at the role gate**, never reaching `draft()` — so the 403 is attributable to authorization
+alone, not confounded with register #28's terminal-state guard.
+
+### Register
+
+| Item | Status |
+|---|---|
+| **#2** `R2–R5 unwired` | ⛔ **STILL PARTLY DISCHARGED — and deliberately not more.** Q11-A gap **(i)** no ingestion route → **CLOSED**. Gap **(ii)** no clickable UI → **CLOSED for the submit → draft → commit journey**. Gap **(iii)** synthetic memo prose → ⛔ **OPEN**, per **Q5(a)**'s sequencing choice: `model_version=OFFLINE-DOUBLE-NOT-A-REAL-LLM` was **read back out of the database** at verification, which is the stamp doing exactly the job it exists for. **(iii) is register #18's territory and this pass does not close it.** ⚠️ **A residual inside (ii), named not absorbed**: the drafting trigger exists only in the accepted panel immediately after submitting — a pending case reached any other way (a reload, "Submit another application", a seeded `DEMO-*` row) has **no UI draft affordance**. R11 is complete; the clickable path to it is narrower than *"the UI can draft any pending case"*. **A future pass.** |
+| **#18** | **NARROWED — unchanged.** Now the sole named blocker on #2's full discharge. |
+| **#14** `MEMOVIEW-FAILED-STATE-UNMODELLED` | **OPEN — unchanged, and deliberately deferred to.** Fold-6 **declined to widen** R4's `ready \| pending` discriminator on #14's behalf; R11 maps a genuine drafting failure to the existing **500** instead. |
+| **#13** `NOTWIRED-FILENAME-STALE` | **OPEN — unchanged.** Its shape recurred twice more (a five-key assertion name, a `seams.js` count) and was handled #13's way both times. |
+| **#3 · #8 · #17 · #26 · #29** | **Untouched.** |
+
+**Register remains 29 tracked.**
+
+### ⛔ A CORRECTION TO BOTH PLAN ARTIFACTS, recorded so it is not inherited
+
+Both plans state this pass yields a **"seven-key"** `seams.js` set and that the deferred outlier mount would then
+make it eight. **Both are off by one.** The superseded assertion had **FIVE** keys
+(`commit`/`history`/`memo`/`override`/`queue`) — the plans counted **units** where the assertion counts **seams**,
+and `login` registers none. **It is SIX now, and SEVEN if the outlier mount lands after this.** Recorded in
+`app.test.jsx` itself, where the next pass will read it.
+
+### Files, and the two commits
+
+**`d102c52`** — stages 1–3, **18 files**, +2733/−67 (backend + `guide-docs/`).
+**`d43b661`** — stage 4, **19 files**, +1309/−6 (frontend).
+⚑ **The boundary was chosen because no single file crosses it AND both commits correspond to states that were
+actually executed green.** The design plan's §5 three-way split would have required hunk-splitting
+`dependencies.py`, both `_route_inventory.py` copies and `test_no_write_route.py` — producing commits whose exact
+content was never run.
+
+**HOLDS**: no frozen unit edited (`deploy_config/tests/_route_inventory.py` excepted, by G2's own gate) · no
+migration · no `.sql` · no `checksums.json` · no `render.yaml` · coverage thresholds unedited on both sides ·
+working tree clean at `d43b661`.
+
+---
+
+## ✅ DOCUMENT UPLOAD — WIRE1-Fold-7 · SIX STAGES · **§9 MANUAL VERIFICATION COMPLETE ON REAL POSTGRES (ALL 12 STEPS)** · ⛔ **`DOCS-COMPLETE-1` PASSES AND `incomplete=false` — TWO FIRSTS** · **NOT COMMITTED** (backfilled 2026-08-13T14:05:13Z)
+
+⚠️ **THIS ENTRY IS A DEFERRED BACKFILL, AND THE DEFERRAL WAS DELIBERATE.** The pass executed **2026-08-03**; this
+record was held back **specifically until live evidence existed**, so that one entry could carry observation rather
+than a reconstruction that would then need superseding. The code-gen plan recorded that choice in writing at the
+time — *"backfill deliberately deferred until after §9 runs"*. **§9 has now run.** ⚑ This is therefore the
+**opposite** of the register #2 doc-state gap immediately above: that one was an *omission discovered later*; this
+one was a **scheduled wait that has now been satisfied**.
+
+### ⛔ WHAT REMAINS UNRECOVERABLE — stated first, because it is a real limit on this entry
+
+**The six-stage execution's internal history is GONE and is not reconstructed here.** Which tests went RED before
+which implementation, which of the twelve stop-gates fired, and whether stage 4's
+*`python-multipart`-vs-hand-rolled* decision was actually taken at its gate — **none of it is recoverable.** The
+execution (2026-08-03, mtimes 00:36–01:46) produced **no `audit.md` entry and no `guide-state.md` entry**; that was
+found and disclosed on **2026-08-07** by the stop-gate-8 reconciliation, which is why every figure below is
+**measured from the tree and from re-running both suites** rather than narrated. ⛔ **No RED/GREEN sequence is
+asserted anywhere in this entry.**
+
+⚑ **What IS now closed is the OUTCOME.** The pass's behaviour is verified end-to-end by the §9 walkthrough against
+a real local PostgreSQL (`audit.md` 2026-08-13T14:05:13Z). **Process history unrecoverable; product verified.**
+Those are separable claims and this entry makes only the second.
+
+### What this pass delivered
+
+**WIRE1-Fold-7** — the contract's **fourth** amendment — and with it **the first document an applicant has ever
+been able to attach to an application in this build.** R10 now accepts `multipart/form-data` **alongside** its
+existing JSON body. ⚑ **A media type is not a route**: `('/applications','post')` was already in every inventory,
+which is why **G3 was empty** exactly as the plan predicted it might be.
+
+Three new backend modules, each the subject of its own stage: **`upload_storage.py`** (the app-owned temp root +
+the orphan sweep), **`parse_concurrency.py`** (the process-wide bound), **`multipart_reader.py`** (the hand-rolled
+streaming reader). Plus **`intake_telemetry.py`**, which arrived **later** — see the shortfall below.
+
+### The three gates
+
+| Gate | Subject | Outcome |
+|---|---|---|
+| **G1** | **WIRE1-Fold-7** — §1 · §2 · §3-note · §4 · §5 · §7.4 | ⚑ **R1–R11 verified BYTE-UNCHANGED** row-by-row. **R10's §3 ROW is byte-unchanged** — path, method, purpose, success body and Auth identical; **only the note block beneath it superseded.** |
+| **G2** | ⛔ **`_FILESYSTEM_WRITE_MODULES` — a guard CREATED, not narrowed** | Per Q14(a), written **before** the module it constrains, so `upload_storage.py`'s first encounter with it was a failure. Now `frozenset({"upload_storage.py"})` — **exactly one member.** |
+| **G3** | the route-set touch | ⛔ **CONFIRMED EMPTY.** `deploy_config/tests/_route_inventory.py` untouched. Reserved, not scheduled — and the reservation was correct. |
+
+⚑ **G2 is the inverse of register #2's G3.** There a guard existed and was **narrowed**; here a guard **did not
+exist and was created** — which the ambiguity-check named as the larger act. Fold C had found that
+`test_no_write_route.py` had **no opinion about file I/O at all**, so the first module writing applicant PDFs to
+disk would have passed every structural guard in the composition root **silently**.
+
+⚑ **`DocType` earns a §1 row on a stated asymmetry**: it is **the first enum in that table the CLIENT asserts
+rather than the server emits**. Fold-6 declined rows for intake's enums; Fold-7 adds one. **Same discipline,
+opposite result** — which is why the reason is recorded rather than the outcome alone.
+
+### ⚠️ Counts — measured, and the variance reconciled AFTER the fact
+
+| | Baseline `d43b661` | Predicted | **Measured today** |
+|---|---|---|---|
+| Backend **collected** | 1735 | 1783 | **1819** (1774 passed / 0 failed / **45** skipped / 5 errors) |
+| Frontend | 778 | 812 | **808** (154 files) |
+| Coverage | 99.64% | — | **99.49%**, threshold **unedited**, 90% gate passes |
+
+**Backend +84 collected against +48 predicted.** ⛔ Stop-gate 8 requires the corrected figure **with its cause**,
+and because the execution left no record the cause was **re-derived by reading and categorizing the actual test
+files** (plan §12, 2026-08-07), with baselines measured in a throwaway `git worktree` at `d43b661`. Six named
+causes, of which the largest is ⚑ **non-vacuity partners (~12 tests): the plan budgeted each named assertion but
+never its partner** — `test_an_AUTHORIZED_caller_DOES_reach_the_stream` (without it, a route broken *shut* also
+reads zero bytes), `test_the_bound_is_not_merely_SERIALIZING_everything` (D2 passes identically at a bound of 1),
+and **two fixture-reality tests without which every J-test could pass against a fixture that is not a PDF at all**.
+⛔ **The single new skip is accounted for**: `test_the_directory_is_owner_only`, guarded *POSIX-only, runs in Linux
+CI*. **Nothing is silently disabled.**
+
+⚑ **Two of the plan's own items were realized as ZERO new tests, correctly** — **H2** (*"the JSON path is
+byte-unchanged"*) is realized as **the ~31 unchanged tests in `test_submission_routes.py` continuing to pass**,
+because the correct expression of *byte-unchanged* is **no new assertion**.
+
+### ⛔ THE ONE SHORTFALL — found by the reconciliation, and CLOSED SIX DAYS LATER
+
+**§12.4: J8/J9 did not exist and Q8(c) was NOT implemented.** Predicted +2, delivered **0**. Measured, not
+inferred: `grep -rn "neutralization" backend/app/` returned **no match anywhere**, and `dependencies.py`
+constructed `IntakePipeline(parse_worker=SubprocessParseWorker())` with **no `telemetry=` argument**, so every
+count the sanitizer produced fell into `TelemetryEmitter()`'s default sink — `lambda event: None` — and was
+**discarded**. ⛔ **The pass that made PROJECT-BRIEF §10 failure mode #4 (prompt injection in an uploaded document)
+reachable for the first time did not deliver the evidence channel.**
+
+✅ **CLOSED 2026-08-09** (`audit.md` 2026-08-13T14:04:55Z, reconstructed from mtimes 15:28–15:38Z). New
+`backend/app/intake_telemetry.py` supplies a real sink on the named logger `underwriting.intake.telemetry`;
+`dependencies.py:354` passes it; **J8** and **J9** exist and assert **through the real route against the real
+production provider** — deliberately, since the defect was *precisely* a composition-root omission that a
+self-composed pipeline could not have seen. ⚑ **J9 asserts the emitted key set EQUALS the six-member allowlist**,
+so a future free-text field on `TelemetryEvent` fails there rather than shipping. ⚠️ **Q8(c) is counts only** — the
+durable verbatim-span sink stays deferred; spans are *structurally unrepresentable* in telemetry, there being no
+`str` leaf in the schema.
+
+**A second fix landed in the same window**: §12.6 had named `routes/submission.py:149–150`
+(`except MultipartInvalid → 400`) as **uncovered on a user-reachable path** while its `MultipartTooLarge` sibling
+directly above was covered. ⚑ The twelve reader tests could not cover it — they are `pytest.raises` against the
+reader **in isolation**, and an uncaught `MultipartInvalid` would escape as a **500** with all of them still green.
+`test_a_MALFORMED_multipart_body_is_a_400_in_the_WIRE1_ENVELOPE` closes it; **`routes/submission.py` is now 100%.**
+
+### ⚠️ THREE PLAN-VS-CODE DEVIATIONS, recorded rather than absorbed
+
+1. ⛔ **The `Content-Length` fast-reject middleware was NEVER BUILT** (step 4.6 called for it). ⚑ **Arguably the
+   stronger outcome**: H1's realized form is `test_the_reader_never_receives_content_length_at_all` — the reader is
+   not merely *independent* of the header, it **never sees it**, making stop-gate 4 (*"`Content-Length` treated as
+   a security control → stop"*) unfalsifiable **by construction** rather than by assertion. Cost is operational,
+   not correctness: a client pays some upload bandwidth before the 413.
+2. ⛔ **Constraint 2 said `asyncio.Semaphore`; the code uses `anyio.CapacityLimiter` — CORRECTED BY MEASUREMENT.**
+   A module-level `asyncio.Semaphore` raises *"bound to a different event loop"* the second time it is **contended
+   from a different loop**, and this suite creates a fresh loop per `TestClient`. ⚑ **The uncontended path works
+   fine, which is exactly why it would not have been caught until a concurrency test existed at stage 5 — far from
+   the cause.** `CapacityLimiter` honours everything Constraint 2 protected (async-aware waiters, acquired by the
+   async caller, never holding a threadpool thread) and is the primitive `anyio.to_thread.run_sync` already takes,
+   so ⚑ **the bound and the offload CANNOT be separated by a later edit.** Pinned by
+   `test_the_limiter_survives_being_used_from_TWO_event_loops`.
+3. ⚠️ **Frontend 6.4 collapsed +5 → +1.** The 400 rejection path was already covered by the pre-existing
+   `rejection.test.jsx`, and per-document error rendering was absorbed into 6.3. **A legitimate consolidation** —
+   but 6.4's second clause (*"rendered **distinctly** from the 400 path"*) is now pinned only indirectly.
+
+### ⛔ §9 MANUAL VERIFICATION — user-run (reconstruction, not observation)
+
+Performed by the **USER** via browser, `curl`, `psql` and PowerShell against a **real local PostgreSQL**, from
+**2026-08-10** (anchored to `uw.txt`'s mtime, 12:12:37Z) through **2026-08-13**. **Not observed by this agent**;
+values as reported. ⚠️ **Per-step times were NOT captured and are NOT invented** — a weaker anchor than the
+*"~20:54–21:26 IST"* of register #2's verification, and recorded as weaker. **All 12 steps passed**; optional step
+13 not run. ⚑ **§9 itself had been REWRITTEN on 2026-08-07 against the constants the code actually defines**,
+because item 8 as originally written (*"restart, and confirm the sweep removed the orphan"*) was **unperformable** —
+`ORPHAN_MAX_AGE_SECONDS = 3600` means a fresh orphan is **deliberately left alone**, and the original would have
+read the design working correctly as a failure.
+
+**THE TWO FIRSTS, and they are different in kind:**
+
+1. ⛔ **`DOCS-COMPLETE-1` PASSES** — `APP-1d3cc48d235046b3bb44aab0a3ba68d1`, three real PDFs through the browser,
+   all three manifest entries **`parsed` with real `content_hash` values**, `satisfied_count=3 / expected_count=3`.
+   **In every prior verification in this build's history this rule has FAILED**, because no applicant could supply
+   a document. `engine_version=composition-root-1` confirms **real intake execution**; full outlier data present,
+   stamped `OFFLINE-DOUBLE-NOT-A-REAL-LLM` — register #18's stamp doing the job it exists for.
+2. ⛔ **`incomplete = false` — `APP-118c1c44876d4793a47c836bccdcc242`, THE FIRST COMPLETABLE APPLICATION THIS
+   SYSTEM HAS EVER PRODUCED.** ⚑ **The four-way J7 matrix is what makes this a proof and not an observation**:
+   **9a** 3 docs / no optionals → `true` · **9b** no docs / all optionals → `true` · **9c** 3 docs + all optionals
+   incl. health notes → ⛔ **`false`** · **9d** all but health notes → `true`. **9a and 9b are load-bearing** —
+   without them 9c would prove only that *something* cleared the flag. With them it is pinned that **documents fix
+   exactly one clause of seven** (§0.2). ⛔ **9d is Q11's disclosed limitation observed live**, and the form's
+   disclosure copy was confirmed **present verbatim on screen**.
+
+**THE RETENTION WINDOW — exercised for the first time by anything, test or human.** `try/finally` covers three of
+Q5's four windows; the fourth is a hard kill, and it is the *normal* case on Render's free tier. **10a** a SIGKILL
+mid-stream left orphan `req-e0l_ympv` holding **818,754 of 5,138,022 bytes** of a partial `salary_slip.pdf` — ⚑
+**named from the `DocType`, never the client's filename**, so path-traversal safety is visible in the wreckage of a
+crash · **10b** the orphan **SURVIVED** the first restart, which is `test_it_leaves_a_FRESH_directory_alone` — *the
+load-bearing half* — working, since a sweep taking fresh directories would destroy **concurrent live requests** ·
+**10c** backdated 3 hours, **swept** on the next restart · **10d** temp root replaced with a *file*, and the server
+**booted anyway** and served a live request. **WIRE-1 §7.4's retention guarantee is closed by observation.**
+
+**⛔ FOLD A CLOSED BY OBSERVATION, IN ITS STRONGEST FORM.** An **auditor** offering a **6 MiB** file over multipart
+got **403**, and the temp root was **File Not Found both before and after** — **absent**, not merely empty. Under
+the rejected `UploadFile` design the server would have written 6 MiB to disk **and then** refused. **A wrong-role
+caller now causes literally zero I/O** — the property register #2's C4 spy stood in for and could not enforce.
+
+**The remaining steps**: malformed multipart → **400** clean envelope, no 500 (the branch fixed 08-09, confirmed on
+the live wire) · 6 MiB → **413**, duplicate `doc_type` → **400**, unknown `doc_type` → **400**, ⛔ **temp dir empty
+after all three** · four concurrent three-document uploads all **200 and staggered** — ⚑ *that stagger is the
+semaphore* — with an **immediate 401 on `GET /session`** mid-load proving ⛔ **Constraint 1 holds, the blocking
+parse is off the event loop** · two `parsed` + one `unparseable` (empty `content_hash`), **application persisted,
+no crash** — a partial failure is a REFER · submit enabled with every optional blank and **still enabled** after
+filling and clearing one · JSON-only → **200**, byte-unchanged, both negatives **400**.
+
+⚑ **Two places the walkthrough came back BETTER than §9 specified**: the liveness probe was run as `GET /session`
+→ **401** rather than `/health` → 200 (**stronger** — a 401 requires the auth dependency to have *resolved* under
+load, not merely a static route to answer), and step 12 found the temp root **absent** rather than **empty**
+(unambiguous, where *empty* could in principle mean *created and cleaned*).
+
+### Register
+
+| Item | Status |
+|---|---|
+| **#30** `INJECTION-SPAN-SINK-DEFERRED` | ⛔ **NEWLY OPENED — and opened LATE, which is itself the finding.** Q8's answer said in terms *"Open a register item for (a) …so the disconnection is tracked rather than assumed away."* ⚑ **It never was opened** — the register stood at 29 and `#30` appears nowhere. Opened here. **Q8(c) delivered the COUNTS** (✅ 2026-08-09); **(a), the durable verbatim-span forensic sink, remains OUT.** The verbatim `original_span` lives only on `SanitizationReportChannel` and reaches no persistent store. ⚠️ Non-blocking: an injection attempt is now **visible as a count**, which it was not before. |
+| **#31** `HEALTHFLAGS-COMPLETENESS-SURPRISE` | ⛔ **NEWLY OPENED, same cause.** Q11(a) said *"disclose in the plan, in the form's copy, AND open a register item"*; the first two were done, ⚑ **the third was not.** An applicant with nothing to report must type *"none reported"* or stay `incomplete` forever. **Now proven live by J7 leg 9d**, and pinned by `test_J7_an_applicant_reporting_NO_health_flags_CANNOT_be_complete`. Fixing it needs an intake change (a frozen unit) and is **out of this pass's scope by design**. |
+| **#2** `R2–R5 unwired` | **PARTLY DISCHARGED — unchanged.** Gap **(iii)** (synthetic memo prose) stays **OPEN**; the walkthrough read `OFFLINE-DOUBLE-NOT-A-REAL-LLM` back out of the database again. ⚑ Its named residual — *a pending case has no UI draft affordance outside the post-submit flow* — is **untouched by this pass**. |
+| **#18** | **OPEN — unchanged.** Still the sole named blocker on #2's full discharge. |
+| **#12 · #13 · #14 · #29** | **Untouched.** |
+| **#3 · #8 · #17 · #26** | **Untouched.** |
+
+**Register now 31 tracked** (29 + #30 + #31). ⚑ **Both new items are re-opened promises, not new discoveries** —
+the answers that created them named the instrument and the instrument was never picked up. Recorded that way
+deliberately: *"we said we would track this and did not"* is a different failure from *"we found something new"*,
+and the register is worth less if the two look alike.
+
+### ⚠️ Carried forward — the deployment pass now owes THREE things
+
+`corpus/` placed and verified (register #2) · ⛔ **a writable temp location confirmed on Render** · ⛔ **the
+free-tier memory figure MEASURED** — `MAX_CONCURRENT_PARSES = 2` is a judgement against **512 MB documented, not
+measured**, and `parse_concurrency.py` says so at the constant. ⛔ **`structured_fields` extraction remains OUT**
+(Q9): `parse_worker.py` still returns `{}`, always. **Documents buy document-COMPLETENESS, not document-derived
+DATA** — nothing in this pass should ever be described as populating a profile field from a document's contents.
+
+### Files — 17 changed, 15 new. ⛔ **NOT COMMITTED.**
+
+**Backend new (9)**: `upload_storage.py` · `parse_concurrency.py` · `multipart_reader.py` · `intake_telemetry.py` +
+`tests/pdf_fixtures.py` · `tests/test_upload_storage.py` · `tests/test_parse_concurrency.py` ·
+`tests/test_multipart_reader.py` · `tests/test_submission_documents.py`.
+**Backend changed (7)**: `routes/submission.py` · `dependencies.py` · `main.py` · `errors.py` +
+`tests/test_no_write_route.py` · `tests/test_submission_routes.py` · `tests/test_error_envelope.py`.
+**Frontend new (4)**: `components/DocumentInputs.jsx` · `components/OptionalFields.jsx` +
+`__tests__/documents.test.jsx` · `app/__tests__/httpTransport.formData.test.js`.
+**Frontend changed (7)**: `app/httpTransport.js` · `SubmissionView.jsx` · `components/AcceptedPanel.jsx` ·
+`copy.js` · `fetchSeam.js` · `testids.js` · `__tests__/form.test.jsx`.
+**Docs**: `wire-1/api-contract.md` (Fold-7) · both plan artifacts · `audit.md` · this file.
+
+**HOLDS — verified by `git status`**: ⛔ **no frozen unit touched** — nothing under `intake/`, `rules_engine/`,
+`case_lifecycle/`, `common/` · ⛔ **`deploy_config/tests/_route_inventory.py` untouched** (G3 empty) · no migration ·
+no `.sql` · no `checksums.json` · no `render.yaml` · **coverage thresholds unedited on both sides** ·
+⛔ **HEAD is still `d43b661` — NO COMMIT.** ⚑ The stray `uw.txt` (an untracked, un-gitignored `curl` cookie jar
+carrying a **live session token** left by the walkthrough) was **deleted** before any commit could sweep it in.
