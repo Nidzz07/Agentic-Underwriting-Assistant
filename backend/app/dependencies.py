@@ -48,6 +48,7 @@ from fastapi import Cookie, Depends, Header
 from backend.app.errors import FORBIDDEN, UNAUTHENTICATED, WireError
 from backend.app.intake_telemetry import build_intake_telemetry
 from backend.app.offline_memo_double import OFFLINE_MODEL_VERSION, OfflineMemoLLMClient
+from backend.app.ollama_client import build_ollama_client
 from backend.app.outlier_canonical import quantize_outlier
 from backend.app.outlier_composition import build_outlier_model
 from backend.audit_store.audit_service import AuditService
@@ -68,6 +69,13 @@ from backend.intake.pipeline import IntakePipeline
 from backend.memo_agent_core.input_builder import MemoAgentInputBuilder
 from backend.memo_agent_core.orchestrator import LangGraphOrchestrator
 from backend.memo_agent_core.provider import GeminiAdapter
+from backend.memo_agent_core.schemas import ThinkingMode
+# ⛔ THE FIRST IMPORT OF ``memo_extensions`` FROM ``backend/app/`` (live-llm-drafting, G1).
+# ⚑ It is NOT the first PRODUCTION import of memo_extensions — ``case_lifecycle/pipeline.py:38``
+# already imports ``borderline_router`` and calls it on every draft (``:184``). memo_extensions is
+# absent from ``FROZEN_UNITS`` and no pre-existing guard forbade this; the gate was discipline, and
+# ``_MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP`` exists so the NEXT such import meets an assertion.
+from backend.memo_extensions.provider_showcase import OllamaAdapter
 from backend.rules_engine.engine import RulesEngine
 from backend.rules_engine.loader import RulebookLoader
 from backend.secrets_config import get_settings
@@ -95,6 +103,37 @@ SESSION_COOKIE_SECURE_ENV = "SESSION_COOKIE_SECURE"
 def session_cookie_is_secure() -> bool:
     """``False`` only on an exact ``"false"``; safe by default."""
     return os.environ.get(SESSION_COOKIE_SECURE_ENV) != "false"
+
+
+#: ⚑ The memo provider selector. Behavioural switch, **NOT a credential** — so reading it from
+#: ``os.environ`` is not a SEC-3 violation, on the same reasoning as ``SESSION_COOKIE_SECURE_ENV``
+#: directly above and ``llm_client.py``'s ``ALLOW_REAL_LLM_CALLS``. Reading it here also keeps
+#: frozen ``Settings`` at exactly six fields — no ``secrets_config`` reopening (Q3-A).
+#:
+#: ⛔ **FAIL-SAFE, AND THE POLARITY IS THE WHOLE POINT.** Only the exact literal ``"ollama"``
+#: selects the live provider. Absent, misspelt, differently-cased or any other value yields the
+#: **offline double** — so a forgotten or fat-fingered variable can never silently put a real model
+#: in front of a user. Mirrors ``SESSION_COOKIE_SECURE``'s exact-match rule, polarity chosen to
+#: match the semantics.
+#:
+#: ⚑ **This is ALSO how Q9's opt-in decision is enforced.** Ollama is the SHOWCASE provider and is
+#: exempt from the memo-quality gates (groundedness/promptfoo) by design — see
+#: ``llm_judge/pipeline.py``'s ``IN_GATE_PROVIDERS``. Making it the DEFAULT would put
+#: never-quality-gated prose in front of every user; making it opt-in keeps PROJECT-BRIEF §9's
+#: "wired, NOT tested against acceptance criteria" classification literally true.
+MEMO_PROVIDER_ENV = "MEMO_PROVIDER"
+
+#: The one value that selects the live local provider.
+MEMO_PROVIDER_OLLAMA = "ollama"
+
+#: ⚑ The pinned model. **The quantization in the tag is deliberate** — fixed weights are what make
+#: the digest in the stamp meaningful against register #22.
+OLLAMA_MODEL_ID = "llama3.1:8b-instruct-q4_K_M"
+
+
+def ollama_is_selected() -> bool:
+    """``True`` only on an exact ``"ollama"``; the offline double by default."""
+    return os.environ.get(MEMO_PROVIDER_ENV) == MEMO_PROVIDER_OLLAMA
 
 
 @dataclass(frozen=True)
@@ -221,6 +260,77 @@ ENGINE_VERSION = "composition-root-1"
 #                 "document parsing is not wired: WIRE1-Fold-6 accepts structured fields only")
 
 
+#: ⛔ The digest is truncated to this many characters in the stamp — git-short-hash style.
+#: ⚑ The full sha256 would push ``model_version`` past what reads sensibly in the UI's forensic
+#: tuple (``ForensicTupleRegion.jsx``). Truncating is preferred over DROPPING a component, because
+#: a 12-char prefix still distinguishes any two model builds anyone will ever run here.
+OLLAMA_DIGEST_CHARS = 12
+
+#: ⚠️ Emitted when the daemon cannot tell us the digest. The stamp stays HONEST — it says the
+#: digest is unknown rather than silently omitting the component and looking complete.
+OLLAMA_DIGEST_UNAVAILABLE = "digest-unavailable"
+
+#: ⛔ **THE NON-QUALITY-GATED MARKER** (live-llm-drafting Q9 / G2, option D).
+#:
+#: Ollama is the SHOWCASE provider and is **exempt from the memo-QUALITY gates by design** —
+#: ``llm_judge/pipeline.py``'s ``IN_GATE_PROVIDERS`` excludes it, and PROJECT-BRIEF §9 classifies it
+#: *"wired, NOT tested against acceptance criteria"*. So a memo it writes has **never been scored
+#: for groundedness and never judged against the >=4/5 promptfoo rubric.**
+#:
+#: ⚑ **WHAT THE EXEMPTION IS AND IS NOT — and the UI copy must not overclaim it.** It is scoped to
+#: memo QUALITY. Every DECISION-LEVEL gate still holds for Ollama identically: ``temperature=0``,
+#: CON-BR2-TYPE (the model literally cannot represent a recommendation change), bias-swap and
+#: reproducibility. The recommendation itself is produced by the deterministic rules engine with no
+#: LLM involvement at all. **"Not quality-gated" must never be rendered as "untrustworthy" or
+#: "wrong"** — see ``provider_showcase.py:6-9``.
+#:
+#: ⛔ It leads the stamp so it is the FIRST thing visible wherever ``model_version`` travels — psql,
+#: R4, R7, and the UI's forensic tuple. The frontend badge keys off exactly this prefix.
+NOT_QUALITY_GATED_MARKER = "NOT-QUALITY-GATED"
+
+
+def build_ollama_stamp(model_id: str, client: object) -> str:
+    """The three-part ``model_version`` stamp: model ID + weight digest + SDK version.
+
+    ⛔ **WHAT THE DIGEST DOES AND DOES NOT PIN — read this before citing it as reproducibility.**
+    It pins the **WEIGHTS**: the exact quantized bytes the daemon loaded. It does **NOT** pin the
+    sampling stack, the daemon's own version, or the numerical libraries beneath it. It therefore
+    **NARROWS register #22 (`MEMO-PROSE-NOT-BIT-REPRODUCIBLE`) and does NOT close it** — the same
+    distinction ``outlier_canonical.py`` draws when it says CANON-SER guarantees the persisted
+    *representation*, never the computation.
+
+    ⚑ **The SDK version is included even though it did not generate the prose**, because it is what
+    ``_SeedSeams`` records for Gemini (``seed_demo_cases.py:407``) and a stamp that dropped it would
+    be less comparable across providers, not more honest.
+
+    ⚠️ **Digest lookup FAILS SOFT.** A daemon that cannot answer ``show()`` must not break drafting;
+    the stamp degrades to a named placeholder instead.
+    """
+    digest = OLLAMA_DIGEST_UNAVAILABLE
+    try:
+        show = getattr(client, "show_digest", None)
+        if show is not None:
+            raw = show(model_id)
+            if raw:
+                digest = str(raw).split(":")[-1][:OLLAMA_DIGEST_CHARS]
+    except Exception:  # noqa: BLE001 - a stamp detail must never break a draft
+        digest = OLLAMA_DIGEST_UNAVAILABLE
+    return (
+        f"{NOT_QUALITY_GATED_MARKER}+{model_id}+{digest}"
+        f"+ollama-python-{_ollama_sdk_version()}"
+    )
+
+
+def _ollama_sdk_version() -> str:
+    """The installed ``ollama`` distribution version. Mirrors ``seed_demo_cases._google_genai_version``."""
+    try:
+        from importlib.metadata import version
+
+        return version("ollama")
+    except Exception:  # noqa: BLE001 - a stamp detail must never break a draft
+        return "unknown"
+
+
 class _CompositionSeams:
     """U24's ``CaseSeams``, composed from the frozen units — the request-path counterpart of the
     seed script's ``_SeedSeams``.
@@ -231,14 +341,35 @@ class _CompositionSeams:
     LLM-free regardless, exactly as the deterministic-core architecture requires.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, provider: Optional[str] = None) -> None:
         loader = RulebookLoader(RULEBOOK_DIR)
         self._engine = RulesEngine(loader, engine_version=ENGINE_VERSION)
         self._builder = MemoAgentInputBuilder()
+        # ⛔ THE MODEL-ID / STAMP SPLIT. Until this pass both arguments below were the single string
+        # OFFLINE_MODEL_VERSION — harmless ONLY because OfflineMemoLLMClient.generate ignores
+        # ``model``. Against a real provider the ID must be a resolvable model name and the stamp
+        # must be an honest provenance record; they cannot be the same string. ``_SeedSeams``
+        # (seed_demo_cases.py:198-205) has carried this split since register #18's pass; the
+        # request path never received it until now.
+        selected = provider if provider is not None else (
+            MEMO_PROVIDER_OLLAMA if ollama_is_selected() else None
+        )
+        if selected == MEMO_PROVIDER_OLLAMA:
+            self._llm_client = build_ollama_client(model_id=OLLAMA_MODEL_ID)
+            adapter = OllamaAdapter(
+                self._llm_client,
+                model=OLLAMA_MODEL_ID,                 # the resolvable model ID
+                thinking_mode=ThinkingMode.STANDARD,
+            )
+            model_version = build_ollama_stamp(OLLAMA_MODEL_ID, self._llm_client)  # the stamp
+        else:
+            self._llm_client = OfflineMemoLLMClient()
+            adapter = GeminiAdapter(self._llm_client, model=OFFLINE_MODEL_VERSION)
+            model_version = OFFLINE_MODEL_VERSION
         self._orchestrator = LangGraphOrchestrator(
-            GeminiAdapter(OfflineMemoLLMClient(), model=OFFLINE_MODEL_VERSION),
+            adapter,
             rulebook=loader.load_rulebook(RULEBOOK_VERSION),
-            model_version=OFFLINE_MODEL_VERSION,
+            model_version=model_version,
         )
 
     def profile(self, raw: object) -> object:
@@ -281,6 +412,20 @@ class _CompositionSeams:
         return quantize_outlier(outlier_model().score(profile))
 
     def draft_memo(self, profile: object, report: object, thinking_mode: object) -> Optional[object]:
+        """⛔ **THE PER-DRAFT BOUNDARY.** ``begin_draft`` opens a fresh counting scope for THIS
+        thread's draft.
+
+        ⚑ **WHY HERE AND NOWHERE ELSE.** This method is called **exactly once per draft**
+        (``case_lifecycle/pipeline.py:186``) and lives in the composition root, which is not
+        frozen. The alternative — resetting inside ``CasePipeline.draft()`` — would edit
+        ``case_lifecycle`` and require a **fifth authorized U24 reopening** for a bookkeeping call.
+        This boundary is exactly as per-draft and costs no reopening at all.
+
+        ⚠️ The offline double has no ``begin_draft``; the guard keeps its path byte-unchanged.
+        """
+        begin = getattr(self._llm_client, "begin_draft", None)
+        if begin is not None:
+            begin()
         return self._orchestrator.run(
             self._builder.build(applicant_profile=profile, rule_report=report)
         )

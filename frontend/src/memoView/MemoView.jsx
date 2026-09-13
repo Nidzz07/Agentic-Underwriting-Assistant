@@ -3,6 +3,7 @@ import { Panel } from '../shell/components/Panel.jsx';
 import { MemoStateView } from './components/MemoStateView.jsx';
 import { ProfileContextHeader } from './components/ProfileContextHeader.jsx';
 import { NarrativeRegion } from './components/NarrativeRegion.jsx';
+import { ProviderGateNotice } from './components/ProviderGateNotice.jsx';
 import { MissingInfoRegion } from './components/MissingInfoRegion.jsx';
 import { ReadOnlyRecommendationRegion } from './components/ReadOnlyRecommendationRegion.jsx';
 
@@ -54,6 +55,7 @@ export function MemoView({ memoFetchSeam, applicationId, testid = 'memo-view' })
     <Panel>
       <div data-testid={testid}>
         <ProfileContextHeader profile={view.profile} />
+        <ProviderGateNotice modelVersion={memo.model_version} />
         <NarrativeRegion narrative={memo.narrative_prose} citedRuleIds={memo.cited_rule_ids} />
         <MissingInfoRegion items={memo.missing_information} />
         <ReadOnlyRecommendationRegion recommendation={memo.recommendation} confidence={memo.confidence} />

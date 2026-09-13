@@ -51,6 +51,8 @@ from backend.app.multipart_reader import (
     MultipartTooLarge,
     read_submission_multipart,
 )
+from backend.app.draft_concurrency import run_bounded_draft
+from backend.app.ollama_client import OllamaCallCapExceeded, OllamaUnreachable
 from backend.app.parse_concurrency import run_bounded_parse
 from backend.app.projections import rejected_intake_detail
 from backend.app.upload_storage import upload_temp_dir
@@ -177,7 +179,7 @@ async def submit_application(
 
 
 @router.post("/applications/{application_id}/draft")
-def trigger_drafting(
+async def trigger_drafting(
     application_id: str,
     _identity: Identity = Depends(require_underwriter),
     pipeline: CasePipeline = Depends(get_case_pipeline),
@@ -206,14 +208,41 @@ def trigger_drafting(
     this route declares only the two outcomes the contract can honestly express. The limitation
     is #14's to resolve; it is recorded here, not papered over.
     """
-    if pipeline.read(application_id) is None:
+    # ⛔ STOP-GATE 4A — ALL THREE blocking calls are offloaded, not just the model call.
+    #
+    # ⚑ This handler was a plain ``def`` until this pass, which is the ONLY reason the two
+    # ``pipeline.read`` calls were harmless: FastAPI ran the whole body on a threadpool thread.
+    # Making it ``async`` moves the body onto the EVENT LOOP, and both reads are blocking
+    # SQLAlchemy round-trips through ``PostgresCaseStore``. Offloading only ``draft`` would leave
+    # two blocking DB calls stalling the loop — and NO existing test would have caught it, because
+    # ``TestClient`` still passes, merely with the loop blocked. R10 above is the precedent: it
+    # offloads *everything* blocking, not merely the expensive thing.
+    if await run_in_threadpool(pipeline.read, application_id) is None:
         raise WireError(NOT_FOUND, _NO_SUCH_APPLICATION)
 
-    outcome = pipeline.draft(application_id)
+    try:
+        # ⛔ THE WHOLE PIPELINE CALL, not just the model call — ``ollama_client``'s per-draft
+        # counter is thread-local, so a draft must run start-to-finish on ONE worker thread.
+        outcome = await run_bounded_draft(pipeline.draft, application_id)
+    except OllamaUnreachable as exc:
+        # ⛔ NAMED TYPES ONLY — never ``except Exception``. A blanket catch would re-merge the two
+        # conditions this separation exists to keep apart, AND would swallow genuine programming
+        # errors as "Ollama problems", which is the most expensive kind of wrong diagnosis.
+        raise WireError(
+            INTERNAL_ERROR, str(exc), detail={"cause": "provider_unreachable"}
+        ) from exc
+    except OllamaCallCapExceeded as exc:
+        # ⚑ Deliberately a DIFFERENT message and a DIFFERENT discriminator from the branch above.
+        # The operator responses are opposite: that one means "start Ollama", this one means
+        # "Ollama is fine — the app declined to re-enter the model".
+        raise WireError(
+            INTERNAL_ERROR, str(exc), detail={"cause": "draft_call_cap_exceeded"}
+        ) from exc
+
     if not outcome.succeeded and not outcome.skipped:
         raise WireError(INTERNAL_ERROR, "Drafting did not produce a memo.")
 
-    case = pipeline.read(application_id)
+    case = await run_in_threadpool(pipeline.read, application_id)
     return {
         "application_id": application_id,
         "status": case_to_memo_view_state(case),

@@ -22,6 +22,14 @@ export const MEMO_COPY = Object.freeze({
   recommendationHeading: 'Recommendation from the rules engine',
   noCitationsLabel: 'No rules cited',
   noMissingInfoLabel: 'No missing information',
+  // ⛔ The non-quality-gated provider notice (Q9 / G2-D). States what was NOT checked, and names
+  // what still WAS — because the exemption is scoped to memo-quality gates only. It must never
+  // read as "this memo is wrong": the recommendation comes from the deterministic rules engine.
+  providerGateNoticeHeading: 'This narrative was written by a showcase model',
+  providerGateNoticeBody:
+    'Its wording has not been checked by the automated narrative-quality reviews. '
+    + 'The rules engine still produced the recommendation, and the reproducibility and '
+    + 'bias checks still applied. Read the cited rules alongside the narrative.',
   headers: Object.freeze({
     applicant: 'Applicant',
     age: 'Age',

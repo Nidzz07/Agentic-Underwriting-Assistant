@@ -136,6 +136,45 @@ _FILESYSTEM_WRITE_CALLS = (
 #: because it never touches a path the framework manages.
 _FILESYSTEM_WRITE_MODULES: frozenset[str] = frozenset({"upload_storage.py"})
 
+#: The ``memo_extensions`` import surface, scoped to ``backend/app/`` — the live-LLM-drafting gate.
+#:
+#: ⛔ **READ THE NAME'S SUFFIX. IT IS LOAD-BEARING.** This set governs which modules **inside
+#: ``backend/app/``** may import ``backend.memo_extensions``. It says **nothing** about the rest of
+#: the tree, and it *cannot*: ``PRODUCTION_FILES`` below is rooted at ``APP_ROOT``, so every module
+#: outside this package is **structurally invisible** to the assertion.
+#:
+#: ⚑ **THE THING THAT MAKES THE SUFFIX NECESSARY, stated so it can never be misread as an
+#: overclaim**: ``memo_extensions`` is **already imported in production, from outside this
+#: package** — ``case_lifecycle/pipeline.py:38`` imports ``borderline_router`` and calls it on
+#: **every draft** (``:184``). A bare ``_MEMO_EXTENSIONS_IMPORT_MODULES`` would therefore assert
+#: something FALSE by implication: that these are *the* modules importing ``memo_extensions``.
+#: They are the modules importing it **from here**.
+#:
+#: ⚑ This is the ``TRIGGER-1`` lesson applied at creation rather than after the fact. That guard
+#: *"was ALSO BROADER THAN ITS OWN NAME — it said 'the read routes' but scanned every production
+#: file"*, and had to be narrowed later. This one carries its scope in its name from birth.
+#:
+#: ⚠️ ``memo_extensions`` is **NOT** in ``test_frozen_untouched.py``'s ``FROZEN_UNITS`` and **no
+#: pre-existing guard forbade this import**. This set is **discipline, not compliance**: it exists
+#: so the NEXT such import meets an assertion instead of nothing.
+#:
+#: ⚑ ``dependencies.py`` ADDED at stage 3. Superseded text preserved verbatim, because it was true
+#: for the whole of stage 1 and its truth is the evidence:
+#:
+#:     ⛔ **EMPTY AT CREATION, DELIBERATELY** (live-llm-drafting stage 1). The importing module does
+#:     not exist yet; stage 3's ``dependencies.py`` import will **FAIL** this assertion, and that
+#:     failure is the whole reason the guard is created first — the ``_FILESYSTEM_WRITE_MODULES``
+#:     discipline (Fold-7 / Q14(a)), here applied **across a stage boundary**.
+#:
+#: ⛔ **THE FAILURE WAS OBSERVED BEFORE THIS LINE WAS EDITED.** The guard refused ``dependencies.py``
+#: by name, on screen, and only then was the name added. Widening this set to silence a red
+#: assertion **without having seen it red** is the one move the guard exists to make visible.
+#:
+#: ⛔ It is the **ONLY** member and must stay so. ``dependencies.py`` is the composition root — the
+#: single place a provider is chosen. A second name here means something other than composition is
+#: reaching for a provider adapter, which is a reviewable act with its own gate.
+_MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP: frozenset[str] = frozenset({"dependencies.py"})
+
 APP_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_FILES = sorted(p for p in APP_ROOT.rglob("*.py") if "tests" not in p.parts)
 ROUTES_MODULE = APP_ROOT / "routes" / "not_wired.py"
@@ -213,6 +252,17 @@ def references_a_filesystem_write(source: str) -> bool:
     """
     code = strip_comments_and_docstrings(source)
     return any(call in code for call in _FILESYSTEM_WRITE_CALLS)
+
+
+def imports_memo_extensions(source: str) -> bool:
+    """True if the module IMPORTS ``backend.memo_extensions`` in CODE — prose is stripped first.
+
+    ⚑ Prose is stripped for the same reason every other detector here strips it: this file's own
+    comments **name** ``backend.memo_extensions`` repeatedly (the block above does so four times),
+    and a raw text scan would flag the guard's own documentation as an offender.
+    """
+    code = strip_comments_and_docstrings(source)
+    return "backend.memo_extensions" in code
 
 
 # --- (i)-(iii) UNCHANGED from Scope A — these three survive the wiring verbatim -----------
@@ -642,6 +692,78 @@ class TestNothingWritesToTheFilesystem:
             "from pathlib import Path\nROOT = Path(__file__).resolve().parents[2]\n",
         ):
             assert not references_a_filesystem_write(permitted), permitted
+
+
+class TestOnlyDeclaredAppModulesImportMemoExtensions:
+    """⛔ The live-LLM-drafting gate (G1) — a guard CREATED, not widened, and created BEFORE the
+    module it constrains, like ``_FILESYSTEM_WRITE_MODULES`` before it.
+
+    ⚑ **WHAT THIS CLASS DOES AND DOES NOT CLAIM.** It claims that within ``backend/app/``, exactly
+    the declared modules import ``backend.memo_extensions``. It does **NOT** claim they are the only
+    production modules importing it anywhere — ``case_lifecycle/pipeline.py:38`` already does, and
+    is outside ``APP_ROOT`` and therefore outside this scan by construction. The set's name carries
+    that scope so a future reader cannot mistake the narrower claim for the broader one.
+
+    ⚠️ **This guard was not required by anything.** ``memo_extensions`` is absent from
+    ``FROZEN_UNITS`` and no pre-existing assertion mentioned it. It exists because a structural
+    first deserves a mechanical trace — the same reasoning that created the filesystem guard when a
+    grep for ``open(`` over this file returned zero.
+    """
+
+    def test_no_app_module_imports_memo_extensions_but_the_declared_ones(self):
+        """**Exact-set equality, not a skip-list** — the shape ``_PIPELINE_MODULES`` established.
+
+        A new importer fails until it is deliberately named, **and** a named module that stops
+        importing fails too, so the declaration cannot rot into a stale exemption.
+        """
+        importers = {
+            path.name
+            for path, source in production_source().items()
+            if imports_memo_extensions(source)
+        }
+        assert importers == _MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP, importers
+
+    def test_exactly_one_app_module_has_earned_a_place_in_the_declared_set(self):
+        """⚑ SUPERSEDED at stage 3. The stage-1 assertion is preserved verbatim:
+
+            it('the declared set is empty until a module earns a place in it')
+            assert _MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP == frozenset()
+
+        It was TRUE for the whole of stage 1 and is FALSE now, **which is the point**:
+        ``dependencies.py`` earned its place by failing the guard first, observed on screen before
+        the set was widened — and the sibling assertion above failed **first**, this one second,
+        in that order and never the reverse.
+
+        ⛔ What the assertion still pins is the thing that matters — **exactly one** module in
+        ``backend/app/`` reaches for ``memo_extensions``, and it is the composition root.
+        """
+        assert _MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP == frozenset({"dependencies.py"})
+
+    def test_detector_flags_every_import_form(self):
+        """⚑ NON-VACUITY, tier 1 — every syntactic route to the package, fed separately.
+
+        ⛔ Without this, an empty allowlist over zero importers asserts **nothing at all**: the
+        equality would hold for a detector that always returned ``False``.
+        """
+        for construct in (
+            "from backend.memo_extensions.provider_showcase import OllamaAdapter\n",
+            "from backend.memo_extensions import borderline_router\n",
+            "import backend.memo_extensions\n",
+            "import backend.memo_extensions.provider_secondary as p\n",
+            "from backend.memo_extensions.provider_secondary import ThinkingLLMClient\n",
+        ):
+            assert imports_memo_extensions(construct), construct
+
+    def test_the_detector_ignores_prose_and_unrelated_imports(self):
+        """⛔ THE OTHER HALF. This very file NAMES ``backend.memo_extensions`` in its own comments,
+        and ``memo_agent_core`` is a different package that must stay freely importable."""
+        for permitted in (
+            '"""A docstring naming backend.memo_extensions in prose."""\nX = 1\n',
+            "# a comment naming backend.memo_extensions\nX = 1\n",
+            "from backend.memo_agent_core.provider import GeminiAdapter\n",
+            "from backend.case_lifecycle.pipeline import CasePipeline\n",
+        ):
+            assert not imports_memo_extensions(permitted), permitted
 
         # ...and prose naming a write must not be flagged — this file's stripping precedent.
         documented_only = (
