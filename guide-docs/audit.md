@@ -8407,3 +8407,77 @@ Do not commit. Report back the full restoration confirmation, both suite results
 **Context**: BUILD → registers #33/#34/#35, commit preparation. This session was opened to run #34's reproduction and found it had already been run, passed and logged by a prior session that was cut off by a session limit one second after stashing the fix pass for the commit-1 isolation check. That left a working tree that looked like only one of the two passes existed and a record whose latest entries were invisible. The discrepancy was reported, with the evidence, before any file was touched. Only after that were the stash's contents verified against the prior session's own backup, the isolation check completed on the tree exactly as the stash had left it, and the stash restored. Commit 1 is green in isolation at its own baseline, and the full tree is back at both passes' combined counts. #34's verdict rests on the prior session's first-hand run and is not re-derived here. The account of that session is reconstructed from its transcript and logs, and is labelled as such.
 
 ---
+
+## ⚑ REGISTER #36 `OLLAMA-TIMEOUT-ASSUMES-GPU` — **OPENED ON DIRECTION** · ⛔ **THE FIX IS CORRECT; THE TIMEOUT'S JUSTIFYING COMMENT OVERCLAIMS FOR CPU-ONLY INFERENCE** · **REGISTER 35 → 36 TRACKED** · NOTHING FIXED · NOT COMMITTED
+**Timestamp**: 2026-09-13T11:54:32Z
+
+⚑ **Context for this entry**: this comes after the two commits landed and the post-commit re-verification.
+* The commits: `142b8cc` (live-LLM drafting, 15 files) and `cdacd76` (#33/#34/#35 fix pass plus the shared record, 25 files).
+* The pre-commit checks: each staged set was asserted equal to its file list, with `uw.txt` absent from both, before committing.
+* The re-verification: working tree clean; backend **1892 / 0 / 45 / 5 / 99.36%**; frontend **823 / 155**.
+
+No audit entry was written for the commit act itself; it is recorded here.
+
+**User Input** (verbatim, complete — the commit approval):
+"Approved. Commit both, in order:
+
+Commit 1 — the live-LLM-drafting pass (15 files, as listed).
+
+Commit 2 — the #33/#34/#35 fix pass plus the shared record documents (25 files, as listed).
+
+Write specific, accurate commit messages for each, following this project's standing discipline:
+
+Commit 1's message should cover: the opt-in Ollama provider wiring (CappedOllamaClient mirroring CappedGeminiClient's shape with a per-draft call cap), the env-var selector with fail-safe-to-offline-double behavior, the async R11 conversion with full blocking-call offload, the concurrency bound via draft_concurrency.py, and the visible provider-gate marking in MemoView. State plainly this pass alone does not close #18 (Gemini's production path remains unproven live) and was found to have two real bugs (#33, #34) during its own manual verification — which are fixed in the next commit, not this one.
+
+Commit 2's message should cover: the first authorized reopening of a frozen unit's (memo_agent_core) source logic in this project's history — name the four files and the two-stage execution (C2 removing the unused, misdocumented checkpointer; X1+X3 giving the XML contract an actual prompt instruction plus tolerant parsing in both adapters); register #35 (the DECLINE-RECOMMEND citation collision, opened and closed in this same pass); and the full live verification results for #33 (closed), #34 (upgraded to live-confirmed via the corrected long-timeout reproduction, with the hardware-timeout false-negative explicitly noted as a red herring, not a defect), and #35 (live-confirmed). Include the register count moving to 35 tracked. Note explicitly that #18's remaining gap is Gemini's unproven live path, and that #22 (prose reproducibility) now has real negative evidence rather than none.
+
+Before committing, run git status and git diff --stat one final time and confirm exactly 15 files in commit 1's diff and 25 in commit 2's, with no unexpected file in either (particularly confirm uw.txt is absent from both).
+
+After both commits land, report the final git log (last 2 entries), confirm the working tree is clean, and re-run both full suites one final time to confirm 1892/0/45/5/99.36% backend and 823/155 frontend unchanged.
+
+Then stop and wait for my next instruction."
+
+**User Input** (verbatim, complete — the direction to file this item):
+"On the one unfiled finding: open a small register item for it now — the ollama_client.py claim that 120s is \"comfortably above a cold load\" is empirically false on CPU-only hardware (confirmed: two runs timed out at 121s on this exact machine, requiring 900s to succeed at ~4.9 tokens/s). This isn't a defect in the fix's correctness (the #34 mechanism itself works, as proven), but it's a real, disclosed limitation of the shipped default that a future deployer on similar hardware would hit immediately. State plainly: the fix is correct; the timeout constant's justifying comment overclaims for CPU-only inference. Recommend either raising the default, making it configurable via env var, or at minimum correcting the comment to state the assumption (GPU-accelerated inference) explicitly. Do not fix it now — just log it so it isn't lost, following this project's standing discipline of naming instruments rather than letting them go unpicked-up (the #30/#31 lesson).
+
+Update guide-state.md's register count to reflect this new item. Do not commit yet — report back the change and the new count, then stop."
+
+**AI Response**: "⛔ **THE FIX IS CORRECT. THE TIMEOUT CONSTANT'S JUSTIFYING COMMENT OVERCLAIMS FOR CPU-ONLY INFERENCE.** Register **#36 `OLLAMA-TIMEOUT-ASSUMES-GPU`** is opened, OPEN, and not fixed.
+
+⚑ **WHAT IT IS, BY FILE AND LINE.** `backend/app/ollama_client.py:49-59` justifies `DRAFT_TIMEOUT_SECONDS: float = 120.0` (`:60`) with *'120 s is comfortably above a cold load and still finite.'* ⛔ **Unqualified; it silently assumes GPU-accelerated inference.**
+
+⚑ **THE EVIDENCE, AS MEASURED, NOT RE-MEASURED.** It was measured on 2026-09-12 and read back from that session's captured logs, not re-run here.
+* **The host**: CPU-only, `size_vram: 0`, **4.92 tok/s**.
+* **Two unmodified runs**: `httpx ReadTimeout` at **121 s**.
+* **The passing run**: a harness-only **900 s** timeout, **132.5 s**, and ⚠️ **not even a cold load**, since the model was resident.
+
+⚠️ **A SHARPENING NOT IN THE DIRECTION, FROM THE SAME LOGS.** The timed-out drafts surfaced as `detail.cause=provider_unreachable`, *'could not reach the Ollama daemon … ReadTimeout. Is it running?'* ⛔ **The daemon was running.** So on CPU-only hardware the shipped default produces **exactly the misdiagnosis the comment says the generous value exists to prevent**: *'a tight timeout would read a working design as broken.'* This is recorded as an observation in the row, not as a decision to change the message.
+
+⛔ **WHAT IT IS NOT.**
+* Not a defect in #34's fix, which stays LIVE-CONFIRMED: #34 fires at the seed, before any provider call.
+* Not a defect in having a finite timeout: the SDK's own default is `None`, so without one a hung daemon would hold a thread forever.
+* Not reachable by an unconfigured deployment.
+
+**RECOMMENDED, NOT CHOSEN.**
+* **(1)** Raise the default.
+* **(2)** Make it configurable via an environment variable. ⚠️ This would be the module's first env read of its own.
+* **(3) At minimum**, correct the comment to state the GPU assumption. ⚑ (3) is owed whichever is taken.
+
+Two constraints are named in the row:
+* `test_ollama_client.py:317` asserts against the **constant**, so (1) stays green unedited.
+* `MAX_CONCURRENT_DRAFTS = 1` bounds a hung daemon under a longer timeout to one in-flight draft, with the queue waiting behind it.
+
+⚑ **WHY A ROW (#30/#31).** The finding already existed in three places — this file, `BUILD-COMPLETION-REPORT.md`'s #34 section, and `cdacd76`'s message — ⛔ **all prose, none tracked**. That is the 'named the instrument, never picked up' shape. ⚠️ The distinction is kept: #30/#31 were re-opened promises; **#36 is a new discovery filed on first direction.**
+
+**REGISTER NOW 36 TRACKED — 22 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).** #36 opens; nothing else moves.
+
+**Files changed** (record only):
+* `BUILD-COMPLETION-REPORT.md`: the #36 row appended. The prior *'No register item is opened here'* line is preserved and superseded, not rewritten.
+* `guide-state.md`: the count updated, superseding *'35 tracked — 21 open'*.
+* This entry.
+
+**HOLDS**: ⛔ **no code changed** · `ollama_client.py` untouched · ⛔ **NOT COMMITTED** — HEAD `cdacd76`."
+
+**Context**: POST-COMMIT → register #36, opened on explicit direction. The finding was first surfaced during the #34 closing reproduction on 2026-09-12 and was deliberately not filed then, because this project opens register items on direction rather than unilaterally. That direction has now been given. The entry holds two claims apart that are easy to blur: the #34 fix is correct and live-confirmed, while the shipped timeout's justification is false on CPU-only hardware. The first is not weakened by the second, because #34 fails before any provider call and the timeout operates inside one. The evidence is the measurement already captured, not a new run. The one addition beyond the direction — that the timed-out drafts report the running daemon as unreachable, which is the misdiagnosis the constant's own comment names as the failure to avoid — comes from those same logs and is recorded as an observation, not acted on. Nothing is fixed and nothing is committed; the three remedies are recommendations only.
+
+---

@@ -2055,3 +2055,49 @@ runs"* **still has not been run.** · ⛔ **#32 untouched.** · ⛔ **NO COMMIT*
 nothing staged.
 
 ---
+
+# ⚑ REGISTER UPDATE — 2026-09-13 · item #36 OPENED · the shipped Ollama timeout's justifying comment overclaims for CPU-only inference
+
+**Opened on explicit user direction**, after both passes were committed (`142b8cc`, `cdacd76`).
+⚠️ **This section supersedes the preceding update's line *"No register item is opened here"*.** That
+line is **preserved, not rewritten**: it was correct when written, because this project opens items
+on direction, and the direction has now been given. ⛔ **Not committed.**
+
+---
+
+## #36 `OLLAMA-TIMEOUT-ASSUMES-GPU` — **NEW, OPEN**
+
+⛔ **THE FIX IS CORRECT. THE TIMEOUT CONSTANT'S JUSTIFYING COMMENT OVERCLAIMS FOR CPU-ONLY INFERENCE.**
+Both halves are stated first so neither is read without the other.
+
+| | |
+|---|---|
+| **What it is** | `backend/app/ollama_client.py:49-59` justifies `DRAFT_TIMEOUT_SECONDS: float = 120.0` (`:60`), which `build_ollama_client` hands to the SDK (`:224`), with *"120 s is comfortably above a cold load and still finite."* ⛔ **The claim is unqualified.** It silently assumes **GPU-accelerated inference** and never says so. |
+| ⛔ **The evidence — measured on this machine, not inferred** | This host has **no Ollama-supported GPU**: integrated AMD Radeon, and `/api/ps` reports `size_vram: 0`. Generation is **CPU-only at 4.92 tok/s** (200 tokens in 40.66 s). The #34 closing reproduction ran three times. **Two unmodified runs died at 121 s** with `httpx ReadTimeout` (`repro34-run-attempt1-coldload-timeout.log`, `repro34-run-attempt2.log`). **The third needed a harness-only 900 s timeout** and completed in **132.5 s**. ⚠️ **That 132.5 s was not even a cold load**: the model was already resident and its weights were in the OS page cache. |
+| ⛔ **The consequence** | On a CPU-only host, **no live draft can complete through R11 at the shipped default.** Every draft fails at about 121 s. |
+| ⚠️ **And it fails with a MISLEADING message** | The observed envelope is `detail.cause=provider_unreachable`, with *"could not reach the Ollama daemon at http://127.0.0.1:11434: ReadTimeout. Is it running? (start it, or unset MEMO_PROVIDER …)"*. ⛔ **The daemon IS running.** The message sends the operator to the wrong remedy. ⚑ **This is exactly the misdiagnosis the comment says the generous value exists to prevent**: *"A tight timeout would read a working design as broken."* On CPU-only hardware, 120 s **is** that tight timeout. |
+| ⛔ **What this is NOT** | **Not a defect in #34's fix.** #34 is correct and LIVE-CONFIRMED (`cdacd76`), because #34 fires at the **seed** of invoke #2, before any provider call, and a read timeout occurs **inside** that call. **Not a defect in having a timeout.** The finite value still does its stated job: `ollama._client` defaults to `timeout=None`, so without it a hung daemon would hold a thread forever. **Not an offline-double issue.** An unconfigured deployment never reaches this code (`MEMO_PROVIDER` fails safe). |
+| **Who hits it** | ⚑ **A future deployer who opts in with `MEMO_PROVIDER=ollama` on similar hardware hits it on the very first draft.** CPU-only is the common case for a laptop or a free-tier host. The Ollama **showcase** provider only. |
+| **Pre-existing since** | `142b8cc` — the live-LLM-drafting pass, which wrote both the constant and the comment. |
+| **How it was found** | The #34 derived closing run, 2026-09-12 (`audit.md` 2026-09-12T20:37:14Z). ⚠️ It was **surfaced for decision and deliberately not filed** there, then named again in `cdacd76`'s commit message. **Filed now, on the first direction to file it.** |
+| ⚑ **Why a row, and not just the prose that already exists — the #30/#31 lesson** | #30 and #31 were items whose answers **named the instrument, and the instrument was never picked up** (`guide-state.md`, the document-upload entry). This finding already existed in three places: an audit entry, this file's #34 section, and a commit message. ⛔ **All three are prose, and prose is not tracked.** Without a row it would be precisely that shape. ⚠️ **One distinction is kept**: #30/#31 were *re-opened promises*, while this is a *new discovery*. It is filed on first direction, not late. |
+| **Remedies — recommended, NOT chosen, NOT authorized** | In descending order of scope. **(1)** Raise the default. **(2)** Make it configurable via an environment variable. ⚠️ `ollama_client.py` reads **no** environment variable of its own today; the only one in play is `OLLAMA_HOST`, and the SDK resolves that itself. So this adds the module's first. **(3) At minimum**, correct the comment to state its assumption (GPU-accelerated inference) explicitly and cite the CPU-only measurement. ⚑ Remedies (1) and (2) are **not exclusive** with (3), and (3) is owed whichever is chosen. |
+| ⚠️ **Constraints any remedy must respect** | `test_ollama_client.py:317` asserts `captured["timeout"] == DRAFT_TIMEOUT_SECONDS`. It asserts **against the constant**, so (1) stays green unedited; (2) needs new tests for the variable's parsing and its default. ⚑ **The trade-off (1) makes**: a longer timeout lengthens how long a genuinely **hung** daemon holds a draft. That exposure is bounded by `MAX_CONCURRENT_DRAFTS = 1` (`draft_concurrency.py:43`) to **one** in-flight draft, but queued drafts wait behind it for the full window. |
+| **Detectability** | ⛔ **None automated.** No test performs real inference; `test_ollama_client.py` fakes the SDK. The limitation is visible **only** on a live draft on CPU-only hardware, which is how it was found. |
+| **Owner** | `backend/app/ollama_client.py`. ⚑ **Not a frozen unit**: it is live-LLM-drafting pass code, so no reopening authorization would be needed. |
+| ⛔ **Status** | **OPEN. Not fixed** — deliberately, on direction. A disclosed limitation of a shipped default, confined to the opt-in showcase provider. |
+
+---
+
+## Register after this update
+
+⛔ **REGISTER NOW STANDS AT 36 TRACKED — 22 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+Movement: **#36 opens** (tracked 35 → 36, open 21 → 22). No other item moves. ⚠️ **This supersedes the
+"35 tracked — 21 open" figure** restated at the end of the #34 upgrade section above, which was correct
+when written. ⚑ Derived from the running tally, not from a re-enumeration of all 36 rows.
+
+**Not claimed**: #18 stays NARROWED (Gemini unproven live) · #22 open · #32 untouched · ⛔ **nothing
+fixed** · ⛔ **not committed** — HEAD `cdacd76`.
+
+---

@@ -7640,3 +7640,37 @@ one unilaterally would be the mirror of the overreach §7 declined.
 Only the record moved: `audit.md`, `BUILD-COMPLETION-REPORT.md`, this entry.
 **HOLDS**: HEAD `bd3875d` · nothing staged · no frozen unit touched · `DRAFT_TIMEOUT_SECONDS`
 unchanged on disk · **NO COMMIT.**
+
+
+## ⚑ REGISTER #36 `OLLAMA-TIMEOUT-ASSUMES-GPU` OPENED · **REGISTER 35 → 36 TRACKED** · ⛔ NOTHING FIXED · NOT COMMITTED
+**Date**: 2026-09-13 · **HEAD `cdacd76`** (both passes committed: `142b8cc` live-LLM drafting, `cdacd76` #33/#34/#35)
+
+⛔ **The fix is correct; the timeout constant's justifying comment overclaims for CPU-only inference.**
+`ollama_client.py:49-59` says *"120 s is comfortably above a cold load"* for
+`DRAFT_TIMEOUT_SECONDS = 120.0` (`:60`), and silently assumes GPU-accelerated inference. It was
+measured false on this machine:
+* CPU-only generation at 4.92 tok/s, with `size_vram: 0`;
+* two unmodified #34 repro runs timed out at 121 s;
+* the passing run needed a harness-only 900 s timeout, and took 132.5 s even with the model already
+  resident.
+
+⚠️ **On such a host, every live draft fails**, and the envelope wrongly says the daemon is unreachable.
+
+⛔ **#34's fix is unaffected and stays LIVE-CONFIRMED.** #34 fires at the seed, before the provider is
+called.
+
+**Recommended, not chosen**:
+1. raise the default;
+2. make it configurable via an environment variable;
+3. at minimum, correct the comment to state the GPU assumption — owed whichever option is taken.
+
+⚑ **Filed as a row, not left as prose, per the #30/#31 lesson**: an instrument that is named but never
+picked up is not tracked. Full row: `BUILD-COMPLETION-REPORT.md` §*#36* (authoritative) · `audit.md`,
+this date.
+
+⛔ **REGISTER NOW STANDS AT 36 TRACKED — 22 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+⚠️ This supersedes the *"35 tracked — 21 open"* figure at this file's #34 entry above, which was correct when
+written. Movement: #36 opens (open 21 → 22); nothing else moves.
+
+**HOLDS**: ⛔ **no code changed** · `ollama_client.py` untouched · ⛔ **NOT COMMITTED** — record-only change
+to `BUILD-COMPLETION-REPORT.md`, `audit.md` and this file.
