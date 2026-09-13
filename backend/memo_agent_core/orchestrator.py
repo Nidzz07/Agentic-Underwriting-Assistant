@@ -1,16 +1,39 @@
 """LangGraphOrchestrator — the C4 memo sub-flow (CON-BR2-STATE / CITE-FAILURE / CON-BR2-COMMIT).
 
 Scoped to the memo sub-flow ONLY: ``draft -> validate -> retry/finalize`` (+ ``flag``).
-Checkpointer **YES** (``MemorySaver``, in-process — retry loop + durability +
-100%-step tracing); in-graph interrupt **NO** — the human approval gate is
-EXTERNAL (``DecisionCommitService`` in audit-store). This unit constructs **no**
-commit path (CON-BR2-COMMIT): it produces a pending advisory ``DecisionMemo`` and
-never commits.
+Checkpointer **NO** (register **#34**, candidate C2); in-graph interrupt **NO** — the
+human approval gate is EXTERNAL (``DecisionCommitService`` in audit-store). This unit
+constructs **no** commit path (CON-BR2-COMMIT): it produces a pending advisory
+``DecisionMemo`` and never commits.
+
+⛔ **This previously read "Checkpointer YES (``MemorySaver``, in-process — retry loop +
+durability + 100%-step tracing)", and all three justifications were false.** Stated
+rather than silently dropped, because the checkpointer did active harm: drafting one
+application **twice** raised ``RuntimeError`` from :func:`_reject_channel_write`
+(register #34).
+
+* *retry loop* — the ``add_conditional_edges`` cycle is plain graph state. ⚑ **Reproduced
+  working with no checkpointer at all**: bad-then-good provider → 2 calls, memo finalized.
+* *durability* — ``MemorySaver`` is in-process, and ⛔ **nothing anywhere ever read a
+  checkpoint back**: no ``get_state``, ``update_state``, ``get_state_history``,
+  ``.stream``, ``astream`` or ``interrupt`` exists in this repository.
+* *100%-step tracing* — ⛔ tracing was **never** wired through the checkpointer, and
+  ``observability.TraceRecorder.on_step`` has **no production caller at all**. ⚠️ That
+  claim was false **before** C2, not because of it (owned by OBS-SINK-DEFERRED).
 
 **CON-BR2-STATE**: ``recommendation`` + ``confidence`` are **read-only channels** —
-their reducer (:func:`_reject_channel_write`) raises on any node write. Seeding
-at invoke is allowed (LangGraph does not run the reducer on the initial input);
-no node returns those keys, so they can never change inside the graph.
+their reducer (:func:`_reject_channel_write`) raises on any node write. ⚑ **No node
+returns those keys, so they can never change inside the graph** — that half is
+unchanged, and it is what CON-BR2-STATE actually rests on.
+
+⚠️ **The seeding claim was narrower than it read.** *"LangGraph does not run the reducer
+on the initial input"* holds **only for a thread whose channels are ``MISSING``** — i.e.
+one with no existing checkpoint. ⚑ It was affirmatively tested at build time
+(``audit.md:760``, *"verified LangGraph doesn't call the reducer on seed"*), but that
+test compiled its graph **without** a checkpointer, so **the no-checkpoint case was the
+only one ever exercised**. With a checkpointer, invoke #2 of the same ``thread_id``
+**restored** the channels, seeding took the reducer branch, and the reducer fired on a
+**seed**. C2 removes the checkpointer, so the precondition now always holds.
 
 **Bounded retry (CITE-FAILURE)**: on ``citation_failure`` with attempts left the
 graph re-drafts; at ``MEMO_CITATION_RETRY_CAP`` attempts it flags (memo blocked,
@@ -22,7 +45,6 @@ from __future__ import annotations
 import time
 from typing import Annotated, Optional, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from backend.rules_engine.report_schema import Confidence, Recommendation
@@ -46,8 +68,21 @@ from backend.memo_agent_core.telemetry import MemoTelemetryEvent, TelemetryEmitt
 def _reject_channel_write(current, update):
     """Reducer for the read-only ``recommendation``/``confidence`` channels.
 
-    LangGraph does NOT call the reducer on the initial (seeded) input, only when
-    a node returns the key — so any node write is a CON-BR2-STATE violation.
+    ⛔ **If you are reading this because this error just fired**: reaching here means a
+    node returned ``recommendation`` or ``confidence``, which is a real CON-BR2-STATE
+    violation. **The behaviour is unchanged and deliberate** — it still raises on any
+    node write.
+
+    ⚠️ **It has, however, fired once for a reason that was NOT a node write** (register
+    **#34**). LangGraph skips this reducer on seeded input only while the channel is
+    ``MISSING``. This graph was compiled with a ``MemorySaver`` and ``run()`` keys the
+    thread by ``application_id``, so the **second** draft of one application restored the
+    channels, seeding took the reducer branch, and this raised with ``current == update``
+    — the seed's own value, with no node involved. ⚑ **C2 removed the checkpointer**, so
+    that precondition now always holds.
+
+    ⚑ **The diagnostic**: if ``current == update`` and no node returns these keys, suspect
+    a **reintroduced checkpointer**, not a CON-BR2-STATE breach.
     """
     raise RuntimeError(
         "recommendation/confidence are read-only channels (CON-BR2-STATE); no node may write them"
@@ -134,7 +169,7 @@ class LangGraphOrchestrator:
         )
         graph.add_edge("finalize", END)
         graph.add_edge("flag", END)
-        return graph.compile(checkpointer=MemorySaver())
+        return graph.compile()
 
     # -- entry -------------------------------------------------------------
     def run(self, agent_input: MemoAgentInput) -> Optional[DecisionMemo]:

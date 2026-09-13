@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Final, Protocol, runtime_checkable
 from xml.etree import ElementTree
 
+from backend.memo_agent_core.provider import require_memo_shape, strip_to_memo_element
 from backend.memo_agent_core.schemas import MemoDraftOutput, ThinkingMode
 
 #: temperature is fixed centrally — never a per-call / caller-controlled parameter.
@@ -47,8 +48,23 @@ class ThinkingLLMClient(Protocol):
 def _parse_xml(raw_xml: str, schema: type[MemoDraftOutput]) -> MemoDraftOutput:
     """XML → ``MemoDraftOutput`` (mirrors the frozen ``GeminiAdapter`` parsing). The
     model fills ONLY ``narrative_prose`` + ``cited_rule_ids`` — CON-BR2-TYPE means it
-    cannot represent a recommendation change."""
-    root = ElementTree.fromstring(raw_xml)
+    cannot represent a recommendation change.
+
+    ⛔ **Register #33 change (g) — X3 tolerance is SHARED, not re-implemented.**
+    :func:`~backend.memo_agent_core.provider.strip_to_memo_element` is **imported** from U4 rather
+    than copied, because ⚠️ **two hand-rolled tolerance implementations would drift**, and this
+    parser mirroring U4's is the whole point of the docstring above. ⚑ The import is a legitimate
+    frozen edge: Scan 7 allows the ``memo_agent_core`` root, and Scan 1's tighter allow-list is
+    scoped to ``borderline_router.py`` only (§6.2).
+
+    ⚑ **DEFERRED: candidate X2 — true structured output.** ``format=<json schema>`` on Claude /
+    Ollama would make malformed output impossible rather than tolerated. ⛔ **Not a config
+    change**: it is JSON-schema based, so it would replace this parser and U4's, the offline
+    double's hardcoded XML, and every XML-asserting test — a wire-format migration needing a
+    ``PROJECT-BRIEF`` §3/§9 amendment. **Tracked on the register; not authorized here.**
+    """
+    root = ElementTree.fromstring(strip_to_memo_element(raw_xml))
+    require_memo_shape(root)  # register #33 change (h) - shared, not re-implemented
     prose_el = root.find("narrative_prose")
     prose = (prose_el.text or "") if prose_el is not None else ""
     cited = [el.text or "" for el in root.findall("./cited_rule_ids/rule_id")]

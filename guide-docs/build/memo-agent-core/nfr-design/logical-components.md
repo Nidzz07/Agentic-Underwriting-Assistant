@@ -17,7 +17,7 @@
 | 5 | **MissingInfoDeriver** | Pure derivation of `missing_information` from the 3 signals, emitted in the **fixed total cross-source order** (source-enum order + within-source key). Not LLM-authored. | MISSINGINFO-1 |
 | 6 | **MemoHashAdapter** | `compute(memo_content) -> str` at finalize **and** standalone `verify(recorded_hash, memo_content) -> bool` (no LLM), both delegating to the **unchanged shared `canon_ser`**. Verify runs **outside** the rules-replay path. *(Named `MemoHashAdapter` everywhere — not `CanonSerAdapter`.)* | HASH-1, REPLAY-1 |
 | 7 | **MemoAssembler** (finalize) | Assemble `DecisionMemo` — LLM prose + validated citations + the deterministic `missing_information` + the **injected read-only** recommendation/confidence + `memo_hash` + `model_version`. **No writable recommendation field.** | CONBR2-TYPE |
-| 8 | **LangGraphOrchestrator** | The sub-flow `draft → validate_citations → retry/finalize` (+ `flag`); **read-only recommendation/confidence channels (no node write)**; bounded-retry policy with the **shared cap constant** `MEMO_CITATION_RETRY_CAP` (≥ 2); **checkpointer YES / interrupt NO** (gate external). | CONBR2-STATE, CITE-FAILURE |
+| 8 | **LangGraphOrchestrator** | The sub-flow `draft → validate_citations → retry/finalize` (+ `flag`); **read-only recommendation/confidence channels (no node write)**; bounded-retry policy with the **shared cap constant** `MEMO_CITATION_RETRY_CAP` (≥ 2); **no graph persistence / interrupt NO** (gate external). | CONBR2-STATE, CITE-FAILURE |
 | 9 | **(unit boundary — no commit component)** | **Absence pattern**: the unit constructs **no `DecisionCommitService`** and makes no commit call; the committed rec bypasses the memo via `recommendation_id`. | CONBR2-COMMIT |
 | 10 | **TelemetryEmitter** | Emit-only **allowlist** (ids/enums/int counts/timing); **no prose/demographic/free-text/`original_span`**. Observed-not-gated latency. | OBS-1, PERF-1 |
 
@@ -39,8 +39,20 @@
 | `AuditTuple` / `ReplayService` (persist `memo_hash`; rules-only replay, excludes `memo_hash`) | **Referenced** (audit-store) | This unit produces `memo_hash` + owns verify; audit-store stores it, cannot re-derive. |
 | `OutlierResult` | **Referenced** (outlier-model, Phase 2) | `None` in P1. |
 | `DecisionCommitService` | **Referenced** (audit-store) | **Never instantiated here** — CONBR2-COMMIT bypass. |
-| Langfuse tracing | **Referenced** (observability) | Wired externally via the checkpointer. |
+| Langfuse tracing | **Referenced** (observability) | Owned by `observability`; **not** wired by this unit. |
 | QA-4 groundedness eval | **Referenced** (quality-gates) | Live-provider eval, not this unit's gate. |
+
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — two statements in this document.** Component table **row 8** read
+> *"**checkpointer YES / interrupt NO** (gate external)"*, and the reference table above read
+> *"Langfuse tracing … **Wired externally via the checkpointer**."*
+>
+> **Both are corrected: the graph is compiled with no checkpointer** (register #34, candidate C2 —
+> a persisted thread made every re-draft of one application raise `RuntimeError`). ⚠️ **The Langfuse
+> row was false BEFORE C2 and not because of it** — tracing was never wired through a checkpointer,
+> and `observability.TraceRecorder.on_step` has no production caller (OBS-SINK-DEFERRED owns that
+> gap). ⚑ **The interrupt/gate-external half of row 8 is unchanged and remains true.**
 
 **Reference-not-own check: NO violation.** Every rules-engine / intake / shared-canon_ser / audit-store / outlier-model / memo-extensions / observability / quality-gates artifact is **referenced, never re-declared or edited**. No shared-code change.
 

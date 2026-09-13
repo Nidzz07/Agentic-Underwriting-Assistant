@@ -8,9 +8,26 @@
 
 ## D1 — LangGraph (the C4 memo sub-flow ONLY)
 - **Decision**: LangGraph orchestrates **only** the C4 memo sub-flow: `inject → draft → validate_citations → retry/finalize` (+ `flag`). The deterministic pipeline (intake → rules → outlier) ran **before** the graph.
-- **Checkpointer: YES** — for the citation-validation **retry loop**, state durability, and 100%-step Langfuse tracing.
+- **Graph persistence: NONE** — the graph is compiled bare; see the BACK-ANNOTATION below.
 - **In-graph interrupt: NO** — the human approval gate is **EXTERNAL** (`DecisionCommitService` in audit-store, reached via FastAPI). No `interrupt_after` for the gate.
-- **Realizes**: NFR-MEMO-CONBR2-STATE (read-only channels, no node write), NFR-MEMO-CITE-FAILURE (bounded retry via the checkpointer), NFR-MEMO-CONBR2-COMMIT (gate external — this unit never commits).
+- **Realizes**: NFR-MEMO-CONBR2-STATE (read-only channels, no node write), NFR-MEMO-CITE-FAILURE (bounded retry on plain graph state), NFR-MEMO-CONBR2-COMMIT (gate external — this unit never commits).
+
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — two bullets of D1.** The first read *"**Checkpointer: YES** — for the
+> citation-validation **retry loop**, state durability, and 100%-step Langfuse tracing."* The
+> *Realizes* bullet read *"NFR-MEMO-CITE-FAILURE (**bounded retry via the checkpointer**)."*
+>
+> **D1's persistence decision is reversed: no checkpointer.** ⛔ **The mechanism did active harm** —
+> `run()` keys the thread by `application_id`, so the second draft of one application restored the
+> read-only channels, seeding took the reducer branch, and every re-draft raised `RuntimeError`
+> (#34 `CHECKPOINT-POISONS-REDRAFT`). All three justifications were false: the retry cycle is plain
+> `add_conditional_edges` state and ⚑ **was reproduced working without any checkpointer**; durability
+> was never exercised because ⛔ **nothing ever read a checkpoint back**; and ⚠️ **the tracing clause
+> was false before C2, not because of it** (`TraceRecorder.on_step` has no production caller —
+> OBS-SINK-DEFERRED). ⚑ **CITE-FAILURE itself still holds** — the bounded retry works, on graph
+> state rather than on a checkpoint. ⚑ **D1's LangGraph choice and the external-gate decision are
+> unchanged.**
 - **FD**: `business-logic-model.md §1/§2.2`.
 
 ## D2 — Injected `ProviderAbstraction` (Protocol) + Gemini adapter (P1) + deterministic scripted fake (tests)
@@ -58,8 +75,16 @@
 - **Realizes**: the central testability principle — every `NFR-MEMO-*` is pass/fail testable against the fake.
 
 ## D10 — Observability: emit-only allowlist telemetry (reference-not-own tracing)
-- **Decision**: A structural **allowlist** telemetry emitter (ids / enums / int counts / timing) — **no demographic / free-text / prose / `original_span`**. Langfuse 100%-step tracing is wired by `observability` (reference-not-own) via the checkpointer.
+- **Decision**: A structural **allowlist** telemetry emitter (ids / enums / int counts / timing) — **no demographic / free-text / prose / `original_span`**. Langfuse tracing is owned by `observability` (reference-not-own).
 - **Realizes**: NFR-MEMO-OBS-1, NFR-MEMO-PERF-1 (duration emitted, not gated).
+
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — D10's decision sentence**, which ended *"Langfuse 100%-step tracing is wired by
+> `observability` (reference-not-own) **via the checkpointer**."* ⚠️ **False BEFORE C2 and not a
+> consequence of it** — tracing was never wired through a checkpointer, and
+> `observability.TraceRecorder.on_step` has no production caller at all (OBS-SINK-DEFERRED owns the
+> gap). ⚑ **D10's allowlist decision itself is unchanged.**
 
 ## D11 — No LLM in the deterministic path / tests / replay
 - **Decision**: The LLM drafts **prose only**, downstream of deterministic results. `missing_information`, `memo_hash` (compute + verify), citation validation, and CON-BR2 are **pure/deterministic** and **fake-testable**. Replay never invokes the LLM.

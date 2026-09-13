@@ -4,7 +4,7 @@
 **Unit**: U4 `memo-agent-core`
 **Date**: 2026-07-03
 **Scope**: The LangGraph memo sub-flow (draft → validate_citations → retry/finalize), the
-immutable-recommendation state (CON-BR2 inside the graph), the checkpointer/interrupt pattern
+immutable-recommendation state (CON-BR2 inside the graph), the graph-persistence/interrupt pattern
 (gate EXTERNAL), the temperature=0 Gemini call path (P1), `memo_hash` at finalize, the dual-path
 commit note, and the replay boundary. Technology-agnostic.
 
@@ -61,7 +61,7 @@ flowchart TB
 
 ---
 
-## 2. Immutable-recommendation state + the checkpointer/interrupt pattern
+## 2. Immutable-recommendation state + the graph-persistence/interrupt pattern
 
 ### 2.1 Immutable recommendation (CON-BR2 state layer)
 - `recommendation` + `confidence` are injected into the graph's **initial state as read-only**; the
@@ -69,10 +69,35 @@ flowchart TB
   prose + citations + `missing_information` — **never** a recommendation (`business-rules.md
   BR-CONBR2-STATE`).
 
-### 2.2 Checkpointer YES / interrupt NO — the gate is EXTERNAL
-- **Checkpointer: YES** — for **state durability + the citation-validation retry loop + 100%-step
-  Langfuse tracing**. *(Its Phase-1 justification is retry/durability/observability — **not** the
-  borderline step, which is Phase 2.)*
+### 2.2 Graph persistence NONE / interrupt NO — the gate is EXTERNAL
+
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — this section's heading and first bullet.** The heading read *"2.2 Checkpointer
+> YES / interrupt NO"*; the bullet read *"**Checkpointer: YES** — for **state durability + the
+> citation-validation retry loop + 100%-step Langfuse tracing**. (Its Phase-1 justification is
+> retry/durability/observability — not the borderline step, which is Phase 2.)"*
+>
+> **The decision is now: NO checkpointer.** The graph is compiled with a bare `graph.compile()` and
+> no graph state is persisted. ⛔ **All three Phase-1 justifications were false, and the mechanism
+> did active harm**: `run()` keys the thread by `application_id`, so the **second** draft of one
+> application restored the read-only channels, seeding took the reducer branch, and
+> `_reject_channel_write` fired on the **seed** — every re-draft raised `RuntimeError` (#34).
+>
+> * *citation-validation retry loop* — the `add_conditional_edges` cycle is plain graph state.
+>   ⚑ **Reproduced working with no checkpointer at all**: bad-then-good provider → 2 calls, memo
+>   finalized.
+> * *state durability* — `MemorySaver` is in-process, and ⛔ **nothing ever read a checkpoint back**:
+>   no `get_state`, `update_state`, `get_state_history`, `.stream`, `astream` or `interrupt` exists
+>   anywhere in this repository.
+> * *100%-step Langfuse tracing* — ⚠️ **this clause was false BEFORE C2 and is NOT a consequence of
+>   it.** Tracing was never wired through a checkpointer at all, and
+>   `observability.TraceRecorder.on_step` has **no production caller** (owned by OBS-SINK-DEFERRED,
+>   not by this unit).
+>
+> ⚑ **The interrupt half is UNCHANGED and remains true** — the bullet below stands as written, and
+> §2.1's read-only-channel contract (CON-BR2-STATE) is untouched in substance.
+
 - **In-graph interrupt for the human gate: NO.** The graph **finishes** as advisory output (a
   **pending** `DecisionMemo`); the **human approval gate is OUTSIDE the graph** — it is
   `DecisionCommitService` (in `audit-store`), a **separate boundary** reached via FastAPI

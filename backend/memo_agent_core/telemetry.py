@@ -3,8 +3,14 @@
 The event schema **structurally carries only** ids / enum values / int counts /
 timing — **no** prose, demographic, free-text, or ``original_span`` field can be
 emitted (OBS-1). Latency is **observed, not gated** (``duration_ms`` is emitted;
-there is no latency-failing check — PERF-1). Langfuse 100%-step tracing is wired
-by ``observability`` (reference-not-own) via the graph checkpointer.
+there is no latency-failing check — PERF-1). Langfuse tracing is owned by
+``observability`` (reference-not-own).
+
+⚠️ This line previously ended *"via the graph checkpointer"*. ⛔ **That was already false
+before C2 removed the checkpointer — not a consequence of it**: tracing was never wired
+through a checkpointer, and ``observability.TraceRecorder.on_step`` has no production
+caller at all (owned by OBS-SINK-DEFERRED, not by this unit). Corrected here only so
+this unit does not name a mechanism it no longer has — register #34, change (m).
 """
 from __future__ import annotations
 

@@ -7260,3 +7260,383 @@ here) rather than from a re-enumeration of all 31 rows; stated so a future reade
 test.** The plan's strongest hold, and it held: the frozen unit needed **no** change, which is the finding that the
 wire shape it was built against is exactly what the backend serves. ⚑ Had it needed one, the plan required
 stopping. · no backend file · no WIRE-1 · no migration · no coverage threshold · **NO COMMIT.**
+
+---
+
+## ✅ LIVE LLM DRAFTING (Ollama, opt-in) — **SCOPING THROUGH EXECUTION, ALL SIX STAGES** · ⛔ **TIER-U/TIER-I GREEN ONLY — NOT ONE LIVE DRAFT YET** · **#32 OPENED, REGISTER RECONCILED 31 → 32** · **NOT COMMITTED** (backfilled 2026-08-17T04:52:10Z)
+
+**Backend 1774 → 1837 / 0 / 45 / 5 / 99.36%. Frontend 815 → 823 / 155.** Predicted **+48 / +4**, measured
+**+63 / +8** — reconciled stage by stage below, with **no test trimmed to hit a number**. **9 files changed, 7 new**
+(excluding `guide-docs/`).
+
+⚠️ **THIS ENTRY IS A BACKFILL, AND WHAT IT DID NOT SEE IS THE FIRST THING IT SAYS.** The six stages were executed in
+a **prior session**. The session writing this one did **not** watch any test go RED before GREEN, and therefore
+records the RED-first discipline as **inherited, not attested**. What it did do is the entire evidentiary basis
+here: it read the tree, ran both suites end to end, counted every test, and reconciled the totals against the
+code-gen plan's predictions. ⛔ **'Observed' below means observed by that verification; 'recorded' means inherited.**
+
+⛔ **AND THE SECOND THING IT SAYS IS THE BIGGER ONE: NOTHING HERE IS LIVE.** No Ollama daemon has been contacted, no
+memo has been drafted by a language model, and **not one byte of model-written prose exists anywhere in this build.**
+Every test runs against injected fakes. **§6's manual verification has not been run.**
+
+### The shape of the pass — a question gate, a blocking contradiction, then six stages
+
+⚑ **This is the first pass in this build whose scoping phase produced a genuine BLOCKING contradiction and stopped
+for it.** Ten questions were written with grounded recommendations and **none pre-filled**; all ten were answered,
+and **every headline letter matched the recommendation** — which is stated plainly rather than dressed up as
+independent convergence, since the same agent wrote both. **The answers' real content was the three places they
+went beyond the recommendations**: Q4 resolved a deliberately-open design fork (route-local catch, not a generic
+`main.py` handler), Q4 took option **D in addition to A**, and ⛔ **Q9 DECLINED the recommended register item** on
+the stated argument that opt-in-showcase *"is exactly what §9 already describes"* and therefore narrows nothing —
+an argument that was accepted, with the decision logged here instead.
+
+⛔ **The mandatory ambiguity check then found a real contradiction and withheld the code-gen plan for it.** Q1
+reframed the call cap as *"runaway-loop containment, not spend control"* while adopting `CappedGeminiClient`'s
+**per-instance monotonic counter that is never reset** — which, behind `@lru_cache(maxsize=1)` in a long-running
+FastAPI app, is **one counter for the life of the process**, i.e. a per-process *budget*: the exact semantic Q1 said
+it was moving away from. ⚑ **The shape was safe in `CappedGeminiClient` only because its sole caller was a
+short-lived script**, where *per-process ≈ per-run*. At `max_calls=20` the server would have **permanently stopped
+drafting after roughly 5–20 drafts** and returned 500s until bounced — and §6's own walkthrough, which drafts,
+re-drafts and exercises the failure path in one process, would plausibly have hit it. **Answered A: per-draft cap.**
+
+⚠️ **The re-check then found that the ANSWER ITSELF created a new interaction** — a per-draft counter and a
+concurrency bound collide on shared mutable state, because one client instance serves every concurrent draft.
+**Resolved by design, not by a third question**: a `threading.local()` counter reset at `_CompositionSeams.draft_memo`,
+which is called exactly once per draft, lives in `backend/app/`, and needs **no `case_lifecycle` reopening**.
+⛔ **The simpler fix — setting the draft bound to 1 — was rejected on principle**: it would have made **correctness
+depend on the value of a tuning constant**, so a later throughput bump would silently reintroduce the race with
+nothing failing. **The bound is a performance knob; it must never also be a correctness guarantee.**
+
+### ⚠️ Two corrections the check forced on the plan's OWN findings, before any code
+
+**(i) ⛔ §1.9 was WRONG. R4 *does* carry `model_version`.** The plan had claimed it did not, citing zero occurrences
+in `projections.py`. **The grep was right and the conclusion was wrong**: `projections.py:184` emits
+`memo.model_dump(mode="json")`, and `model_version` is a required field on `DecisionMemo`. **The stamp travels on R4,
+nested at `memo.model_version`, immediately after drafting and before any commit.** ⚑ This is what makes §6 step 4
+possible at all, and what made Stage 6's badge cheap enough to build without a WIRE-1 Fold. The half that survived
+is the **UI** half: no `memoView` component rendered it, so on screen it was history-only, post-commit.
+
+**(ii) The open 503-vs-500 sub-question resolves to 500, on the contract rather than on taste.** WIRE-1 §4's table
+has **no 503**; adding one would be a **fifth Fold** with its own gate, which Q4 scopes away. Closed as answered.
+
+### The six stages
+
+| | Stage | What it did |
+|---|---|---|
+| **S1** | the guard | `_MEMO_EXTENSIONS_IMPORT_MODULES_FROM_APP` — the file's **third** allowlist, created **empty and green**, with the RED deliberately landing in S3 |
+| **S2** | `ollama_client.py` | `CappedOllamaClient` + two named exception types + the guarded factory; the **thread-local per-draft counter** |
+| **S3** | the seams | the `os.environ` selector, the **model-ID / stamp split**, the three-part stamp, and the import that trips S1's guard |
+| **S4** | R11 | `async def` + **all three** blocking calls offloaded + the bound + the timeout + the two-typed catch |
+| **S5** | the register | **#32 `UNCAUGHT-EXCEPTION-ESCAPES-ENVELOPE`** opened — documentation only |
+| **S6** | the marking | G2 resolved to **option D**: the stamp carries the marker, `memoView` renders a badge from it |
+
+⚑ **S1 is the third instance of a discipline this file has now recorded three times: a guard that did not exist was
+CREATED rather than treated as permission.** Fold C found `test_no_write_route.py` *"had no opinion about file I/O
+at all"* and the response was to create `_FILESYSTEM_WRITE_MODULES`; register #2's G3 narrowed a guard that existed;
+here **no guard forbade the import and one was built anyway**, empty, so that S3's first import would meet an
+**assertion instead of nothing**. ⛔ **The RED landed across a stage boundary, exactly as planned.**
+
+⚑ **And S1's name is load-bearing.** `_FROM_APP` is not decoration: `PRODUCTION_FILES` is rooted at `APP_ROOT`, so
+the guard is **structurally blind** to `case_lifecycle/pipeline.py:38`'s pre-existing `memo_extensions` import. A
+bare `_MEMO_EXTENSIONS_IMPORT_MODULES` would have claimed more than it checks — **the exact defect the TRIGGER-1
+narrowing was written to fix.** ⛔ **G1's authorization text was likewise required to say "the first import from
+`backend/app/`", not "the first import"**, because `case_lifecycle` already imports it on every draft, and the
+broader phrasing would have documented a **false premise**.
+
+⚑ **S4's conversion was a THREE-call change, not a one-call change, and the check is what caught that.**
+`trigger_drafting` was a plain `def`, which is the only reason its two `pipeline.read` calls were harmless — FastAPI
+ran the whole body on a threadpool thread. Making it `async` moves the body onto the **event loop**, where both
+reads are blocking SQLAlchemy round-trips. ⛔ **Offloading only the draft would have left two blocking DB calls
+stalling the loop, and NO existing test would have caught it** — `TestClient` passes either way, merely with the
+loop stalled. **STOP-GATE 4A held**, with `test_the_event_loop_stays_RESPONSIVE_during_a_draft` as its non-vacuity.
+
+⚑ **The two failure modes are kept apart deliberately, because they call for opposite operator responses.**
+`OllamaUnreachable` (→ *start Ollama*) and `OllamaCallCapExceeded` (→ *Ollama is fine; the app declined to re-enter
+the model*) map to the same **500** but carry **different messages and different `detail.cause` discriminators**,
+and a test asserts the two are **different from each other** — without which the separation would be decorative.
+⛔ **The catch names two types only. `test_a_NON_ollama_exception_is_NOT_swallowed_by_the_catch` pins that a genuine
+`ValueError` still escapes**, so a programming error can never be mis-reported as an Ollama problem.
+
+⚑ **S6's copy was tested for what it must NOT say.** `⛔ does NOT say the memo is wrong, untrusted, or unreliable`
+and `names what WAS still checked, not only what was not`. The exemption is scoped to memo-**quality** gates —
+groundedness and promptfoo — while **every decision-level gate still holds** (`temperature=0`, CON-BR2-TYPE,
+bias-swap, reproducibility). The UI is tested against overclaiming that distinction **in either direction**.
+
+### ⛔ Variance reconciliation — stop-gate 9
+
+| Stage | Predicted | Actual | Δ | Cause |
+|---|--:|--:|--:|---|
+| S1 guard | +2 | **+4** | **+2** | The non-vacuity detector needed **two** halves, positive and negative — this file's own stripping precedent. The allowlist earned a second pin beyond exact-set equality. |
+| S2 client | +16 | **+23** | **+7** | Parametrization, plus six seam invariants the plan **implied but never enumerated** — including `MAX_CALLS_PER_DRAFT > MEMO_CITATION_RETRY_CAP`, which pins the cap's reasoning so it cannot be mis-tuned by someone who thinks it load-bearing. |
+| S3 seams | +14 | **+21** | **+7** | The fail-safe was one predicted bullet and **parametrized to nine rejected values** — the exact-literal polarity is the only thing keeping a real model away from an unconfigured deployment, so it is pinned per-value, not per-idea. Plus two digest-degradation tolerance tests. |
+| S4 R11 | +14 | **+12** | **−2** | ⚑ **The only negative variance, and it is PLACEMENT, not omission.** `test_submission_routes.py` was listed as changed and **was not changed**; two predicted bullets landed in earlier stages' files (the timeout passthrough in S2, the offline-path-unchanged check in S3). **Nothing predicted is missing.** |
+| S5 register | 0 | **0** | 0 | Documentation. |
+| S6 marking | +2 / +4 | **+3 / +8** | **+1 / +4** | Backend gained an unpredicted **cross-tree pin** — the Python marker constant against the JS predicate. Frontend doubled: `isNotQualityGated` earned four unit tests of its own, including ⛔ **that it does not fire on a stamp merely CONTAINING the marker later in the string**. |
+| **Total** | **+48 / +4** | **+63 / +8** | **+15 / +4** | |
+
+⚑ **Arithmetic closes exactly**: 4 + 23 + 21 + 12 + 0 + 3 = **63**. ⚠️ **The direction of the miss is Fold-7's
+again** — which predicted +48 and measured +84 — and the cause is the same class: **a plan bullet names an idea; the
+implementation needs several assertions to pin it.** Recorded as **systematic under-prediction of tests per named
+property, not scope creep.** Coverage 99.49% → **99.36%**, still 9.36 pp above the gate; ⛔ **the threshold was not
+edited** — the drop is the real-SDK construction path under `# pragma: no cover`, on the `llm_client.py:132`
+precedent, with every refusal, cap and wrapping path covered.
+
+### ⛔ DISCLOSURE — Q4's option D was approved and NEVER BUILT
+
+Q4's answer took **D in addition to A** (*"a nicety on top of the catch, not a replacement for it"*), and the
+code-gen plan carried it as a numbered step. ⛔ **It is not in the tree.** Verified three ways: `trigger_drafting`
+goes **directly** from the NOT_FOUND read to the bounded draft with **no call between them**; a grep across
+`backend/app/` for every pre-flight spelling returns nothing; and the only `.show()` is `show_digest`, documented
+*"PROVENANCE ONLY. NEVER ON THE DRAFTING PATH"* and called once at construction.
+
+⚑ **Stated in both directions so no reader is misled either way.** The catch **fully closes the reachable failure
+mode** — an unreachable daemon produces a named exception carrying the resolved host and the operator instruction,
+inside the §4 envelope. **D was always the smaller, diagnostic-quality half**, and Q4's own recommendation said so
+before any code existed: it *"does not remove the need for the catch, since the daemon can die between the
+pre-check and the call."* ⛔ **The defect is not the absence — it is that an approved item silently did not appear.**
+Recorded rather than quietly dropped, and **not built now**, which would be work outside an authorized scope.
+⚠️ A future grep will hit *"the concurrent liveness call"* at `test_draft_concurrency.py:203`; **that is a test's
+loop-responsiveness probe, not a production pre-check.**
+
+### ⛔ DISCLOSURE — two tests were VACUOUS, and both guarded this pass's most delicate invariant
+
+* **`test_two_threads_keep_INDEPENDENT_counters`** read both counts *after both threads had reset* and asserted
+  `{'A': 0, 'B': 0}` — which ⛔ **a single shared counter satisfies identically.** Corrected to an **asymmetric**
+  assertion: A observed **after** B resets and **before** A resets again, `{'A': 1, 'B': 0}`.
+* **`test_a_REUSED_thread_starts_at_zero`** spawned two fresh threads, **each getting a brand-new thread-local
+  namespace**, so lazy initialization passed it and ⛔ **the test did not test its own name.** Corrected to
+  `ThreadPoolExecutor(max_workers=1)`, which guarantees the same thread serves both drafts, and it asserts the
+  thread identity **first**: *"the pool did not reuse the thread; the test proves nothing."*
+
+⚑ **Re-verified FIRST-HAND during this backfill, in a scratchpad, against three strawmen** — `Monotonic`
+(never reset), `Shared` (naive reset, not thread-local), `LazyInit` (thread-local, never reset at entry). **No
+project file was touched to do it.**
+
+| Implementation | cap resets | two threads independent | reused thread starts at zero |
+|---|---|---|---|
+| **REAL** (thread-local + reset) | PASS | PASS | PASS |
+| **Monotonic** | FAIL | FAIL | FAIL |
+| **Shared** | PASS | **FAIL** | PASS |
+| **LazyInit** | FAIL | FAIL | FAIL |
+
+⛔ **The `Shared` row is the finding.** It **passes two of the three tests** and is caught by **exactly one** — the
+two-thread test, and only in its corrected form. Had that test kept `{'A': 0, 'B': 0}`, **the whole row would have
+been PASS/PASS/PASS**, and §5.2's race — the very interaction the clarification gate was opened for — **would have
+shipped underneath three green tests.**
+
+### ⛔ WHAT THIS PASS HAS NOT EARNED
+
+* ⛔ **Register #18 gap (iii) has NOT moved.** It moves on **live evidence** and there is none. When it does move it
+  moves for the **showcase** half only — Gemini's production client stays **unproven through the request path** (Q6 A),
+  and no summary may describe #18 as progressed without naming which half.
+* ⛔ **Ollama is NOT the default** (Q9 C). An unconfigured deployment still serves the offline double, and §6 step 10
+  is the check that proves it.
+* ⛔ **Ollama is NOT in `IN_GATE_PROVIDERS`.** The memo-quality exemption stands; S6 makes it visible rather than
+  narrowing it. ⚑ Per Q9's declined-register-item argument, opt-in-showcase **narrows nothing** in `PROJECT-BRIEF`
+  §9 — logged here as a deliberate decision, which is what makes it traceable without inventing an item for a
+  non-change.
+* ⛔ **Register #22 is NOT closed.** The digest pins the **weights**, not the sampling stack — the same distinction
+  `outlier_canonical.py` already draws. §6 step 8's two-draft probe is an **observation**, and **differing prose is
+  a finding about #22, not a failure of this pass.**
+* ⚠️ **The two documentation states at the scoping plan's §0.2 are still unfixed** — the outlier-mount entry's stale
+  *"HEAD is `d43b661`"* / *"NOT COMMITTED"*, and `BUILD-COMPLETION-REPORT.md`'s §5 register table still headed
+  *"20 items"* with no rows for #26–#31. **A documentation-sync task owns both.**
+
+### Register — ⛔ #32 OPENS, and the count is reconciled here
+
+| Item | Status |
+|---|---|
+| **#32** `UNCAUGHT-EXCEPTION-ESCAPES-ENVELOPE` | ⛔ **NEW, OPEN.** `main.py:97` asserts *"no route can emit a non-contract body"* and **nothing enforces it** — three handlers are registered and there is no generic `Exception` handler. ⚑ **The #28 → #29 split shape**: the R11 catch is the **demonstration**, #32 is the **capability**. This pass closed the **one reachable path**; every other route retains the capability. ⚠️ **A blanket handler is not obviously the right fix** — it would have swallowed the `ValueError` that S4 deliberately lets escape; the right fix likely pairs one with a re-raise in debug mode, which is an observability-posture decision, not a one-line addition. |
+| **#18** `NO-PRODUCTION-LLMCLIENT` | **NARROWED — UNCHANGED BY THIS PASS.** The wiring exists and is unit-proven; **gap (iii) awaits live evidence.** |
+| **#22** `MEMO-PROSE-NOT-BIT-REPRODUCIBLE` | **OPEN.** The digest will narrow it on live evidence; it cannot close it. |
+| **#2 · #3 · #5 · #8 · #12 · #13 · #14 · #19 · #26 · #29 · #30 · #31** | **Untouched.** |
+
+⛔ **REGISTER NOW STANDS AT 32 TRACKED — 21 open · 7 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+⚠️ **This supersedes the "31 tracked — 20 open" figure recorded at this file's outlier-mount entry**, which was
+correct when written and went stale when #32 opened. ⚑ The breakdown remains **derived from the running tallies**,
+not from a re-enumeration of all 32 rows — stated so a future reader knows which it is, exactly as the prior entry
+stated it. `BUILD-COMPLETION-REPORT.md` already carries #32's full row and needed no change here.
+
+### Files — 9 changed, 7 new. ⛔ NOT COMMITTED.
+
+**New**: `backend/app/ollama_client.py` · `backend/app/draft_concurrency.py` ·
+`backend/app/tests/test_ollama_client.py` · `test_dependencies_provider.py` · `test_draft_concurrency.py` ·
+`frontend/src/memoView/components/ProviderGateNotice.jsx` · `frontend/src/memoView/__tests__/providerGateNotice.test.jsx`
+**Changed**: `backend/app/dependencies.py` · `backend/app/routes/submission.py` ·
+`backend/app/tests/test_no_write_route.py` · `frontend/src/memoView/MemoView.jsx` · `frontend/src/memoView/copy.js`
+Plus `guide-docs/` — the three plan files, this entry, `audit.md`, `BUILD-COMPLETION-REPORT.md`.
+
+**HOLDS — verified by `git status` and by reading the tree**: ⛔ **no frozen unit touched** · ⛔ **`case_lifecycle/`
+NOT edited — no fifth U24 reopening** · ⛔ **WIRE-1 UNAMENDED — no fifth Fold** · ⛔ **`secrets_config` not reopened —
+`Settings` stays at exactly six fields** · no migration · no `.sql` · no `checksums.json` · no `render.yaml` ·
+**coverage thresholds unedited on both sides** · `PROJECT-BRIEF.md` unchanged · **NO COMMIT.**
+
+⛔ **NEXT: §6's manual verification — ten steps, user-run against a real stack and a real Ollama daemon. Until it is
+run, the honest description of this pass is "the wiring is built and unit-proven; the provider is unproven."**
+
+## ✅ REGISTERS #33 / #34 / #35 — **THE FIRST AUTHORIZED REOPENING OF A FROZEN UNIT'S SOURCE LOGIC IS BUILT, GREEN, AND LIVE-VERIFIED** · ⛔ **A REAL MODEL'S MEMO REACHED THE SCREEN FOR THE FIRST TIME** · **#33 CLOSED** · ⚠️ **#34 NOT UPGRADED** · ⛔ **REGISTER COUNT CORRECTED HERE — IT WAS STALE BY THREE**
+**Date**: 2026-09-12 · **HEAD `bd3875d`** · ⛔ **NOT COMMITTED**
+
+**Backend 1892 / 0 / 45 / 5 / 99.36%** · **frontend 823 / 155** (exact baseline match).
+Four frozen files reopened under signature; changes (a)–(m) applied; **all 48 plan checkboxes `[x]`**.
+Detail: `audit.md` 2026-09-12T12:09:05Z (stage-1 reconstruction), 12:41:19Z (stage 2),
+**18:15:54Z (live verification)** · `BUILD-COMPLETION-REPORT.md` (the authoritative register rows).
+
+### ✅ What live verification established
+
+* ⚑ **#33 CLOSED ON LIVE EVIDENCE** — a real Ollama model produced genuinely model-written prose
+  with **seven real rulebook citations** matching the actual `rule_results`, ⛔ **no hallucinated id
+  and no leaked `EXAMPLE_RULE_ID`.** ⚑ **The one item of the three that a test suite structurally
+  could not have closed**, and the code-gen plan's §1.1 said so **before** execution.
+* ✅ **#35 LIVE-CONFIRMED** — a `DECLINE-RECOMMEND` case drafted through the offline double
+  **produced a memo** (`status=ready`), where ⛔ **every prior such case in this build's history
+  would have landed in `FAILED`, silently.**
+* ✅ **The envelope and the fail-safe held** — an Ollama outage produced a clean WIRE-1 envelope
+  naming the host, **not** a bare 500; `MEMO_PROVIDER` unset fell back to the offline double.
+
+### ⛔ #34 WAS NOT UPGRADED — and that is the pass's most important finding
+
+⚠️ **An upgrade to live-confirmed was requested and DECLINED on evidentiary grounds**, recorded as
+not-reached rather than performed-with-a-caveat. The re-draft returned
+`{"status":"ready","outcome":"skipped"}` because `pipeline.draft()` puts the `is_legal` guard
+**above** `draft_memo` (`pipeline.py:173`) — ⛔ **so `draft_memo` was never called, the orchestrator
+was never invoked twice, and the checkpointer path was never reached.** ⚠️ Part D cannot substitute:
+a **backend restart** between its steps clears the in-process `MemorySaver`.
+
+⚑ **What IS live-confirmed: the ROUTE IS CLOSED** — no HTTP caller can double-invoke the
+orchestrator. ⚠️ **The fix itself remains TIER-U only**, proven by `test_orchestrator_redraft.py`'s
+four in-process layers. ⚑ **The closing run is specified** in `BUILD-COMPLETION-REPORT.md`: two
+drafts on one application **in one process, no restart**, the first failing on an Ollama outage so
+the case stays `evaluated`.
+
+### ⛔ #22 now has MEASURED NEGATIVE evidence
+
+Two drafts of an **identical profile** gave the same citations, structure and conclusion — but
+⛔ **word-level prose differences and a DIFFERING `memo_hash`.** **`temperature=0` plus pinned local
+weights do NOT yield byte-identical prose.** ⚠️ **#22 is HARDER to close now, not easier**, and this
+is **one repetition**, not `PROJECT-BRIEF` §5.1's *"same input × 10 runs"*, which is **still unrun**.
+
+### ⚑ A structural guard fired — and it was not one of the plan's ten stop-gates
+
+`test_frozen_untouched.py::test_no_frozen_unit_imports_the_composition_root` caught a test **this
+pass wrote** importing `backend.app` from inside the frozen `memo_agent_core` tree. ⛔ **The guard
+was right; the test was moved; the guard was not touched.** ⚠️ **Stop-gate 5 passed cleanly** — the
+plan anticipated import trouble at the `memo_extensions` boundary and cleared it correctly; ⛔ **it
+did not anticipate the frozen unit's own TEST directory having an import rule.** **A plan's
+stop-gates are not the whole safety net.**
+
+### ⚠️ Variance — predicted +26, measured +55
+
+⛔ **The third consecutive pass to miss low for the same documented reason** (Fold-7 +48→+84;
+live-LLM-drafting +48→+63): *"a plan bullet names an idea; the implementation needs several
+assertions to pin it."* ⚑ **Stage 1's +4 was EXACT** — the one stage whose count Q9-D fixed upstream.
+Full by-name table: `register-33-34-code-gen-plan.md` §0.4.
+
+### ⛔ WHAT THIS PASS HAS NOT EARNED
+
+* ⛔ **#18 gap (iii) moves for the SHOWCASE half ONLY.** **Gemini's production client remains
+  completely unproven live** — its real-spend branches have never executed. **#18 stays NARROWED.**
+* ⛔ **#32 UNTOUCHED.** The R11 catch names the two Ollama types; **every other route retains the
+  capability.**
+* ⛔ **#22 open**, now with negative evidence. **#34's fix still tier-U.**
+* ⚠️ **The ten-run determinism suite has still never been run.**
+
+### ⛔ REGISTER COUNT — CORRECTED HERE, RECONCILED AGAINST `BUILD-COMPLETION-REPORT.md`
+
+⛔ **REGISTER STANDS AT 35 TRACKED — 21 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+⚠️ **This file's last figure was *"32 tracked — 21 open"* (recorded at `guide-state.md:7454`), which
+went stale the moment #33 and #34 opened and has been stale by three ever since.** ⛔ **It is
+corrected here rather than carried further.** The path from there: **32 → 34** (#33 and #34 opened
+by the live-LLM-drafting pass's §6 manual verification) **→ 35** (#35 opened by this pass), with
+**#34 and #35 closed at stage 2** and **#33 closed on live evidence**, giving
+**21 open + 10 closed + 4 narrowed = 35.** ⚑ **`BUILD-COMPLETION-REPORT.md` is the authoritative
+source for the rows**; this line is reconciled against it, and the breakdown is **derived from the
+running tallies**, not from a re-enumeration of all 35 rows.
+
+### Files — ⛔ NOT COMMITTED
+
+**Frozen unit, under signature (4)**: `memo_agent_core/` `orchestrator.py` · `provider.py` ·
+`prompt_builder.py` · `telemetry.py`
+**Non-frozen (3)**: `app/offline_memo_double.py` · `scripts/seed_demo_cases.py` ·
+`memo_extensions/provider_secondary.py`
+**Tests (3 new, 3 extended)**: `memo_agent_core/tests/test_orchestrator_redraft.py` ·
+`app/tests/test_offline_double_citation_invariant.py` ·
+`memo_extensions/tests/test_parse_tolerance.py` · `test_provider.py` · `test_prompt_builder.py` ·
+`app/tests/test_submission_routes.py`
+**Docs**: five `memo-agent-core/` design docs back-annotated · three plan files · this entry ·
+`audit.md` · `BUILD-COMPLETION-REPORT.md`
+
+**HOLDS**: ⛔ **exactly four frozen production files — no fifth** (stop-gate 7) · `case_lifecycle/`
+not edited · WIRE-1 unamended · `PROJECT-BRIEF.md` unchanged · coverage thresholds unedited both
+sides · no `# pragma: no cover` added · frontend untouched and exactly at baseline · **NO COMMIT.**
+
+
+## ✅ REGISTER #34 — **THE DERIVED CLOSING RUN WAS EXECUTED AND IT PASSED** · ⛔ **THE ORCHESTRATOR WAS INVOKED TWICE ON ONE `thread_id` IN ONE PROCESS AND RETURNED A MEMO** · **#34 TIER-U → LIVE-CONFIRMED** · ⚠️ **ONE DISCLOSED HARNESS OVERRIDE**
+**Date**: 2026-09-12 · **HEAD `bd3875d`** · ⛔ **NOT COMMITTED**
+
+⚑ **Epistemic status, first**: this run was **executed and observed FIRST-HAND by the agent** — ⛔ not
+performed by the user and reconstructed, which is what every prior manual verification in this file
+is. ⚠️ **It must not be cited as precedent for a backfill.** Detail: `audit.md` **2026-09-12T20:37:14Z**
+· `BUILD-COMPLETION-REPORT.md` (the authoritative row).
+
+### ✅ What the run established
+
+⚑ **This completes the one thing the §7 entry above explicitly DECLINED to claim.** That entry
+derived the closing run from `LEGAL_TRANSITIONS` rather than guessing it, then recorded that it had
+not been performed. It has now been performed, unchanged:
+
+* **Ollama down** → `APP-7ab67ab52f2c46d098c7c4ff879192c3` submitted, draft #1 → clean WIRE-1
+  envelope (`detail.cause=provider_unreachable`), ⛔ **case stays `evaluated`** — the precondition.
+* **Daemon started inside the same interpreter**, no restart. ⚑ **Identity proven on BOTH objects**:
+  `id(case_seams())` **and** `id(seams._orchestrator)` byte-identical before and after;
+  `graph.checkpointer` read `None` live on the real object at both points.
+* ✅ **Draft #2, same process, same `thread_id`** → **HTTP 200**, `outcome="drafted"`,
+  `state=drafted`, 132.5 s, real memo persisted with a real Ollama `model_version` and `memo_hash`.
+* ⛔ **No `RuntimeError`. No `CON-BR2-STATE`. No deserialization-warning cluster.**
+
+⚑ **The discriminator the §7 entry named is exactly what separates the two runs**: `outcome="drafted"`
+here versus `outcome="skipped"` there. ⛔ **`skipped` meant `draft_memo` was never called;
+`drafted` means it ran and the orchestrator was genuinely re-entered.**
+
+### ⚠️ The disclosed override, and why it cannot weaken the claim
+
+Two earlier attempts with **nothing overridden** died at **121 s** on `httpx ReadTimeout` — ⛔ **not
+the #34 error.** Measured cause: **no Ollama-supported GPU** on this host (integrated AMD Radeon;
+`size_vram: 0`), so **CPU-only at 4.92 tok/s**. The passing run raised **only the provider HTTP read
+timeout** (120 s → 900 s) **in the harness script**; ⛔ **no project file was edited and
+`DRAFT_TIMEOUT_SECONDS` is unchanged on disk.**
+
+⚑ **Structural reason it is orthogonal**: #34 fires at the **SEED of invoke #2**, before any node runs
+and before any provider call; a read timeout happens **inside** that call, after seeding already
+succeeded. ⚑ **The two timed-out runs therefore carry unqualified evidence of their own** — both
+reached a 121 s provider call on invoke #2, which ⛔ **the pre-C2 code would never have reached.**
+
+### ⛔ A new finding, surfaced for a decision and NOT filed as an item
+
+`ollama_client.py:49-60` asserts *"120 s is comfortably above a cold load and still finite."*
+⚠️ **Falsified on this hardware**: a real draft measured **132.5 s** with the model already resident
+and the weights in the OS page cache, so ⛔ **no live draft can complete through R11 at the shipped
+timeout on a CPU-only host.** ⚑ Provider-performance, **separate from #34**, and it does not affect
+the offline double. ⛔ **No register item opened** — this project opens items on direction, and filing
+one unilaterally would be the mirror of the overreach §7 declined.
+
+### ⛔ WHAT THIS RUN HAS NOT EARNED
+
+* ⛔ **#18 gap (iii) does NOT move.** This was the **Ollama showcase** provider; **Gemini's production
+  client remains completely unproven live.** **#18 stays NARROWED.**
+* ⛔ **#22 open**, still with the measured negative evidence; §5.1's ten-run suite **still unrun**.
+* ⛔ **#32 untouched.**
+
+### Register
+
+⛔ **REGISTER STANDS AT 35 TRACKED — 21 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+⚑ **UNCHANGED, and that is the point** — #34 was already counted closed at stage 2; this moves its
+**evidence tier only**, exactly as §7 moved #35's. ⚠️ **No tally moves, so this supersedes nothing.**
+
+### Files — ⛔ NONE. NOT COMMITTED.
+
+⛔ **This run modified no project file.** The harness lives entirely in the session scratchpad.
+Only the record moved: `audit.md`, `BUILD-COMPLETION-REPORT.md`, this entry.
+**HOLDS**: HEAD `bd3875d` · nothing staged · no frozen unit touched · `DRAFT_TIMEOUT_SECONDS`
+unchanged on disk · **NO COMMIT.**

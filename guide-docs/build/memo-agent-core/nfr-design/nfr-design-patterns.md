@@ -76,7 +76,7 @@
 
 ## §9 — LangGraph sub-flow substrate + injected `ProviderAbstraction` + central temperature=0
 
-- **Sub-flow pattern**: LangGraph scoped to the C4 memo sub-flow **only** — `draft → validate_citations → retry/finalize` (+ `flag`). **Checkpointer YES** (retry loop + state durability + 100%-step Langfuse tracing); **in-graph interrupt NO** (the human approval gate is EXTERNAL — `DecisionCommitService` in audit-store, via FastAPI). `route_borderline` not wired. The graph is the substrate for §2 (read-only channels) and §5 (retry edges).
+- **Sub-flow pattern**: LangGraph scoped to the C4 memo sub-flow **only** — `draft → validate_citations → retry/finalize` (+ `flag`). **No graph persistence** (see the BACK-ANNOTATION at the end of §10); **in-graph interrupt NO** (the human approval gate is EXTERNAL — `DecisionCommitService` in audit-store, via FastAPI). `route_borderline` not wired. The graph is the substrate for §2 (read-only channels) and §5 (retry edges).
 - **Injected-provider pattern (PROV-1)**: `ProviderAbstraction` is an injected **Protocol** — a **`GeminiAdapter` (P1)** and a deterministic **`FakeProvider` (tests)**. **Claude / Ollama adapters, MCP `rulebook-tools`, `route_borderline` are named not-wired stubs (Phase-2 `memo-extensions`)**.
 - **Central temperature=0 pattern (TEMP0-1)**: `temperature=0` is fixed **inside** `ProviderAbstraction` (not passed per-call by any node); the `FakeProvider` **records** every call's params → asserted `temperature == 0` on every call, including every retry draft.
 - **Advisory-only pattern (ADVISORY-1)**: fields/enums use "recommendation" (`APPROVE | REFER | DECLINE-RECOMMEND`); the `PromptBuilder` system-prompt template asserts advisory language; "decision" is reserved for the human's committed action.
@@ -85,8 +85,24 @@
 
 ## §10 — Emit-only allowlist telemetry (observed-not-gated)
 
-- **Pattern**: A `TelemetryEmitter` with a **structural allowlist** — only ids / enums / int counts / timing may be emitted; the emitter schema **structurally carries no** prose / demographic / free-text / `original_span` field. **PERF is observed-not-gated** (duration emitted; no latency-failing check). Langfuse 100%-step tracing via the checkpointer is wired by `observability` (reference-not-own).
+- **Pattern**: A `TelemetryEmitter` with a **structural allowlist** — only ids / enums / int counts / timing may be emitted; the emitter schema **structurally carries no** prose / demographic / free-text / `original_span` field. **PERF is observed-not-gated** (duration emitted; no latency-failing check). Langfuse tracing is owned by `observability` (reference-not-own).
 - **Structurally meets**: a schema-level assertion that no disallowed field can be emitted; no PERF gate exists.
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — two statements in this document.** §9's sub-flow bullet read *"**Checkpointer
+> YES** (retry loop + state durability + 100%-step Langfuse tracing)"*, and §10's pattern bullet read
+> *"Langfuse 100%-step tracing **via the checkpointer** is wired by `observability`
+> (reference-not-own)."*
+>
+> **The graph is now compiled with no checkpointer** (#34, candidate C2): a thread keyed by
+> `application_id` meant the second draft of one application restored the read-only channels, so
+> seeding hit `_reject_channel_write` and every re-draft raised `RuntimeError`. The retry loop is
+> plain `add_conditional_edges` state and ⚑ **was reproduced working without any checkpointer**;
+> nothing ever read a checkpoint back. ⚠️ **§10's Langfuse clause was false BEFORE C2 and is not a
+> consequence of it** — `observability.TraceRecorder.on_step` has no production caller
+> (OBS-SINK-DEFERRED). ⚑ **OBS-1 and PERF-1 themselves are unchanged** — the allowlist and
+> observed-not-gated latency stand exactly as specified.
+
 - **Targets**: **NFR-MEMO-OBS-1**, **NFR-MEMO-PERF-1** · FD `business-rules.md §5` (telemetry extension), phase boundary.
 
 ---

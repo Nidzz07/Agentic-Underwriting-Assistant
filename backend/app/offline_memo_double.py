@@ -45,9 +45,18 @@ OFFLINE_MODEL_VERSION = "OFFLINE-DOUBLE-NOT-A-REAL-LLM"
 #: Matches a rule id as it appears in U4's prompt (e.g. ``DTI-CEIL-1``, ``IRDAI-EMP-SALARIED-1``).
 _RULE_ID_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b")
 
+#: ⛔ **LOAD-BEARING — these two strings BOUND the search region** (authorization §3.3, register
+#: **#35**). They are the literal section headers ``PromptBuilder.build()`` emits, matched by value
+#: rather than imported (the same reference-not-own discipline as ``OFFLINE_MODEL_VERSION`` above —
+#: ``backend/app/`` must not reach into the frozen unit for a constant). ⚠️ **Rewording either header
+#: in ``memo_agent_core/prompt_builder.py`` without changing it here silently breaks extraction and
+#: sends every case to ``FAILED``** — change both in the same commit.
+_REPORT_START_MARKER = "RULE REPORT (the only citable rules):"
+_REPORT_END_MARKER = "APPLICANT FACTS (non-demographic):"
+
 
 def first_cited_rule_id(prompt: str) -> str:
-    """The first rule id appearing in the prompt, or ``""`` if none does.
+    """The first rule id **in the prompt's rule-report section**, or ``""`` if there is none.
 
     ⚑ **DISCOVERED, never hardcoded.** The seed script's copy of this double originally cited a
     hardcoded ``DTI-001`` — a rule id that does not exist in this build — so the emitted
@@ -55,11 +64,38 @@ def first_cited_rule_id(prompt: str) -> str:
     seeded case silently landed in ``FAILED``**. Discovering the id from the prompt is what
     makes citation validation pass for the RIGHT reason rather than by coincidence.
 
-    Returning ``""`` when the prompt genuinely contains no rule id is correct and deliberate:
+    ⛔ **The search is BOUNDED AT BOTH ENDS — register #35** ``OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION``.
+    It previously searched the **whole** prompt, and ``PromptBuilder`` writes
+    ``RECOMMENDATION (read-only): <value>`` **above** the rule report.
+    ``Recommendation.DECLINE_RECOMMEND.value`` is ``"DECLINE-RECOMMEND"``, which this module's
+    rule-id regex matches — so ⛔ **every DECLINE-RECOMMEND case cited the recommendation itself**,
+    ``CitationValidator`` rejected the fabricated id, and the case landed in ``FAILED``. ⚠️
+    ``APPROVE`` and ``REFER`` escaped only because their values contain no hyphen: **luck, not
+    correctness.**
+
+    ⚑ **Why BOTH ends and not just the start** (§6.1, approved at sign-off): the start bound alone
+    fixes the recommendation leak, but leaves the region running to the end of the prompt — so the
+    ``REQUIRED OUTPUT FORMAT`` block appended **after** the applicant facts would fall inside it and
+    its worked example would be extracted instead. Bounding at both ends keeps that out
+    **independently** of the ``EXAMPLE_RULE_ID`` placeholder's underscore, which is the second
+    defense. Neither depends on the other, which is what Q2 required.
+
+    Returning ``""`` when the section genuinely contains no rule id is correct and deliberate:
     the draft is then legitimately blocked by ``CitationValidator``, which is the honest outcome
-    rather than inventing a citation.
+    rather than inventing a citation. ⚠️ **A MISSING marker returns ``""`` for the same reason** —
+    if the prompt's shape is not the one this function was written against, it cannot know which
+    tokens are citable, and guessing would fabricate a citation.
     """
-    match = _RULE_ID_PATTERN.search(prompt)
+    start = prompt.find(_REPORT_START_MARKER)
+    if start == -1:
+        return ""
+    region_start = start + len(_REPORT_START_MARKER)
+
+    end = prompt.find(_REPORT_END_MARKER, region_start)
+    if end == -1:
+        return ""
+
+    match = _RULE_ID_PATTERN.search(prompt, region_start, end)
     return match.group(0) if match else ""
 
 

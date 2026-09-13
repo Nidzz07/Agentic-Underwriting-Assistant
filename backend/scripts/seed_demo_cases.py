@@ -115,14 +115,37 @@ def rulebook_dir() -> str:
 _RULE_ID_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b")
 
 
-def _first_cited_rule_id(prompt: str) -> str:
-    """The first rule id appearing in the prompt, or ``""`` if none does.
+#: ⛔ **LOAD-BEARING — these BOUND the search region** (register **#35**). Kept byte-identical to
+#: ``backend/app/offline_memo_double.py``'s pair: the two doubles must stay behaviourally
+#: equivalent, and ⚠️ **if they drift, the app-side copy governs the request path.**
+_REPORT_START_MARKER = "RULE REPORT (the only citable rules):"
+_REPORT_END_MARKER = "APPLICANT FACTS (non-demographic):"
 
-    ⚑ DISCOVERED, never hardcoded — see DEFECT FIX 2. Returning ``""`` when the prompt genuinely
+
+def _first_cited_rule_id(prompt: str) -> str:
+    """The first rule id **in the prompt's rule-report section**, or ``""`` if there is none.
+
+    ⚑ DISCOVERED, never hardcoded — see DEFECT FIX 2. Returning ``""`` when the section genuinely
     contains no rule id is correct and deliberate: the draft is then legitimately blocked by
     `CitationValidator`, which is the honest outcome rather than inventing a citation.
+
+    ⛔ **BOUNDED AT BOTH ENDS — register #35** ``OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION``. Searching
+    the whole prompt matched ``RECOMMENDATION (read-only): DECLINE-RECOMMEND`` above the report, so
+    **every DECLINE-RECOMMEND case cited the recommendation itself** and landed in ``FAILED``.
+    ⚑ **This is the MIRROR of ``backend/app/offline_memo_double.py.first_cited_rule_id``** and must
+    stay behaviourally equivalent to it — see that module's docstring for why both ends are bound
+    rather than only the start.
     """
-    match = _RULE_ID_PATTERN.search(prompt)
+    start = prompt.find(_REPORT_START_MARKER)
+    if start == -1:
+        return ""
+    region_start = start + len(_REPORT_START_MARKER)
+
+    end = prompt.find(_REPORT_END_MARKER, region_start)
+    if end == -1:
+        return ""
+
+    match = _RULE_ID_PATTERN.search(prompt, region_start, end)
     return match.group(0) if match else ""
 
 

@@ -119,9 +119,20 @@ CON-BR2 is **load-bearing**. It is held by **three independent** layers — no s
 - **Traces**: FD scope · Brief §6 (observability), NFR posture.
 
 #### NFR-MEMO-OBS-1
-- **Target**: Telemetry is an **emit-only allowlist** (ids / enums / int counts / timing) — **no demographic / free-text / prose / `original_span`**. Langfuse 100%-step tracing via the checkpointer is wired by `observability` (reference-not-own).
+- **Target**: Telemetry is an **emit-only allowlist** (ids / enums / int counts / timing) — **no demographic / free-text / prose / `original_span`**. Langfuse tracing is owned by `observability` (reference-not-own).
 - **Pass/fail test**: the telemetry schema **structurally carries no** prose/demographic/free-text/forensic field (a schema-level assertion).
 - **Traces**: FD `business-rules.md §5` (SEC-1-FORENSIC extends to telemetry), phase boundary · Brief AC-7 (100% traced), SEC.
+
+> **BACK-ANNOTATION (pinned at the register #33/#34 code-gen pass, 2026-09-12 — #34
+> `CHECKPOINT-POISONS-REDRAFT`, candidate C2).**
+> ⛔ **SUPERSEDED — this target's second sentence.** It read *"Langfuse 100%-step tracing **via the
+> checkpointer** is wired by `observability` (reference-not-own)."* ⚠️ **That clause was false BEFORE
+> C2 removed the checkpointer, and is not a consequence of the removal**: tracing was never wired
+> through a checkpointer, and `observability.TraceRecorder.on_step` has **no production caller at
+> all** — a gap owned by OBS-SINK-DEFERRED, not by this unit. ⚑ **OBS-1's actual requirement — the
+> emit-only allowlist and its structural pass/fail test — is unchanged.** ⚠️ Brief **AC-7 (100%
+> traced)** must therefore be read as **not currently met by any wiring**, which this pass records
+> rather than fixes.
 
 ---
 

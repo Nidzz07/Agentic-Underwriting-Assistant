@@ -445,6 +445,30 @@ class TestTheSubmissionCompositionIsReal:
         assert response.json()["error"]["code"] == "invalid_request"
 
 
+def _prompt_shaped_like_the_real_one(*, rules: str, recommendation: str = "APPROVE") -> str:
+    """A prompt carrying the two section markers ``PromptBuilder.build()`` actually emits.
+
+    ⚠️ **These fixtures changed at the register #35 fix (step 6.3), and the reason matters.**
+    ``first_cited_rule_id`` used to search the WHOLE prompt, so a bare string like
+    ``"... rule DTI-CEIL-1 evaluated ..."`` exercised it fine. ⛔ **That unbounded search WAS #35** —
+    it matched ``RECOMMENDATION (read-only): DECLINE-RECOMMEND`` above the report and cited the
+    recommendation itself. Extraction is now bounded between the two markers, so a prompt without
+    them is no longer valid input and correctly yields ``""``. ⚑ **The tests' intent is unchanged
+    and their assertions are not weakened** — only the fixture is now shaped like what the single
+    production caller (`orchestrator._draft_node` → `PromptBuilder.build`) really hands over.
+    """
+    return (
+        f"RECOMMENDATION (read-only): {recommendation}\n"
+        "CONFIDENCE (read-only): High\n"
+        "\n"
+        "RULE REPORT (the only citable rules):\n"
+        f"{rules}"
+        "\n"
+        "APPLICANT FACTS (non-demographic):\n"
+        "- age_years: 41\n"
+    )
+
+
 class TestTheOfflineDoubleAnnouncesItself:
     """⛔ Register #18's gap (iii) stays OPEN. These pin the two properties that keep that honest."""
 
@@ -452,12 +476,29 @@ class TestTheOfflineDoubleAnnouncesItself:
         """⚑ The defect this replaced cited a hardcoded ``DTI-001`` that does not exist in this
         build, so every draft failed citation validation and every seeded case landed in
         ``FAILED`` — invisibly. Discovery is what stops that recurring."""
-        assert first_cited_rule_id("... rule DTI-CEIL-1 evaluated ...") == "DTI-CEIL-1"
-        assert first_cited_rule_id("no rule ids at all here") == ""
+        found = _prompt_shaped_like_the_real_one(rules="- DTI-CEIL-1 [PASS] within ceiling\n")
+        assert first_cited_rule_id(found) == "DTI-CEIL-1"
+
+        none_listed = _prompt_shaped_like_the_real_one(rules="")
+        assert first_cited_rule_id(none_listed) == ""
+
+    def test_it_does_not_cite_the_RECOMMENDATION_itself(self):
+        """⛔ **Register #35** ``OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION``, pinned at the caller
+        this class covers. ``Recommendation.DECLINE_RECOMMEND.value`` is ``"DECLINE-RECOMMEND"``,
+        which the rule-id regex matches — and it sits ABOVE the rule report. ⚑ Bounding the search
+        between the two markers is what keeps it out; ⚠️ ``APPROVE``/``REFER`` never exposed this
+        because their values contain no hyphen."""
+        prompt = _prompt_shaped_like_the_real_one(
+            rules="- DTI-CEIL-1 [FAIL] ratio above ceiling\n", recommendation="DECLINE-RECOMMEND"
+        )
+
+        assert first_cited_rule_id(prompt) == "DTI-CEIL-1"
 
     def test_the_generated_memo_announces_itself_as_a_placeholder(self):
         xml = OfflineMemoLLMClient().generate(
-            model="ignored", prompt="rule AGE-BAND-1 passed", temperature=0.0
+            model="ignored",
+            prompt=_prompt_shaped_like_the_real_one(rules="- AGE-BAND-1 [PASS] within band\n"),
+            temperature=0.0,
         )
         assert "NOT BY A LANGUAGE MODEL" in xml
         assert "<rule_id>AGE-BAND-1</rule_id>" in xml

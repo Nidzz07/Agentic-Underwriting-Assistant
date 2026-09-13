@@ -1566,3 +1566,492 @@ six named changes; closing this would have exceeded that scope. Promoting it to 
 either silently widening an approved reopening or letting the residual disappear inside a closed item's text.
 
 ---
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-08-16 · item #32 OPENED (a RECORDED RESIDUAL of the live-LLM-drafting fix, not a new discovery)
+
+**Opened by**: the live-LLM-drafting pass (Ollama, opt-in), at its Stage 5. ⚑ **This is not a newly
+found defect.** It is the **general capability** that made the R11 gap possible, deliberately
+promoted out of that fix's text into its own item so it stays independently triageable rather than
+being read as resolved alongside the specific route that was closed.
+
+⚑ **The shape is deliberately the #28 → #29 one**, and is recorded as such: **#28 was the
+demonstration, #29 the capability.** Here the R11 catch is the demonstration and **#32 is the
+capability.**
+
+## #32 `UNCAUGHT-EXCEPTION-ESCAPES-ENVELOPE` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | ⛔ **`main.py:97` asserts an invariant that nothing enforces.** The comment above the handler registrations reads *"Every non-2xx leaves as the WIRE-1 §4 envelope — no route can emit a non-contract body."* But `create_app` registers exactly **three** handlers (`main.py:98-100`) — `WireError`, `RequestValidationError`, `StarletteHTTPException` — and **no generic `Exception` handler**. Any other exception escaping a handler is served by Starlette's default error middleware as a **plain-text 500**, which is not the §4 envelope. |
+| **How it was found** | By tracing the live-drafting path before wiring a real provider: `orchestrator.py:93` → `:156` → `pipeline.py:186` → `submission.py:212` → `main.py:98-100`, **five layers with no exception handling at any of them**. ⚑ It had been **unreachable in practice**, and for a precise reason — the offline double (`offline_memo_double.py`) returns a fixed string and **cannot fail**. The first real provider is what makes it reachable. |
+| **What this pass DID close** | The **one reachable path**: R11 now catches `OllamaUnreachable` and `OllamaCallCapExceeded` **by name** and maps each to a distinct §4-enveloped 500. ⛔ **It did NOT install a generic handler**, per the pass's Q4 answer — *"catch locally in submission.py for this pass … not a generic main.py Exception handler — that's a larger, separate change."* |
+| **The capability that remains** | **Every other route** — R1–R9, plus R10 — is still capable of emitting a non-contract body if any exception escapes it. Nothing structural prevents it and nothing tests for it. A future provider, driver, or serialization error on any route reintroduces the same class of defect. |
+| ⚠️ **Why a generic handler is not obviously the right fix** | A blanket `Exception` handler makes **every** unexpected error a 500 with a contract body — which is the stated invariant, but also **hides genuine programming errors behind a polite envelope**, and would have swallowed the `ValueError` that `test_a_NON_ollama_exception_is_NOT_swallowed_by_the_catch` deliberately lets escape. ⛔ The right fix likely pairs a generic handler with a **re-raise in test/debug mode**, which is a decision about observability posture, not a one-line addition. |
+| **Detectability** | ⚠️ **Partial, and newly so.** No test asserts the invariant across all routes. The pass added `test_an_unreachable_daemon_is_a_500_IN_THE_WIRE1_ENVELOPE` and its sibling, which pin the property **for R11 only**. A route-wide guard — the shape `_PIPELINE_MODULES` and `_FILESYSTEM_WRITE_MODULES` use — does not exist for this. |
+| **Owner** | composition root (`backend/app/main.py` + `errors.py`) |
+| **Blocking?** | **Non-blocking, but real, and it will get more real.** ⚑ **No other reachable path is currently known to exploit it** — every route's failure modes today go through `WireError` or framework validation. This is a **latent capability**, recorded so it is triaged deliberately when the next fallible dependency lands (Gemini's live path, per register #18's remaining half, is the obvious next candidate) rather than rediscovered the way the drafting path's was. |
+
+⚑ **Recorded rather than fixed, deliberately, and the precedent is explicit.** The live-drafting pass
+was authorized for a named scope, and its own Q4 answer drew this boundary in writing before any
+code was written. Promoting the residual to its own item is the alternative to either silently
+widening an approved scope or letting it disappear inside a closed fix's text — the same reasoning
+`#29` records for `put_application`.
+
+**Register now stands at 32 tracked — 21 open · 7 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-08-19 · items #33 and #34 OPENED (two PRE-EXISTING defects, surfaced by the live-LLM-drafting pass's §6 manual verification)
+
+**Opened by**: the **USER**, running §6's manual verification against a real local Ollama daemon
+(`llama3.1:8b-instruct-q4_K_M`) on application `APP-a930950b04b0496aa87dfa909d30b3e2`. ⛔ **Neither is
+a defect this pass introduced.** Both predate it and are recorded as such below; what the pass did was
+supply the **first fallible provider in this build's history**, which is what made each reachable.
+
+⚑ **THE CAUSAL CHAIN, NAMED EXPLICITLY SO IT IS NEVER CONFLATED — this is the #28 → #29 shape, with
+one capability and TWO distinct causes.** The two failures the user observed were *sequential on the
+same application*, which makes them easy to read as one bug. They are not.
+
+| | Role | Item |
+|---|---|---|
+| **The capability** | An uncaught exception on any route escapes as a plain-text 500, outside the WIRE-1 §4 envelope | **#32** `UNCAUGHT-EXCEPTION-ESCAPES-ENVELOPE` |
+| **Cause 1** (attempt 1) | The model was never asked for XML, so the parse of its Markdown answer raised | **#33** `MEMO-XML-CONTRACT-NEVER-REQUESTED` |
+| **Cause 2** (attempt 2) | The retry re-invoked a checkpointed LangGraph thread keyed by `application_id`, which raised | **#34** `CHECKPOINT-POISONS-REDRAFT` |
+
+⛔ **Fixing #32 fixes NEITHER #33 NOR #34.** A generic handler would convert both into tidy enveloped
+500s — a well-formatted report that the memo still cannot be drafted, and that the application still
+cannot be re-drafted. ⚑ Conversely, #33 and #34 are **independent of each other**: each has its own
+root cause, its own owner, and its own fix, and either can be fixed without the other. **They are
+linked only by sequence — #33's uncaught exception is what left the case in a state where #34 became
+reachable.** A future reader must not treat any one of the three as covering another.
+
+## #33 `MEMO-XML-CONTRACT-NEVER-REQUESTED` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | ⛔ **The XML output contract is enforced on the PARSE side only. Nothing anywhere asks the model to produce XML.** `PromptBuilder.build` (`prompt_builder.py:31-50`) emits the system instruction, the read-only recommendation/confidence, the rule report and the applicant facts — **and no output-format instruction, no XML schema, no element names, no example**. Meanwhile `_parse_xml` calls `ElementTree.fromstring(raw_xml)` with **zero tolerance**: no fence-stripping, no preamble-skipping, no block extraction. |
+| ⛔ **Provider-independent — confirmed on BOTH adapters** | The identical zero-tolerance parse exists twice: `memo_agent_core/provider.py:64-70` (`GeminiAdapter._parse_xml`) and `memo_extensions/provider_secondary.py:47-55` (the module-level `_parse_xml` that `ClaudeAdapter` **and** `OllamaAdapter` share). Neither client call requests a structured output: `CappedGeminiClient.generate` passes `config={"temperature": temperature}` only (`llm_client.py:76-80`) — **no `response_mime_type`, no `response_schema`** — and `CappedOllamaClient.generate` passes `options={"temperature": temperature}` only (`ollama_client.py:149-155`), with no `format=` argument. ⚑ **This is not an Ollama defect and not a small-model defect.** |
+| **How it was found** | §6's manual verification, attempt 1: a genuine Ollama call completed and `_parse_xml` raised `ParseError: not well-formed (invalid token): line 1, column 0`. ⚑ **Confirmed first-hand by probing the live daemon with the exact prompt `PromptBuilder` produces**: at `temperature=0` the model returned a well-formed **Markdown** memo beginning `**ADVISORY MEMO**` — first three characters `'**A'`, which is precisely what produces "invalid token: line 1, column 0". ⛔ **The model behaved correctly.** It was asked for "a concise, audit-ready ADVISORY memo" and wrote one; it was never told to emit XML. |
+| ⚠️ **Why no amount of parser tolerance fixes this alone** | The failure is **not** markdown code-fencing around XML, and **not** a conversational preamble before the tags — the two quirks a defensive parser would strip. **There is no XML in the output at all.** A tolerant parser has nothing to find. |
+| **Why it was never visible** | `offline_memo_double.py:79-84` returns a **hardcoded, always-valid** XML string. Every memo this build has ever produced through the request path came from it. The XML contract has therefore been satisfied by a fixture, never by a model. |
+| ⛔ **Blocking, and it blocks BOTH providers** | **This is why no live memo has ever been successfully produced by either Gemini or Ollama.** Live drafting cannot succeed on any provider until this is closed. |
+| ⚑ **Cross-reference: register #18 `NO-PRODUCTION-LLMCLIENT`** | #18's remaining half — Gemini's production client, **unproven through the request path** (Q6 A) — **would hit this identically on its first real call.** The Gemini path's `# pragma: no cover` real-spend branches have never executed against a live model, so nothing has ever exercised `GeminiAdapter._parse_xml` on real model output either. ⚠️ **#18 gap (iii) cannot move for EITHER provider until #33 is closed.** |
+| **Detectability** | ⛔ **None today.** No test asserts that the prompt requests a parseable format, and no test feeds realistic model prose to `_parse_xml`. Every adapter test injects a double that returns valid XML by construction — which is exactly why a defect in the *request* side is invisible to a suite that only ever exercises the *parse* side. |
+| **Owner** | `backend/memo_agent_core/prompt_builder.py` (frozen unit) and/or the two client wrappers (`app/llm_client.py`, `app/ollama_client.py`) — ⚠️ **the choice of owner IS the design decision**, see the fix candidates. |
+| **Blocking?** | ⛔ **YES — blocking for live drafting on any provider.** |
+
+## #34 `CHECKPOINT-POISONS-REDRAFT` — **NEW, OPEN**
+
+| | |
+|---|---|
+| **What it is** | ⛔ **`LangGraphOrchestrator` compiles its graph with `checkpointer=MemorySaver()` (`orchestrator.py:137`) and uses the `application_id` AS the LangGraph `thread_id` (`orchestrator.py:155`).** One orchestrator is built at `dependencies.py:369` behind `@lru_cache(maxsize=1)`, so **one `MemorySaver` lives for the whole server process**. Any **second** `invoke` on an `application_id` that already has a checkpoint raises `RuntimeError: recommendation/confidence are read-only channels (CON-BR2-STATE); no node may write them`. |
+| **The mechanism, exactly** | `orchestrator.py:11-13` states the load-bearing assumption: *"Seeding at invoke is allowed (LangGraph does not run the reducer on the initial input)."* ⚑ **That is true only for a thread with NO checkpoint.** In `langgraph 1.2.7`: `BinaryOperatorAggregate.update()` bypasses the reducer only when `self.value is MISSING` (an empty channel), while `from_checkpoint()` sets `empty.value = checkpoint` — so a **restored** channel is not MISSING, seeding takes the reducer branch, and `_reject_channel_write` fires. |
+| ⛔ **The hypothesis it disproves** | This is **not** a stale or partial checkpoint left by a *failed* attempt. **Reproduced both ways**: a first attempt that **fully succeeds** poisons the thread identically to one that fails. The rule is simply **"any completed invoke leaves a checkpoint; any second invoke on that `thread_id` raises."** The Ollama failure corrupted nothing — it merely created the first-ever occasion to invoke twice on one `application_id`. |
+| ⛔ **It violates `CasePipeline.draft()`'s own stated contract** | `pipeline.py:155` declares the method *"never raises for a domain failure"*, and `DraftOutcome.skipped` exists (register #27, change (c)) precisely so that *"RE-TRIGGERING IS IDEMPOTENT, NOT A FAILURE"* (`submission.py` R11 docstring). ⛔ **A retry that raises an unrelated `RuntimeError` breaks both promises at once.** |
+| ⚠️ **The error message actively misdirects** | It names **CON-BR2-STATE** and reads as a governance violation — as though a node had written to a read-only channel. ⛔ **No node wrote anything.** Nothing violated CON-BR2-STATE; the reducer fired on the *seed*, not on a node return. An operator or auditor reading this traceback would reasonably conclude the recommendation-immutability guarantee had been breached, which is **false** — the most expensive possible misreading in a system whose core claim is that the recommendation cannot change. |
+| **Scope of the damage** | ⚠️ **Per-process, not permanent.** `MemorySaver` is in-memory: a server restart clears every checkpoint, and nothing else does — there is **no eviction, no TTL, no clear path**. So the accurate statement is *"that application cannot be drafted again until the process is bounced."* ⛔ **Unbounded growth**: one checkpoint accumulates per application drafted, for the life of the process. |
+| **How it was found** | §6's manual verification, attempt 2 — retrying the same `APP-a930950b04b0496aa87dfa909d30b3e2` after #33's failure, preceded by a cluster of checkpoint-deserialization warnings for `backend.intake.schema.Gender` / `DocType` / `DocStatus` and several `rules_engine` / `memo_agent_core` types. ⚑ **Reproduced first-hand in-memory against the real orchestrator, emitting the identical warning cluster and the identical `RuntimeError`.** |
+| ⛔ **PRE-EXISTING since the original build — and the git history is the finding** | `orchestrator.py` is **untouched by the live-LLM-drafting pass**, and `git log --follow` dates both the checkpointer and `thread_id=application_id` to **`51935ac`, the original BUILD-phase commit.** ⚑ **In `51935ac` this was reachable by a much shorter route**: `pipeline.draft()` called `draft_memo` at `:116` and only reached `assert_legal` at `:138` — **the legality guard sat BELOW the LLM call**, so any repeat draft would have invoked the orchestrator twice and raised. ⛔ **Register #27's pass (`3a08dd8`) moved that guard above `draft_memo` for entirely unrelated reasons** (dead-code revival + not spending money on a memo the refusal discards) **and in doing so INCIDENTALLY closed the only then-reachable route to this bug.** That reordering is why it was never observed — not any property of the design. |
+| **What re-opened the route** | ⚑ #33's uncaught `ParseError` propagates out of `draft_memo`, **bypassing the `memo is None` → `FAILED` transition entirely** (`pipeline.py:187-193`). The case therefore stays `evaluated`, so `is_legal(evaluated → DRAFTED)` at `pipeline.py:173` is **still true** on the retry, `draft_memo` runs a second time, and the orchestrator is invoked twice on one `thread_id`. ⛔ **This is the sole linkage between #33 and #34** — sequence, not shared cause. |
+| ⚑ **Cross-reference: register #32** | #32 is **the capability that lets this escape as a plain-text 500**. The R11 catch names `OllamaUnreachable` and `OllamaCallCapExceeded` only; a bare `RuntimeError` is neither (⚠️ note `OllamaCallCapExceeded` *is* a `RuntimeError` subclass, but the catch is by the named type, so a plain `RuntimeError` is correctly **not** caught). ⛔ **#32's own row predicted exactly this**: *"A future provider, driver, or serialization error on any route reintroduces the same class of defect."* It did — twice, in one sitting. |
+| **Detectability** | ⛔ **None today.** A repo-wide grep finds **no test anywhere** referencing `thread_id`, `MemorySaver` or graph checkpointing in relation to the orchestrator. Every orchestrator test builds a **fresh** `LangGraphOrchestrator` (hence a fresh `MemorySaver`) and calls `run()` **exactly once**. ⚠️ `test_read_only_channel_reducer_raises_on_write` calls `_reject_channel_write` **directly** — so the reducer's raise is pinned in isolation, while **the condition under which the graph actually calls it has never been exercised.** |
+| **Owner** | `backend/memo_agent_core/orchestrator.py` — ⛔ **a FROZEN unit** (`memo_agent_core` is in `FROZEN_UNITS`), which is the central constraint on every fix candidate. |
+| **Blocking?** | ⛔ **YES for re-drafting, and it will become blocking for normal operation the moment #33 is fixed and a case can legitimately be drafted more than once per process.** |
+
+⛔ **Recorded rather than fixed, deliberately.** Two blocking, independent findings with real design
+tradeoffs — one of which touches a frozen unit — are not an ad hoc patch on an already-large
+six-stage pass. **They get their own scoping pass**, on the same reasoning `#27`/`#28` were split
+from their remediation and `#32` from the fix that surfaced it.
+
+**Register now stands at 34 tracked — 23 open · 7 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+⚠️ **This supersedes the "32 tracked — 21 open" figure** recorded at this file's #32 entry and at
+`guide-state.md:7454`; both were correct when written. ⚑ The breakdown remains **derived from the
+running tallies**, not from a re-enumeration of all 34 rows — stated so a future reader knows which
+it is, exactly as the #32 entry stated it.
+
+---
+
+# ⚑ REGISTER UPDATE — 2026-09-12 · item #35 OPENED **and** CLOSED · **#34 CLOSED (tier-U)** · ⛔ **#33 NOT CLOSED** — the registers #33/#34 code-gen pass, stages 1 and 2
+
+**Pass**: `register-33-34-code-gen-plan.md`, executed against the signed
+`register-33-34-reopening-authorization.md` — ⛔ **this project's FIRST authorized reopening of a
+frozen unit's source logic.** Four files, changes (a)–(m). HEAD `bd3875d`; **not committed.**
+
+⚠️ **Stage 1 was executed by a session that was cut off by a usage limit and logged nothing.** Its
+work was verified from disk and reconstructed at `audit.md` 2026-09-12T12:09:05Z, which is also
+explicit about the one artefact that is **lost and deliberately not fabricated** — stop-gate 1's
+original RED observation.
+
+---
+
+## #35 `OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION` — **NEW, OPENED AND CLOSED IN THIS PASS**
+
+⚑ **The `#24` shape**: opened and closed in one act, because the fix landed with the discovery.
+⚠️ **Opened at STAGE 2 rather than at scoping** (§6.5, approved at sign-off) so the row could be
+written alongside its fix rather than as a promise.
+
+| | |
+|---|---|
+| **What it is** | ⛔ **`offline_memo_double.first_cited_rule_id` searched the WHOLE prompt for a rule id.** `PromptBuilder.build()` writes `RECOMMENDATION (read-only): <value>` **above** the rule report, and `Recommendation.DECLINE_RECOMMEND.value` is `"DECLINE-RECOMMEND"` — which the module's rule-id regex `\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b` **matches**. So the extracted "citation" was the recommendation itself. |
+| ⛔ **The consequence, and why it was invisible** | `CitationValidator` correctly rejected the fabricated id — it is not in the handed report — so the memo was blocked and ⛔ **every `DECLINE-RECOMMEND` case through the offline double silently landed in `FAILED`.** ⚠️ **No error, no log line, no test.** The case simply never produced a memo. |
+| ⚠️ **`APPROVE` and `REFER` escaped by LUCK, not correctness** | Their enum values contain **no hyphen**, so the regex — which requires one — could not match them. ⛔ **A single hyphen in a future recommendation value would have reproduced this**, which is why the regression test is parametrized over **every** `Recommendation` value rather than the one that broke. |
+| ⛔ **Zero test coverage of the failing path** | `offline_memo_double.py` stood at **11/11 statements, 100%** — ⚠️ **and was still wrong.** ⛔ **This is the finding worth carrying forward**: the module was fully line-covered, and no test ever fed it a `DECLINE-RECOMMEND` prompt. **100% line coverage measured the lines, not the inputs.** |
+| ⚑ **THE SAME DEFECT CLASS AS `DTI-001` — in the file whose own docstring records fixing it once** | `first_cited_rule_id`'s docstring describes DEFECT FIX 2: a hardcoded `DTI-001` that does not exist in this build, which made every emitted `<rule_id>` empty so *"every seeded case silently landed in `FAILED`"*. ⛔ **#35 is that defect again — same file, same symptom, same silence — with a *discovered* wrong id instead of a *hardcoded* wrong id.** ⚠️ The fix that produced the docstring addressed the instance, not the class: **nothing asserted that what came out was a rule id from the handed report.** That invariant is now a test. |
+| **Pre-existing since** | ⛔ **`51935ac`, the original BUILD-phase commit** — the same commit that carries #34. Untouched by the live-LLM-drafting pass. |
+| **The duplicate** | ⚠️ `backend/scripts/seed_demo_cases.py:118` carries a **second copy** of this double, disclosed deliberately at `offline_memo_double.py:28-32` (*"the two must stay behaviourally equivalent; if they drift, this one governs the request path"*). ⛔ **It had the identical defect and is fixed identically.** ⚑ Equivalence is now **enforced by a test** parametrized over every `Recommendation` — previously **nothing** enforced it. ⚠️ `backend/scripts/` is in no `--cov=` entry, so the mirror is **tested but not measured**; pre-existing and correct, not an omission. |
+| **How it was found** | ⚑ The grounding pass for the #33/#34 scoping plan (finding A), **before** any code was written — while checking whether X1's future worked example could be mis-extracted. ⛔ **The live defect was found by looking for a hypothetical one.** |
+| ✅ **The fix** | **Extraction is bounded at BOTH ends** (§6.1, approved at sign-off): it searches only between the `RULE REPORT (the only citable rules):` and `APPLICANT FACTS (non-demographic):` markers. ⚠️ **A missing marker returns `""`** rather than falling back to a whole-prompt search — failing closed, because a prompt of an unknown shape cannot be reasoned about and guessing would fabricate a citation. |
+| ⚑ **Why BOTH ends, when one would fix the observed bug** | A start bound alone stops the recommendation leak but leaves the region running to the end of the prompt — so X1's `REQUIRED OUTPUT FORMAT` block, appended **after** the applicant facts, would fall inside it and its worked example would be cited instead. ⛔ **Bounding both ends keeps that out INDEPENDENTLY of the `EXAMPLE_RULE_ID` placeholder's underscore**, which is the second defense. **Neither depends on the other** — which is what Q2 required and what single-ended anchoring would have quietly broken. |
+| **Detectability now** | ✅ A citation-invariant test **parametrized over every `Recommendation` value plus the empty-rule-report case**, asserting the extracted id is a member of the handed report's ids or `""`. ⚑ **The empty-report cell is not padding** — it is the cell that exposes single-ended anchoring. Plus both marker-guard branches, and the mirror-equivalence test. |
+| **Owner** | `backend/app/offline_memo_double.py` (governs the request path) · `backend/scripts/seed_demo_cases.py` (mirror). ⚑ **Neither is a frozen unit** — #35's fix needed no part of the reopening authorization. |
+| ✅ **Status** | **CLOSED.** ⚑ **Observed RED first** (2026-09-12): `AssertionError: DECLINE-RECOMMEND: extracted 'DECLINE-RECOMMEND', which is not one of the citable rule ids ['R-AGE-1', 'R-DTI-1'] — a fabricated citation`, then GREEN on all four parametrizations after the fix. ⛔ **Closed at tier-U.** ⚠️ §7 step 6 — drafting a `DECLINE-RECOMMEND` case through the offline double — has **never once succeeded in this build's history** and has not been run. |
+
+---
+
+## #34 `CHECKPOINT-POISONS-REDRAFT` — ✅ **CLOSED (tier-U only)**
+
+| | |
+|---|---|
+| ✅ **The fix** | Candidate **C2**: `graph.compile(checkpointer=MemorySaver())` → `graph.compile()`, and the `MemorySaver` import removed. ⛔ **The checkpointer is gone, not guarded** — a guard would have left the mechanism in place for the `3a08dd8` failure mode to re-mask. |
+| ⛔ **All three justifications for the checkpointer were FALSE, and the docstrings now say so rather than going silent** | *retry loop* — the `add_conditional_edges` cycle is plain graph state; ⚑ **reproduced working with no checkpointer at all** (bad-then-good provider → 2 calls, memo finalized). *durability* — `MemorySaver` is in-process, and ⛔ **nothing anywhere ever read a checkpoint back**: no `get_state`, `update_state`, `get_state_history`, `.stream`, `astream` or `interrupt` exists in this repository. *100%-step tracing* — ⛔ tracing was **never** wired through the checkpointer; `observability.TraceRecorder.on_step` has **no production caller at all**. ⚠️ **That last claim was false BEFORE C2** and is owned by OBS-SINK-DEFERRED, not by this pass. |
+| ⚠️ **A narrower CON-BR2-STATE claim, preserved rather than deleted** | `orchestrator.py:11-13` said *"LangGraph does not run the reducer on the initial input."* ⚑ **True only for a thread whose channels are `MISSING`.** It was affirmatively tested at build time (`audit.md:760`) — but that test compiled its graph **without** a checkpointer, so **the no-checkpoint case was the only one ever exercised.** ⛔ **What CON-BR2-STATE actually rests on is unchanged and still true**: no node returns those keys, so the recommendation cannot change inside the graph. |
+| **Regression protection** | Q9-D's **four independent layers**, each killing a different wrong implementation: (i) a real citation-valid memo on **both** invokes; (ii) ⛔ `_graph.checkpointer is None` — the **structural** pin against a reintroduction re-masked by a guard elsewhere; (iii) identical `memo_hash`; (iv) ⛔ **the provider call count increments** — which kills the memoizer strawman that satisfies (i)+(ii)+(iii) while reintroducing the defect in another form. |
+| **Design record** | ✅ **All eight false design-doc statements back-annotated** across five files under six dated markers, **disk-verified by grep**: 18 surviving `checkpointer` hits, every one inside a back-annotation. ⚠️ Four of the eight carry the Langfuse claim, and each back-annotation states it was false **BEFORE** C2 rather than implying C2 caused it. |
+| ⚠️ **CLOSED AT TIER-U ONLY** | ⛔ **No live re-draft has been performed.** The suite proves the graph has no checkpointer and that two in-process invokes both succeed. §7 step 5 — drafting the same application twice against a real stack — **has never once succeeded in this build's history** and has not been run. |
+| ⛔ **What is LOST from this closure's evidence** | Stage 1's original stop-gate-1 RED observation — the exact `RuntimeError` on invoke #2 — was **never logged** by the interrupted session. It is **not reconstructed**, because regenerating it would mean reverting working code. ⚑ The post-condition is independently verified (the test exists, is non-vacuous by construction, and is green); ⚠️ **that proves the fix works, not that the test once failed.** |
+
+---
+
+## #33 `MEMO-XML-CONTRACT-NEVER-REQUESTED` — ⛔ **STILL OPEN. NOT CLOSED BY THIS PASS.**
+
+✅ **What landed**: **(j)** a binding sentence in `_SYSTEM_PROMPT` requiring XML and nothing else,
+appended **after** — never substituted for — the four pre-existing constraints; **(k)** a
+`REQUIRED OUTPUT FORMAT:` block appended **last** in `build()`, naming the **exact** element names
+the parser reads by path; **(l)** the `EXAMPLE_RULE_ID` placeholder, underscored so it cannot match
+the rule-id regex; **(f)(g)** shared **subtractive** parse tolerance — fences, preambles, trailing
+commentary — in **both** parsers, imported rather than copied; **(h)** a named
+`MemoDocumentShapeError` for well-formed XML of the wrong shape.
+
+⛔ **WHY THIS IS NOT A CLOSURE, STATED PLAINLY.** X1 changes **what is asked of a model**, and
+⛔ **no unit test can verify that a model complies.** The suite proves the instruction is *present*,
+that the parser *tolerates* what a model plausibly returns, and that nothing regressed. ⚠️ **A green
+suite is not evidence that a real model now returns parseable XML.** ⚑ **Only §7's live verification
+can show a real memo**, and it has not been run.
+
+⚑ **What the suite DOES now prove, which nothing did before**: parse behaviour is exercised **at
+all**. ⛔ **Before this pass no test anywhere referenced `_parse_xml`** — which is exactly how #33
+reached a live call undetected.
+
+⚠️ **Two things (h) deliberately does NOT do.** It does **not** fire when a model genuinely cites
+nothing — prose plus an empty `<cited_rule_ids/>` is a legitimate draft for `CitationValidator` to
+block **on the merits**, and collapsing those two cases would destroy the distinction (h) exists to
+draw. And it is a `ValueError`, **not** a `ParseError`: *"not XML"* and *"XML of the wrong shape"*
+stay different failures with different types.
+
+⚑ **Cross-reference: #18 gap (iii) has NOT moved.** Gemini's production client remains unproven
+through the request path. ⚠️ **X3 makes both providers more likely to survive a first real call; it
+does not constitute evidence that either has made one.**
+
+---
+
+## Register reconciliation
+
+⛔ **REGISTER NOW STANDS AT 35 TRACKED — 22 open · 9 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+Movement in this pass: **#35 opens and closes** (tracked 34 → 35; closed +1). **#34 closes**
+(open −1, closed +1). **#33 stays open.** So open goes **23 → 22** and closed/discharged **7 → 9**
+(22 + 9 + 4 = 35).
+
+⚠️ **This supersedes the "34 tracked — 23 open" figure** recorded at this file's #33/#34 entry;
+it was correct when written. ⚑ The breakdown remains **derived from the running tallies**, not from
+a re-enumeration of all 35 rows — stated so a future reader knows which it is, exactly as the #32
+and #34 entries stated it.
+
+⛔ **`guide-state.md` IS NOW STALE BY THREE** — it still reads *"32 tracked — 21 open"*. ⚠️ **Left
+uncorrected here, deliberately and per standing direction**, and flagged rather than silently
+carried: a documentation-sync task owns it, together with the two other known documentation states
+(the outlier-mount entry's stale *"HEAD is `d43b661`"* / *"NOT COMMITTED"*, and this file's §5
+register table still headed *"20 items"* with no rows for #26–#31).
+
+---
+
+# ⚑ REGISTER #33 / #34 / #35 — **FINAL EXECUTION STATE** (supersedes the counts in the entry above)
+
+⚠️ **The entry above was written mid-execution, before the §11 gate.** Its substance stands; its
+**numbers and its account of what the gates caught are superseded here.** ⛔ **Nothing below claims
+live verification.**
+
+## ⛔ TIER-U / TIER-I GREEN ONLY — LIVE VERIFICATION PENDING
+
+| | |
+|---|---|
+| **Backend** | **1892 passed · 0 failed · 45 skipped · 5 errors · 99.36%** (the 5 errors are the standing `audit_store` Docker-absence set, unchanged by name) |
+| **Frontend** | **823 / 155** — ⚑ an **exact** baseline match; nothing in this pass touches the frontend |
+| **Plan** | **All 48 checkboxes `[x]`, zero unchecked**, both stages, all 11 steps |
+| **Coverage** | `memo_agent_core` **12/12 at 100%** · `memo_extensions` **5/5 at 100%** · `offline_memo_double.py` **20/0/4/0 = 100%** · total **99.36%, identical to baseline**. ⛔ Thresholds unedited; **no `# pragma: no cover` added anywhere** |
+| **Git** | HEAD `bd3875d` · nothing staged · ⛔ **NOT COMMITTED** |
+| ⛔ **§7 manual verification** | **NOT RUN.** ⚠️ **No claim anywhere in this pass rests on live evidence.** |
+
+⛔ **WHAT A GREEN SUITE HERE DOES NOT MEAN.** It is **not** evidence that a real model returned
+parseable XML, **not** evidence that a re-draft succeeded against a real stack, and **not** evidence
+that a `DECLINE-RECOMMEND` case produced a memo end to end. ⚑ **All three are §7's job**, and §7
+carries ⛔ **two checks that have never once succeeded in this build's history.**
+
+## ⛔ A structural guard fired — and it was NOT one of the plan's ten stop-gates
+
+At the §11 gate, **`test_frozen_untouched.py::test_no_frozen_unit_imports_the_composition_root`**
+went RED: step 7.5's new test had placed `from backend.app.offline_memo_double import
+_RULE_ID_PATTERN` inside `backend/memo_agent_core/tests/test_prompt_builder.py` — ⛔ **a file in the
+FROZEN tree importing the COMPOSITION ROOT**, against the guard's stated rule that *"the dependency
+arrow points ONE way: app → units."*
+
+✅ **Resolution: the test moved; the guard was not touched.** The cross-unit assertion now lives on
+the app side where importing both directions is legitimate, and the frozen-tree test keeps only the
+unit-local property. ⚑ A further test came out of the fix, exercising **both** #35 defenses at once.
+
+⚠️ **THE PART WORTH CARRYING FORWARD.** ⛔ **This was not stop-gate 5.** Stop-gate 5
+(`memo_extensions` Scans 1 and 7) passed **cleanly** — §6.2's analysis of the frozen edge was
+correct. ⚑ **The violation was caught by a PRE-EXISTING guard that is not among the plan's ten
+numbered stop-gates at all.** The plan anticipated import trouble at the `memo_extensions` boundary
+and cleared it; ⛔ **it did not anticipate the frozen unit's own TEST directory having an import
+rule.** It held because someone had written that guard earlier, for an unrelated reason.
+**A plan's stop-gates are not the whole safety net.**
+
+## ⛔ Variance — predicted +26 (→1863), measured +55 (→1892)
+
+| Source | Tests |
+|---|---|
+| `test_orchestrator_redraft.py` (new) | **4** — ⚑ **exactly as predicted** |
+| `test_offline_double_citation_invariant.py` (new) | **11** |
+| `test_parse_tolerance.py` (new, U19) | **20** |
+| `test_provider.py` (extended) | **+14** |
+| `test_prompt_builder.py` (extended) | **+5** |
+| `test_submission_routes.py` (extended) | **+1** |
+| **Total** | **+55** |
+
+⚑ **The plan diagnosed its own miss in advance**: *"a plan bullet names an idea; the implementation
+needs several assertions to pin it."* Parametrization did most of it — §8.1 listed six shapes, and
+across **two** adapters that is 20. ⛔ **No test was trimmed to approach the number.** ⚠️ **Stage 1's
++4 was exact** — the one stage whose count Q9-D fixed upstream rather than leaving to implementation.
+⚑ **This is the THIRD consecutive pass to miss low for this same reason** (Fold-7 +48→+84;
+live-LLM-drafting +48→+63), which makes it a property of how these plans are written, not bad luck.
+
+## Status of each item, restated at final state
+
+| Item | Status |
+|---|---|
+| **#35** `OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION` | ✅ **CLOSED — tier-U.** Observed RED first, then green on all four parametrizations plus both marker guards. ⚠️ §7 step 6 has **never once succeeded** and has not been run. |
+| **#34** `CHECKPOINT-POISONS-REDRAFT` | ✅ **CLOSED — ⚠️ TIER-U ONLY.** The graph structurally has no checkpointer and two in-process invokes both succeed. ⛔ **No live re-draft.** §7 step 5 has **never once succeeded** and has not been run. ⚠️ Its evidence is also **missing stage 1's original stop-gate-1 RED**, never logged and deliberately not reconstructed. |
+| **#33** `MEMO-XML-CONTRACT-NEVER-REQUESTED` | ⛔ **OPEN. NOT CLOSED BY THIS PASS.** X1 changes what is *asked* of a model and ⛔ **no unit test can verify a model complies.** ⚑ What is new: parse behaviour is exercised **at all** — before this pass **no test anywhere referenced `_parse_xml`**, which is how #33 reached a live call undetected. |
+| **#18** `NO-PRODUCTION-LLMCLIENT` gap (iii) | ⛔ **HAS NOT MOVED.** ⚠️ X3 makes both providers more likely to survive a first real call; **that is not evidence either has made one.** |
+| **#22** `MEMO-PROSE-NOT-BIT-REPRODUCIBLE` | **OPEN, untouched.** §7's two-draft probe is an **observation**; differing prose is a finding about #22, not a failure of this pass. |
+
+⛔ **REGISTER STANDS AT 35 TRACKED — 22 open · 9 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+⚑ Derived from the running tallies, not from a re-enumeration of all 35 rows — stated so a future
+reader knows which it is.
+
+⛔ **`guide-state.md` REMAINS STALE BY THREE** (*"32 tracked — 21 open"*). ⚠️ **Flagged, not corrected
+here**, per standing direction; a documentation-sync task owns it alongside the outlier-mount entry's
+stale *"HEAD is `d43b661`"* and this file's §5 table still headed *"20 items"*.
+
+⚑ **The durable lesson from #35, recorded because it generalizes past this pass**:
+`offline_memo_double.py` stood at **11/11 statements, 100% — and was still wrong.**
+⛔ **The coverage measured the LINES, not the INPUTS.** No test had ever handed it a
+`DECLINE-RECOMMEND` prompt. ⚠️ A unit at 100% is not a unit that has been asked the right questions.
+
+---
+
+# ✅ REGISTER UPDATE — 2026-09-12 · **§7 LIVE VERIFICATION COMPLETE** · **#33 CLOSED ON LIVE EVIDENCE** · **#35 LIVE-CONFIRMED** · ⚠️ **#34 NOT UPGRADED — the evidence does not reach it** · **#22 now has measured negative evidence**
+
+**Performed by the USER** via browser, `curl` and `psql` against a **real local PostgreSQL** and a
+**real local Ollama daemon** (`llama3.1:8b-instruct-q4_K_M`). ⚠️ **Not observed by this agent**;
+values are as reported. Full walkthrough and verbatim report: `audit.md` 2026-09-12T18:15:54Z.
+⛔ **Still NOT COMMITTED** — HEAD `bd3875d`.
+
+---
+
+## ✅ #33 `MEMO-XML-CONTRACT-NEVER-REQUESTED` — **CLOSED ON LIVE EVIDENCE**
+
+⚑ **This is the first time in this project's history that a real language model's memo prose has
+reached the screen**, and ⛔ **#33 is the one item of the three that a test suite structurally could
+NOT have closed** — the code-gen plan's §1.1 said so before execution: *"X1 changes what is asked of
+a model, and no unit test can verify that a model complies."*
+
+| | |
+|---|---|
+| **Application** | `APP-47bb6f55edec4eca86294d317a0c6883`, submitted fresh through the browser and drafted from the accepted panel |
+| ✅ **The prose** | **Genuinely model-written** — ⛔ **not** the `PLACEHOLDER MEMO` text — and it synthesized all **seven** actual rule failures coherently |
+| ✅ **The citations** | **Seven, all REAL rulebook ids matching the actual `rule_results`**: `AGE-BAND-1`, `BMI-OBESE-1`, `DOCS-COMPLETE-1`, `DTI-CEIL-1`, `IRDAI-EMP-SALARIED-1`, `OCC-LOWRISK-1`, `SMOKE-STATUS-1`. ⛔ **No hallucinated id. No leaked `EXAMPLE_RULE_ID`.** Both X1 defenses held live. |
+| ✅ **The stamp** | `NOT-QUALITY-GATED+llama3.1:8b-instruct-q4_K_M+digest-unavailable+ollama-python-0.6.2`, **byte-identical** between `psql` (`pending_recommendation`) and **`curl` R4, pre-commit** — confirming §4.0(i)'s correction that the stamp is verifiable one step earlier than assumed |
+| ⚠️ **What closure does NOT assert** | One successful call is **not** a compliance guarantee. The honest claim is *"a real model produced valid, correctly-cited XML through the full request path"* — ⛔ **not** *"the model always complies."* |
+
+---
+
+## ⚠️ #34 `CHECKPOINT-POISONS-REDRAFT` — ⛔ **NOT UPGRADED. STILL TIER-U FOR THE FIX ITSELF.**
+
+⛔ **An upgrade to LIVE-CONFIRMED was requested and is DECLINED on evidentiary grounds** — recorded
+as not-reached rather than performed-with-a-caveat, because a false entry in this register is
+exactly what the project's verification discipline exists to prevent.
+
+| | |
+|---|---|
+| **What was run** | Re-drafted `APP-47bb6f55…` a second time via `POST /applications/{id}/draft` |
+| **Result** | `{"status": "ready", "outcome": "skipped"}` — clean, no exception, no `RuntimeError` |
+| ⛔ **Why this does NOT reach #34** | `pipeline.draft()` places the `is_legal` guard at its **TOP**, above `draft_memo` (`pipeline.py:173`, U24's fourth reopening change (b)). **`skipped` means the guard short-circuited and `draft_memo` was NEVER CALLED** — the orchestrator was **never invoked a second time**, so ⛔ **the checkpointer path was never reached.** |
+| ⚠️ **Why Part D does not close it either** | There was a **backend RESTART between steps 13 and 15**, and `MemorySaver` is **in-process** — a restart clears every checkpoint, so a post-restart draft cannot demonstrate the fix. |
+| ⚑ **This is the shape #34's OWN row already predicted** | *"`3a08dd8` moved that guard above `draft_memo` … and in doing so INCIDENTALLY closed the only then-reachable route to this bug."* ⛔ **Now that #33 is fixed, drafting SUCCEEDS, the case reaches `DRAFTED`, and the HTTP path can no longer reach a double-invoke at all.** |
+| ✅ **What IS live-confirmed** | **The ROUTE IS CLOSED.** In normal operation no HTTP caller can invoke the orchestrator twice on one `application_id`. ⚑ Part B also genuinely confirms **register #27's idempotency contract** live — *"RE-TRIGGERING IS IDEMPOTENT, NOT A FAILURE"* — a real and worthwhile result, but **a different claim.** |
+| ⚠️ **What remains TIER-U ONLY** | That a double invoke **no longer raises**. Proven by `test_orchestrator_redraft.py`'s four layers, which invoke the orchestrator twice **in-process** and so do reach the path the live run did not. |
+
+### ⚑ The run that WOULD close #34 live — derived from the state table, not guessed
+
+`LEGAL_TRANSITIONS` (`case_lifecycle/states.py:81-85`) contains `(EVALUATED, DRAFTED)` but **not**
+`(DRAFTED, DRAFTED)` and **not** `(FAILED, DRAFTED)`. ⛔ **So the only live route to a second
+`draft_memo` on one application is a first attempt that leaves the case in `EVALUATED` — one that
+raises BEFORE any transition.** ⚑ An Ollama outage does exactly that, and Part D step 13 produced
+it. **The missing run is two draft attempts on one application in ONE process, with NO restart:**
+
+1. `MEMO_PROVIDER=ollama`, Ollama **down** → draft → enveloped error; case stays `evaluated`.
+2. Start Ollama **without bouncing the backend**.
+3. Draft the **same** application again → ⛔ **the orchestrator is invoked a SECOND time on the same
+   `thread_id`, in the same process.** Under C2 it must return a memo.
+
+⚠️ **Until that runs, #34's row reads: fix tier-U proven, route live-confirmed closed.**
+
+---
+
+## ✅ #35 `OFFLINE-DOUBLE-CITES-THE-RECOMMENDATION` — **LIVE-CONFIRMED**
+
+| | |
+|---|---|
+| **What was run** | Backend restarted with `MEMO_PROVIDER` **unset**; a profile engineered to trigger `DECLINE-RECOMMEND` (income `1000000`, existing debt `500000` → **DTI `0.5000` > the `0.40` ceiling**, failing `DTI-CEIL-1`) submitted and drafted |
+| ✅ **Result** | `report.recommendation = DECLINE-RECOMMEND` · `memo.cited_rule_ids = ["AGE-BAND-1"]` · `status = ready` · ⛔ **no `FAILED` state** |
+| ⛔ **What this proves** | **Every prior `DECLINE-RECOMMEND` case in this build's history would have landed in `FAILED` here — silently, with no error and no log line.** This one produced a memo. |
+| ⚠️ **A nuance recorded so no future reader misreads it** | `first_cited_rule_id` returns the **first rule id in the report region**, and `AGE-BAND-1` is the **first rule in rulebook `1.0.0`** — ⛔ **not necessarily the FAILING rule** (`DTI-CEIL-1` was the `decline_fail`). ⚑ **That is correct behaviour for a placeholder double**, whose only obligation is to cite a **real id from the handed report**. The invariant held exactly. **What matters is what it is NOT: the literal string `DECLINE-RECOMMEND`.** |
+
+---
+
+## ⛔ #22 `MEMO-PROSE-NOT-BIT-REPRODUCIBLE` — **OPEN, AND NOW WITH MEASURED NEGATIVE EVIDENCE**
+
+⚑ **This pass converts #22 from a theoretical concern into a finding.** Two drafts of an **identical
+profile** (`APP-47bb6f55…` and `APP-38148504…`) produced:
+
+- ✅ **the same rules cited, the same structure, the same conclusion** — and
+- ⛔ **prose differing at the WORD LEVEL, and a DIFFERING `memo_hash`.**
+
+⛔ **`temperature=0` PLUS pinned local weights do NOT yield byte-identical prose.** ⚠️ Consistent
+with what the live-LLM-drafting pass already recorded: **the digest pins the weights, not the
+sampling stack.** ⛔ **#22 REMAINS OPEN, and this evidence makes it HARDER to close, not easier.**
+⚠️ It is **one repetition** — `PROJECT-BRIEF` §5.1's *"same input × 10 runs"* **still has not been
+run**, and this observation does not substitute for it.
+
+---
+
+## Also recorded
+
+| Item | Status after this verification |
+|---|---|
+| **#18** `NO-PRODUCTION-LLMCLIENT` | ⚑ **Gap (iii) MOVES — for the SHOWCASE/Ollama half ONLY.** A production `LLMClient` has now produced a real memo through the request path. ⛔ **Gemini's production client remains COMPLETELY UNPROVEN LIVE** — its `# pragma: no cover` real-spend branches have never executed and `GeminiAdapter._parse_xml` has never seen real model output. ⚠️ **#18 stays NARROWED, not closed**; no summary may describe it as progressed without naming which half. |
+| **#32** `UNCAUGHT-EXCEPTION-ESCAPES-ENVELOPE` | ⛔ **UNTOUCHED.** The Ollama outage produced a **clean WIRE-1 envelope** naming the host with actionable guidance — ⛔ not a bare plain-text 500 — so #32's capability **did not fire on this route**. ⚠️ The R11 catch names the two Ollama types explicitly; **every other route retains the capability**, exactly as #32's row states. |
+| **#27** `DraftOutcome.skipped` contract | ✅ **Confirmed live** by Part B's `skipped` — *"RE-TRIGGERING IS IDEMPOTENT, NOT A FAILURE."* ⚑ Recorded here because it is what Part B actually demonstrated. |
+| **Fail-safe (Q9 C)** | ✅ **Held.** `MEMO_PROVIDER` unset → the offline double, stamped `OFFLINE-DOUBLE-NOT-A-REAL-LLM`. **An unconfigured deployment never silently reaches a live model.** |
+
+---
+
+⛔ **REGISTER NOW STANDS AT 35 TRACKED — 21 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+Movement: **#33 closes** (open 22 → 21, closed 9 → 10). ⚠️ **#34 and #35 were already counted closed
+at stage 2**; this entry changes **#35's evidence tier** (tier-U → live-confirmed) and ⛔ **changes
+neither the tier nor the count for #34**. ⚑ Derived from the running tallies, not from a
+re-enumeration of all 35 rows — stated so a future reader knows which it is.
+
+⚠️ **This supersedes the "35 tracked — 22 open · 9 closed" figure** recorded at this file's stage-2
+entry, which was correct when written. ✅ **`guide-state.md`'s long-stale *"32 tracked — 21 open"* is
+CORRECTED in this same pass**, reconciled against this file as the authoritative source.
+
+---
+
+# ✅ REGISTER UPDATE — 2026-09-12 · **#34 UPGRADED TIER-U → LIVE-CONFIRMED** — the derived closing run was executed and passed
+
+⚑ **This section supersedes the `⚠️ #34 CHECKPOINT-POISONS-REDRAFT — NOT UPGRADED` row above**
+(this file's §7 live-verification entry). ⛔ **That row is preserved, not rewritten** — it was
+correct when written, and the run it specified has now been performed. **The count does not move:**
+#34 was already counted **closed** at stage 2; what changes is its **evidence tier**, exactly as the
+§7 entry changed #35's.
+
+⚠️ **Epistemic status, stated first and different from every prior manual verification in this
+file**: this run was **executed and observed first-hand by the agent**, not performed by the user and
+reconstructed into the record. Detail: `audit.md` **2026-09-12T20:37:14Z**.
+
+---
+
+## ✅ #34 `CHECKPOINT-POISONS-REDRAFT` — **LIVE-CONFIRMED**
+
+The run is exactly the one derived from `LEGAL_TRANSITIONS` in the section above — ⚑ **derived, not
+guessed**, and then executed unchanged.
+
+| | |
+|---|---|
+| **Harness** | Real `create_app()` · real local PostgreSQL · real cached `case_seams()` (`@lru_cache(maxsize=1)`) · real `POST /applications` and `POST /applications/{id}/draft` · auth stubbed via `dependency_overrides[require_underwriter]` (approved for this run) · ⛔ **ONE Python process throughout** |
+| **Step 1 — Ollama DOWN** | `APP-7ab67ab52f2c46d098c7c4ff879192c3` submitted → `state=evaluated`. Draft #1 → **HTTP 500**, clean WIRE-1 envelope, `code=internal_error`, `detail.cause=provider_unreachable`, message naming the host and both operator remedies. ⛔ **`state` STILL `evaluated`** — the precondition the whole route depends on. |
+| **Step 2 — daemon started, process NOT restarted** | `subprocess.Popen(['ollama','serve'])` from inside the same interpreter. ⚑ **Identity proven on BOTH objects**: `id(case_seams())` = `2905167156368` before **and** after; `id(seams._orchestrator)` = `2905163604784` before **and** after. ⛔ **The same `LangGraphOrchestrator` instance served both drafts.** `graph.checkpointer` read `None` at both points, live, on the real object. |
+| ✅ **Step 3 — THE #34 CONDITION** | Draft #2 on the **same** application, **same process**, **same `thread_id`** → **HTTP 200** `{"status":"ready","outcome":"drafted"}`, `state=drafted`, **132.5 s**. Persisted: `REC-APP-7ab67ab52f2c46d098c7c4ff879192c3-bb19e6d8` · `model_version=NOT-QUALITY-GATED+llama3.1:8b-instruct-q4_K_M+digest-unavailable+ollama-python-0.6.2` · `memo_hash=735b93f31bb51ad6e3f2cfa0c26e1712952c5597d31fb930965aa4484c179b38` |
+| ⛔ **What did NOT happen** | **No `RuntimeError`. No `CON-BR2-STATE`. No deserialization-warning cluster.** |
+| ⚑ **The discriminator the §7 entry named** | **`outcome` is `drafted`, NOT `skipped`.** `skipped` meant the legality guard short-circuited **above** `draft_memo` and the orchestrator was never re-entered. `drafted` means `draft_memo` **ran** — the orchestrator **was** invoked a second time on that `thread_id` and **returned a memo**. ⛔ **That is #34's condition, and nothing weaker.** |
+
+### ⚠️ One disclosed override — named before any claim is built on the run
+
+Two earlier attempts with **nothing overridden** both died at **121 s** with `httpx ReadTimeout`.
+⛔ **Neither was the #34 error.** Cause established **by measurement, not inference**: this host has
+**no Ollama-supported GPU** (integrated *AMD Radeon(TM) Graphics*; `/api/ps` reports
+`size_vram: 0`), so generation is **CPU-only at 4.92 tok/s measured** (200 tokens in 40.66 s).
+
+The passing run raised **only the provider's HTTP read timeout**, 120 s → 900 s, by patching
+`backend.app.dependencies.build_ollama_client` to a `functools.partial` **in the harness script**.
+⛔ **NO PROJECT FILE WAS EDITED; `DRAFT_TIMEOUT_SECONDS` is unchanged on disk.**
+
+⚑ **Why this cannot weaken the #34 claim, stated structurally rather than asserted**: #34 fires at
+the **SEED of invoke #2** — before any node runs and before any provider call. A read timeout occurs
+**inside** the provider call, i.e. **after** seeding has already succeeded. The override changed
+**how long the model was allowed to talk**, and nothing about the checkpointer, the orchestrator,
+`case_seams()`'s caching, the `thread_id`, R11, or the pipeline — **all exactly as shipped.**
+
+⚑ **The two timed-out runs are themselves evidence, and they carry NO override.** Both reached a
+**121-second provider call on invoke #2**; ⛔ **under the pre-C2 code that call would never have been
+made**, because the seed would have raised in milliseconds. What they could not show is the **memo**,
+which is what this item's closing condition demands. **Both are recorded; neither is discarded.**
+
+---
+
+## ⛔ A NEW FINDING THIS RUN EXPOSED — reported for a decision, NOT opened as an item
+
+`ollama_client.py:49-60`'s own docstring asserts *"120 s is comfortably above a cold load and still
+finite."* ⚠️ **That claim is FALSIFIED on this hardware.** The observed end-to-end draft is
+**132.5 s** with the model already resident and the weights already in the OS page cache — so
+⛔ **no real draft can complete through R11 at the shipped timeout on a CPU-only host.**
+
+⚑ It is a **provider-performance** finding, **entirely separate from #34**, and it does **not**
+affect the offline double, which is what an unconfigured deployment serves. ⛔ **No register item is
+opened here** — this project opens items on explicit direction, and filing one unilaterally would be
+the same overreach the §7 entry declined when it refused to record an unearned upgrade.
+
+---
+
+## Register after this update
+
+⛔ **REGISTER STANDS AT 35 TRACKED — 21 open · 10 closed/discharged · 4 narrowed (#3, #8, #18, #19).**
+
+⚑ **UNCHANGED FROM THE SECTION ABOVE, AND THAT IS THE POINT.** #34 was already counted **closed** at
+stage 2; this update moves its **evidence tier only** (tier-U → live-confirmed). ⚠️ **No tally moves,
+so nothing here supersedes the previous count** — it is restated for a reader who arrives at this
+section first.
+
+**Not claimed by this run**: ⛔ **#18 gap (iii) does NOT move** — this used the **Ollama showcase**
+provider; **Gemini's production client remains completely unproven live.** · ⛔ **#22 untouched and
+still open**, with the negative evidence recorded above; `PROJECT-BRIEF` §5.1's *"same input × 10
+runs"* **still has not been run.** · ⛔ **#32 untouched.** · ⛔ **NO COMMIT** — HEAD `bd3875d`,
+nothing staged.
+
+---

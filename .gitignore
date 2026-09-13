@@ -37,3 +37,9 @@ Thumbs.db
 # about LOSING PER-UNIT HISTORY, not about diff noise; ignoring the file stops the churn and
 # changes nothing about the underlying gap. #12 stays OPEN.
 testresults.txt
+# curl cookie jars from manual verification walkthroughs. ⛔ These carry a LIVE SESSION TOKEN
+# (`uw.txt` held a real `session` cookie), so they must never be committed.
+# ⚠️ Deliberately NOT `*.txt` — `requirements.txt` is tracked and load-bearing, and a blanket
+# rule would be a landmine for every future .txt. Narrow by name and by a cookie-jar suffix.
+uw.txt
+*.cookies
